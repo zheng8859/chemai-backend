@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<!-- prompt: prompts/2026-07-31-m-wrong.md -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ChemAI 助教 - 错题本</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --teal: #13696a;
+      --teal-hover: #1a8182;
+      --teal-light: #e0f2f1;
+      --warm-paper: #faf8f5;
+      --white: #ffffff;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: #e8e8e8;
+    }
+
+    .mobile-shell {
+      max-width: 390px; width: 100%; height: 100vh;
+      margin: 0 auto; position: relative; overflow: hidden;
+      background: var(--warm-paper);
+      box-shadow: 0 0 40px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Top Bar ── */
+    .top-bar {
+      display: flex; align-items: center; gap: 12px;
+      height: 56px; min-height: 56px;
+      background: var(--oxford-blue); padding: 0 12px;
+      color: var(--white);
+    }
+    .top-bar .back-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--white);
+    }
+    .top-bar .title { font-size: 16px; font-weight: 600; flex: 1; }
+    .top-bar .filter-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--white);
+    }
+
+    /* ── Stats Row ── */
+    .stats-row {
+      display: flex; gap: 8px; padding: 16px;
+    }
+    .stat-card {
+      flex: 1;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 14px 8px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .stat-label { font-size: 12px; color: var(--text-muted); }
+    .stat-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px; font-weight: 700; line-height: 1;
+    }
+    .stat-value.blue { color: var(--oxford-blue); }
+    .stat-value.green { color: #2c6e49; }
+
+    /* ── Scroll ── */
+    .main-scroll {
+      flex: 1; overflow-y: auto;
+      padding: 0 16px 16px;
+      display: flex; flex-direction: column; gap: 8px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    .main-scroll::-webkit-scrollbar { width: 4px; }
+    .main-scroll::-webkit-scrollbar-track { background: transparent; }
+    .main-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.25); border-radius: 2px; }
+
+    /* ── Wrong Question Card ── */
+    .wq-card {
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .wq-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+      min-width: 0;
+    }
+    .wq-header:hover { background: #fafafa; }
+
+    .wq-num {
+      font-size: 14px; font-weight: 700; color: var(--text-primary);
+      flex-shrink: 0;
+    }
+
+    .wq-tag {
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 500; color: var(--white);
+      flex-shrink: 0;
+    }
+    .wq-tag.concept { background: #7B2D8E; }
+    .wq-tag.exam    { background: #3B5BA5; }
+    .wq-tag.express { background: #00897B; }
+
+    .wq-summary {
+      flex: 1; font-size: 13px; color: var(--text-secondary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      min-width: 0;
+      display: block;
+    }
+
+    .wq-arrow {
+      width: 18px; height: 18px; color: var(--text-muted);
+      transition: transform 0.3s ease; flex-shrink: 0;
+    }
+    .wq-card.open .wq-arrow { transform: rotate(180deg); }
+
+    /* ── Card Content ── */
+    .wq-content {
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      max-height: 2000px;
+    }
+    .wq-card:not(.open) .wq-content { max-height: 0; }
+
+    .wq-body {
+      padding: 0 12px 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .wq-question {
+      font-size: 14px; line-height: 1.6; color: var(--text-primary);
+      padding: 10px 12px;
+      background: #fafafa; border-radius: 6px;
+    }
+
+    .wq-answer-row {
+      padding: 8px 12px; border-radius: 4px;
+      font-size: 13px; font-weight: 500;
+    }
+    .wq-answer-row.wrong-answer {
+      background: #fff0f0; color: #c0392b;
+    }
+    .wq-answer-row.right-answer {
+      background: #f0fff0; color: #2c6e49;
+    }
+
+    .wq-explanation {
+      font-size: 13px; color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .wq-actions {
+      display: flex; gap: 8px; margin-top: 4px;
+    }
+
+    .btn-action {
+      flex: 1; height: 40px;
+      border: none; border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 13px; font-weight: 500; color: var(--white);
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-action:active { opacity: 0.85; }
+
+    .btn-action.teal { background: var(--teal); }
+    .btn-action.blue { background: var(--oxford-blue); }
+
+    /* ── Bottom Tab Bar ── */
+    .tab-bar {
+      display: flex; height: 56px; min-height: 56px;
+      background: var(--white); border-top: 1px solid #eee; flex-shrink: 0;
+    }
+    .tab-item {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+      cursor: pointer; background: none; border: none;
+      font-family: 'IBM Plex Sans', sans-serif;
+      color: var(--text-muted); transition: color 0.2s;
+    }
+    .tab-item.active { color: var(--oxford-blue); }
+    .tab-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+    .tab-icon svg { width: 18px; height: 18px; }
+    .tab-label { font-size: 10px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="mobile-shell">
+
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <button class="back-btn" onclick="history.back()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <span class="title">错题本</span>
+      <button class="filter-btn" aria-label="筛选">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+      </button>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">总错题</span>
+        <span class="stat-value blue">23</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">本周新增</span>
+        <span class="stat-value blue">5</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">已掌握</span>
+        <span class="stat-value green">12</span>
+      </div>
+    </div>
+
+    <!-- Wrong Question List -->
+    <div class="main-scroll">
+
+      <!-- Card 1: Expanded, Concept -->
+      <div class="wq-card open">
+        <div class="wq-header" onclick="toggleCard(this)">
+          <span class="wq-num">#1</span>
+          <span class="wq-tag concept">概念理解型</span>
+          <span class="wq-summary">下列物质中，属于电解质的是？</span>
+          <svg class="wq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+        <div class="wq-content">
+          <div class="wq-body">
+            <div class="wq-question">下列物质中，属于电解质的是？<br>A. 蔗糖<br>B. NaCl溶液<br>C. 熔融NaOH<br>D. 铜</div>
+            <div class="wq-answer-row wrong-answer">✗ 你的答案：B</div>
+            <div class="wq-answer-row right-answer">✓ 正确答案：C</div>
+            <div class="wq-explanation">
+              <b>解析：</b>电解质定义：在水溶液或熔融状态下能导电的<b>化合物</b>。A 蔗糖是非电解质；B NaCl溶液是混合物不是化合物，但 NaCl 本身是电解质；C 熔融 NaOH 是化合物且能导电，是电解质；D 铜是单质不是化合物。
+            </div>
+            <div class="wq-actions">
+              <button class="btn-action teal">生成变式题</button>
+              <button class="btn-action blue">已掌握</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Collapsed, Exam -->
+      <div class="wq-card">
+        <div class="wq-header" onclick="toggleCard(this)">
+          <span class="wq-num">#2</span>
+          <span class="wq-tag exam">审题障碍型</span>
+          <span class="wq-summary">关于化学键类型的判断，下列说法正确的是...</span>
+          <svg class="wq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+        <div class="wq-content">
+          <div class="wq-body">
+            <div class="wq-question">关于化学键类型的判断，下列说法正确的是？<br>A. 只含共价键的物质一定是共价化合物<br>B. 离子化合物中一定不含共价键<br>C. NaOH 中既含离子键又含共价键<br>D. 稀有气体分子中含共价键</div>
+            <div class="wq-answer-row wrong-answer">✗ 你的答案：A</div>
+            <div class="wq-answer-row right-answer">✓ 正确答案：C</div>
+            <div class="wq-explanation">
+              <b>解析：</b>A 错，如 Cl₂ 只含共价键但是单质。B 错，NaOH 中 O-H 之间是共价键。C 正确，Na⁺与 OH⁻ 之间是离子键，O-H 是共价键。D 错，稀有气体为单原子分子，不存在化学键。
+            </div>
+            <div class="wq-actions">
+              <button class="btn-action teal">生成变式题</button>
+              <button class="btn-action blue">已掌握</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Collapsed, Expression -->
+      <div class="wq-card">
+        <div class="wq-header" onclick="toggleCard(this)">
+          <span class="wq-num">#3</span>
+          <span class="wq-tag express">表述障碍型</span>
+          <span class="wq-summary">用化学方程式表示碳酸钠与盐酸的反应...</span>
+          <svg class="wq-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+        <div class="wq-content">
+          <div class="wq-body">
+            <div class="wq-question">用化学方程式表示碳酸钠与盐酸的反应，并描述实验现象。</div>
+            <div class="wq-answer-row wrong-answer">✗ 你的答案：NaCO₃ + HCl → NaCl + H₂O + CO₂（化学式错误 + 未配平）</div>
+            <div class="wq-answer-row right-answer">✓ 正确答案：Na₂CO₃ + 2HCl → 2NaCl + H₂O + CO₂↑<br>现象：有气泡产生，固体逐渐溶解</div>
+            <div class="wq-explanation">
+              <b>解析：</b>碳酸钠化学式为 Na₂CO₃ 而非 NaCO₃，需注意钠为 +1 价，碳酸根为 -2 价。配平时注意 Na 和 Cl 原子数守恒。气体符号 ↑ 不可遗漏。
+            </div>
+            <div class="wq-actions">
+              <button class="btn-action teal">生成变式题</button>
+              <button class="btn-action blue">已掌握</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar">
+      <button class="tab-item" onclick="location.href='index.html'">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 5.4 1.8"></path><path d="M12 6v4l3 2"></path></svg></span>
+        <span class="tab-label">AI助教</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span>
+        <span class="tab-label">练习</span>
+      </button>
+      <button class="tab-item active">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span>
+        <span class="tab-label">错题</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+        <span class="tab-label">我的</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <script>
+    function toggleCard(header) {
+      var card = header.parentElement;
+      var content = card.querySelector('.wq-content');
+      var isOpen = card.classList.contains('open');
+
+      if (isOpen) {
+        // Collapse: lock height → remove class → animate to 0
+        content.style.maxHeight = content.scrollHeight + 'px';
+        content.offsetHeight; // force reflow
+        card.classList.remove('open');
+        content.style.maxHeight = '0';
+      } else {
+        // Expand: remove inline → add class → CSS default max-height
+        content.style.maxHeight = '';
+        card.classList.add('open');
+      }
+    }
+
+    // Initialize default open card max-height
+    (function() {
+      var openCard = document.querySelector('.wq-card.open');
+      if (openCard) {
+        var content = openCard.querySelector('.wq-content');
+        content.style.maxHeight = content.scrollHeight + 'px';
+      }
+    })();
+  </script>
+</body>
+</html>

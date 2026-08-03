@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<!-- prompt: prompts/2026-07-31-exam-v2.md -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1.0">
+  <title>ChemAI 智辅化学 - 考试工作台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --oxford-blue-hover: #003366;
+      --teal: #13696a;
+      --teal-hover: #1a8182;
+      --teal-light: #e0f2f1;
+      --warm-paper: #faf8f5;
+      --white: #ffffff;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+      --success: #4caf50;
+      --radius-card: 8px;
+      --radius-bubble: 12px;
+      --radius-chip: 16px;
+
+      /* Audit badge colors */
+      --audit-pass-bg: #e0f2f1;
+      --audit-pass-text: #004f50;
+      --audit-warn-bg: #fff3cd;
+      --audit-warn-text: #856404;
+      --audit-block-bg: #ffdad6;
+      --audit-block-text: #93000a;
+
+      /* Status colors */
+      --status-active: #1565c0;
+      --status-active-bg: #e3f2fd;
+      --status-ended: #757575;
+      --status-ended-bg: #f5f5f5;
+      --status-draft: #ef6c00;
+      --status-draft-bg: #fff3e0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--warm-paper);
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Top Header ── */
+    .top-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 56px;
+      min-height: 56px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--oxford-blue);
+      text-decoration: none;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .breadcrumb a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .breadcrumb a:hover { color: var(--teal); }
+
+    .breadcrumb .sep { color: var(--border-color); }
+
+    .breadcrumb .current { color: var(--text-primary); font-weight: 500; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--oxford-blue);
+      color: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* ── Tab Bar ── */
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      padding: 0 32px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      padding: 14px 24px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      position: relative;
+      bottom: -1px;
+    }
+
+    .tab-btn:hover { color: var(--text-primary); }
+
+    .tab-btn.active {
+      color: var(--oxford-blue);
+      border-bottom-color: var(--oxford-blue);
+    }
+
+    /* ── Tab Content ── */
+    .tab-content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Shared Components ── */
+    .section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      background: var(--oxford-blue);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .btn-primary:hover { background: var(--oxford-blue-hover); }
+
+    .btn-primary svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--white);
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-input:focus { border-color: var(--teal); }
+
+    .form-input::placeholder { color: #a0a0a0; }
+
+    .form-select {
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--white);
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s ease;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    .form-select:focus { border-color: var(--teal); }
+
+    .search-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-input-wrapper .search-icon {
+      position: absolute;
+      left: 12px;
+      width: 16px;
+      height: 16px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input-wrapper .form-input {
+      padding-left: 38px;
+    }
+
+    /* ── Chips ── */
+    .chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      padding: 8px 16px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-chip);
+      font-size: 13px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      color: var(--text-primary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .chip:hover {
+      background: var(--teal-light);
+      border-color: var(--teal);
+    }
+
+    .chip.active {
+      background: var(--oxford-blue);
+      color: var(--white);
+      border-color: var(--oxford-blue);
+    }
+
+    /* ── Sub-mode Toggle ── */
+    .mode-toggle {
+      display: inline-flex;
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .mode-btn {
+      padding: 8px 20px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--white);
+      border: none;
+      border-right: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mode-btn:last-child { border-right: none; }
+
+    .mode-btn:hover { background: var(--teal-light); }
+
+    .mode-btn.active {
+      background: var(--oxford-blue);
+      color: var(--white);
+    }
+
+    /* ── Checkbox ── */
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--teal);
+      cursor: pointer;
+    }
+
+    /* ── Audit Badges ── */
+    .audit-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .audit-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: var(--radius-chip);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .audit-badge.pass {
+      background: var(--audit-pass-bg);
+      color: var(--audit-pass-text);
+    }
+
+    .audit-badge.warning {
+      background: var(--audit-warn-bg);
+      color: var(--audit-warn-text);
+    }
+
+    .audit-badge.blocked {
+      background: var(--audit-block-bg);
+      color: var(--audit-block-text);
+    }
+
+    .audit-icon { font-size: 11px; }
+
+    /* ── Question Cards ── */
+    .question-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .question-card {
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 16px 20px;
+      transition: box-shadow 0.2s ease;
+    }
+
+    .question-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .question-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .question-card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .question-card-type {
+      font-size: 12px;
+      color: var(--teal);
+      background: var(--teal-light);
+      padding: 2px 10px;
+      border-radius: var(--radius-chip);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .question-card-body {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .question-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .question-card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon-text {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      color: var(--text-secondary);
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-icon-text:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+      background: var(--teal-light);
+    }
+
+    .btn-icon-text svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    /* ── Tab 1 Layout ── */
+    .workbench-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 960px;
+    }
+
+    .workbench-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 20px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .control-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      min-width: 60px;
+      flex-shrink: 0;
+    }
+
+    .control-row .form-select {
+      width: 140px;
+    }
+
+    .control-row .search-input-wrapper {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .btn-generate {
+      width: 100%;
+      height: 48px;
+      background: var(--oxford-blue);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      margin-top: 4px;
+    }
+
+    .btn-generate:hover { background: var(--oxford-blue-hover); }
+
+    /* ── Tab 2 Layout ── */
+    .bank-layout {
+      display: flex;
+      gap: 24px;
+      height: 100%;
+    }
+
+    .bank-sidebar {
+      width: 200px;
+      min-width: 200px;
+      flex-shrink: 0;
+    }
+
+    .folder-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .folder-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: var(--radius-card);
+      font-size: 14px;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .folder-item:hover { background: var(--teal-light); }
+
+    .folder-item.active {
+      background: var(--oxford-blue);
+      color: var(--white);
+    }
+
+    .folder-item svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .folder-item .count {
+      margin-left: auto;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .bank-grid-area {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .bank-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .bank-card {
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .bank-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border-color: var(--teal);
+    }
+
+    .bank-card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-card);
+      background: var(--teal-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      color: var(--teal);
+    }
+
+    .bank-card-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .bank-card-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+
+    .bank-card-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ── Tab 3 Layout ── */
+    .history-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 960px;
+    }
+
+    .history-filters {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .history-filters .search-input-wrapper {
+      flex: 1;
+    }
+
+    .history-filters .form-select {
+      width: 140px;
+    }
+
+    .history-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 16px 20px;
+      transition: box-shadow 0.2s ease;
+      cursor: pointer;
+    }
+
+    .history-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .history-card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-card);
+      background: var(--teal-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--teal);
+    }
+
+    .history-card-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .history-card-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-card-title {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .history-card-detail {
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .history-card-tags {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .region-tag {
+      padding: 4px 10px;
+      background: var(--teal-light);
+      color: var(--teal);
+      border-radius: var(--radius-chip);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .year-tag {
+      padding: 4px 10px;
+      background: #e8eaf6;
+      color: #283593;
+      border-radius: var(--radius-chip);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .question-count-tag {
+      padding: 4px 10px;
+      background: #f5f5f5;
+      color: var(--text-secondary);
+      border-radius: var(--radius-chip);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* ── Tab 4 Layout ── */
+    .exam-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 960px;
+    }
+
+    .exam-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .exam-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 16px 20px;
+      transition: box-shadow 0.2s ease;
+      cursor: pointer;
+    }
+
+    .exam-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .exam-card-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-card);
+      background: var(--teal-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--teal);
+    }
+
+    .exam-card-avatar svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .exam-card-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .exam-card-title {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .exam-card-meta {
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .status-label {
+      padding: 4px 12px;
+      border-radius: var(--radius-chip);
+      font-size: 12px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .status-label.active-status {
+      background: var(--status-active-bg);
+      color: var(--status-active);
+    }
+
+    .status-label.ended {
+      background: var(--status-ended-bg);
+      color: var(--status-ended);
+    }
+
+    .status-label.draft {
+      background: var(--status-draft-bg);
+      color: var(--status-draft);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="header-left">
+        <a href="index.html" class="brand">
+          <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 2L27.5 8.5V21.5L16 28L4.5 21.5V8.5L16 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+            <circle cx="16" cy="15" r="4" fill="currentColor"/>
+            <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="22" cy="18" r="1.5" fill="currentColor"/>
+            <circle cx="10" cy="18" r="1.5" fill="currentColor"/>
+          </svg>
+          <span>ChemAI 智辅化学</span>
+        </a>
+        <div class="breadcrumb">
+          <span class="sep">/</span>
+          <a href="index.html">对话</a>
+          <span class="sep">/</span>
+          <span class="current">考试工作台</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span style="font-size:13px;color:var(--text-secondary)">李老师</span>
+        <div class="user-avatar">李</div>
+      </div>
+    </header>
+
+    <!-- Tab Bar -->
+    <nav class="tab-bar" id="tabBar">
+      <button class="tab-btn active" data-tab="tab-create">出题工作台</button>
+      <button class="tab-btn" data-tab="tab-bank">题库管理</button>
+      <button class="tab-btn" data-tab="tab-history">历史真题库</button>
+      <button class="tab-btn" data-tab="tab-exams">考试列表</button>
+    </nav>
+
+    <!-- Tab Content -->
+    <div class="tab-content-area">
+
+      <!-- ═══════════════ Tab 1: 出题工作台 ═══════════════ -->
+      <div class="tab-panel active" id="tab-create">
+        <div class="workbench-layout">
+
+          <!-- Sub-mode Toggle -->
+          <div class="control-row">
+            <span class="control-label">模式</span>
+            <div class="mode-toggle" id="modeToggle">
+              <button class="mode-btn active" data-mode="ai">🤖 AI 生成</button>
+              <button class="mode-btn" data-mode="manual">✏️ 手动录入</button>
+              <button class="mode-btn" data-mode="ocr">📷 OCR 导入</button>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="workbench-controls">
+            <!-- Question Type Chips -->
+            <div class="control-row">
+              <span class="control-label">题型</span>
+              <div class="chips-row" id="questionTypeChips">
+                <button class="chip active">选择题</button>
+                <button class="chip">填空题</button>
+                <button class="chip">计算题</button>
+                <button class="chip">方程式配平</button>
+                <button class="chip">实验探究</button>
+              </div>
+            </div>
+
+            <!-- Difficulty + Knowledge Search -->
+            <div class="control-row">
+              <span class="control-label">难度</span>
+              <select class="form-select">
+                <option>简单</option>
+                <option selected>中等</option>
+                <option>困难</option>
+              </select>
+              <span class="control-label" style="margin-left:12px">知识点</span>
+              <div class="search-input-wrapper">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" class="form-input" placeholder="搜索知识点..." value="氧化还原反应">
+              </div>
+            </div>
+
+            <!-- Variant Checkbox -->
+            <div class="control-row">
+              <label class="checkbox-label">
+                <input type="checkbox" checked>
+                <span>生成变体（自动生成同知识点不同问法的变体题）</span>
+              </label>
+            </div>
+
+            <!-- Generate Button -->
+            <button class="btn-generate">⚡ 生成题目</button>
+          </div>
+
+          <!-- Generated Question Cards -->
+          <h2 class="section-title">生成的题目</h2>
+          <div class="question-list">
+            <!-- Card 1 -->
+            <div class="question-card">
+              <div class="question-card-header">
+                <div>
+                  <div class="question-card-title">Q1 · 氧化还原反应方程式配平</div>
+                </div>
+                <span class="question-card-type">选择题</span>
+              </div>
+              <div class="question-card-body">
+                已知反应：KMnO₄ + HCl → KCl + MnCl₂ + Cl₂↑ + H₂O，配平后 HCl 的系数是多少？
+                <br>A. 8 &nbsp;&nbsp; B. 10 &nbsp;&nbsp; C. 16 &nbsp;&nbsp; D. 20
+              </div>
+              <div class="question-card-footer">
+                <div class="audit-badges">
+                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 系数</span>
+                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 条件</span>
+                  <span class="audit-badge warning"><span class="audit-icon">⚠</span> 产物</span>
+                  <span class="audit-badge blocked"><span class="audit-icon">✗</span> 结构</span>
+                </div>
+                <div class="question-card-actions">
+                  <button class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    编辑
+                  </button>
+                  <button class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    收藏
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="question-card">
+              <div class="question-card-header">
+                <div>
+                  <div class="question-card-title">Q2 · 化学键类型与分子极性判断</div>
+                </div>
+                <span class="question-card-type">选择题</span>
+              </div>
+              <div class="question-card-body">
+                下列分子中，属于极性分子的是？<br>
+                A. CO₂ &nbsp;&nbsp; B. CH₄ &nbsp;&nbsp; C. H₂O &nbsp;&nbsp; D. CCl₄
+              </div>
+              <div class="question-card-footer">
+                <div class="audit-badges">
+                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 系数</span>
+                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 条件</span>
+                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 产物</span>
+                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 结构</span>
+                </div>
+                <div class="question-card-actions">
+                  <button class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    编辑
+                  </button>
+                  <button class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    收藏
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="question-card">
+              <div class="question-card-header">
+                <div>
+                  <div class="question-card-title">Q3 · 化学反应速率影响因素</div>
+                </div>
+                <span class="question-card-type">计算题</span>
+              </div>
+              <div class="question-card-body">
+                某反应在 25°C 时的速率常数为 k₁，在 35°C 时速率常数为 k₂ = 3k₁，求该反应的活化能（气体常数 R = 8.314 J/(mol·K)）。
+              </div>
+              <div class="question-card-footer">
+                <div class="audit-badges">
+                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 系数</span>
+                  <span class="audit-badge warning"><span class="audit-icon">⚠</span> 条件</span>
+                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 产物</span>
+                  <span class="audit-badge warning"><span class="audit-icon">⚠</span> 结构</span>
+                </div>
+                <div class="question-card-actions">
+                  <button class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    编辑
+                  </button>
+                  <button class="btn-icon-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    收藏
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════ Tab 2: 题库管理 ═══════════════ -->
+      <div class="tab-panel" id="tab-bank">
+        <div class="bank-layout">
+          <!-- Folder Sidebar -->
+          <div class="bank-sidebar">
+            <h2 class="section-title">题库</h2>
+            <div class="folder-list" id="folderList">
+              <div class="folder-item active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>化学</span>
+                <span class="count">128</span>
+              </div>
+              <div class="folder-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>物理</span>
+                <span class="count">86</span>
+              </div>
+              <div class="folder-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>生物</span>
+                <span class="count">54</span>
+              </div>
+              <div class="folder-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>月考</span>
+                <span class="count">32</span>
+              </div>
+              <div class="folder-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>期中期末考试</span>
+                <span class="count">45</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Question Grid -->
+          <div class="bank-grid-area">
+            <h2 class="section-title">化学 · 全部题目</h2>
+            <div class="bank-grid">
+              <div class="bank-card">
+                <div class="bank-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+                <div class="bank-card-title">氧化还原配平专练</div>
+                <div class="bank-card-meta">选择题 · 中等 · 12题</div>
+              </div>
+              <div class="bank-card">
+                <div class="bank-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 0l-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+                <div class="bank-card-title">化学键与结构</div>
+                <div class="bank-card-meta">选择题 · 简单 · 20题</div>
+              </div>
+              <div class="bank-card">
+                <div class="bank-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+                <div class="bank-card-title">反应速率计算</div>
+                <div class="bank-card-meta">计算题 · 困难 · 8题</div>
+              </div>
+              <div class="bank-card">
+                <div class="bank-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+                <div class="bank-card-title">实验探究题集</div>
+                <div class="bank-card-meta">实验探究 · 中等 · 6题</div>
+              </div>
+              <div class="bank-card">
+                <div class="bank-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+                <div class="bank-card-title">方程式配平题库</div>
+                <div class="bank-card-meta">方程式配平 · 中等 · 15题</div>
+              </div>
+              <div class="bank-card">
+                <div class="bank-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+                <div class="bank-card-title">填空题综合训练</div>
+                <div class="bank-card-meta">填空题 · 中等 · 18题</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════ Tab 3: 历史真题库 ═══════════════ -->
+      <div class="tab-panel" id="tab-history">
+        <div class="history-layout">
+          <!-- Filters -->
+          <div class="history-filters">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" class="form-input" placeholder="搜索真题...">
+            </div>
+            <select class="form-select">
+              <option>全部地区</option>
+              <option>北京</option>
+              <option>上海</option>
+              <option>江苏</option>
+              <option>浙江</option>
+              <option>全国卷</option>
+            </select>
+            <select class="form-select">
+              <option>全部年份</option>
+              <option>2024</option>
+              <option>2023</option>
+              <option>2022</option>
+              <option>2021</option>
+              <option>2020</option>
+            </select>
+          </div>
+
+          <h2 class="section-title">真题列表</h2>
+
+          <!-- History Cards -->
+          <div class="history-card">
+            <div class="history-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            </div>
+            <div class="history-card-info">
+              <div class="history-card-title">2024年高考化学（北京卷）</div>
+              <div class="history-card-detail">
+                <span>📝 共 28 题</span>
+                <span>⏱ 满分 100 分</span>
+              </div>
+            </div>
+            <div class="history-card-tags">
+              <span class="region-tag">北京</span>
+              <span class="year-tag">2024</span>
+              <span class="question-count-tag">28题</span>
+            </div>
+          </div>
+
+          <div class="history-card">
+            <div class="history-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            </div>
+            <div class="history-card-info">
+              <div class="history-card-title">2023年高考化学（全国甲卷）</div>
+              <div class="history-card-detail">
+                <span>📝 共 26 题</span>
+                <span>⏱ 满分 100 分</span>
+              </div>
+            </div>
+            <div class="history-card-tags">
+              <span class="region-tag">全国卷</span>
+              <span class="year-tag">2023</span>
+              <span class="question-count-tag">26题</span>
+            </div>
+          </div>
+
+          <div class="history-card">
+            <div class="history-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            </div>
+            <div class="history-card-info">
+              <div class="history-card-title">2022年高考化学（江苏卷）</div>
+              <div class="history-card-detail">
+                <span>📝 共 25 题</span>
+                <span>⏱ 满分 100 分</span>
+              </div>
+            </div>
+            <div class="history-card-tags">
+              <span class="region-tag">江苏</span>
+              <span class="year-tag">2022</span>
+              <span class="question-count-tag">25题</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════ Tab 4: 考试列表 ═══════════════ -->
+      <div class="tab-panel" id="tab-exams">
+        <div class="exam-layout">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <h2 class="section-title" style="margin-bottom:0">考试列表</h2>
+            <button class="btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              创建考试
+            </button>
+          </div>
+
+          <div class="exam-list">
+            <!-- Exam Card 1: Active -->
+            <div class="exam-card">
+              <div class="exam-card-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+              </div>
+              <div class="exam-card-info">
+                <div class="exam-card-title">高一(3)班 化学月考（10月）</div>
+                <div class="exam-card-meta">
+                  <span>📅 2026-10-15</span>
+                  <span>📝 20 题</span>
+                  <span>👥 42 名学生</span>
+                </div>
+              </div>
+              <span class="status-label active-status">● 进行中</span>
+            </div>
+
+            <!-- Exam Card 2: Ended -->
+            <div class="exam-card">
+              <div class="exam-card-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+              </div>
+              <div class="exam-card-info">
+                <div class="exam-card-title">高一(3)班 化学期中考试</div>
+                <div class="exam-card-meta">
+                  <span>📅 2026-07-10</span>
+                  <span>📝 30 题</span>
+                  <span>📊 平均分 78.5</span>
+                </div>
+              </div>
+              <span class="status-label ended">已结束</span>
+            </div>
+
+            <!-- Exam Card 3: Draft -->
+            <div class="exam-card">
+              <div class="exam-card-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+              </div>
+              <div class="exam-card-info">
+                <div class="exam-card-title">高一 期末复习综合卷</div>
+                <div class="exam-card-meta">
+                  <span>📅 待定</span>
+                  <span>📝 15 题（未完成）</span>
+                  <span>✏️ 最后编辑：7月28日</span>
+                </div>
+              </div>
+              <span class="status-label draft">草稿</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-content-area -->
+  </div><!-- /app-shell -->
+
+  <script>
+    (function() {
+      // ── Tab Switching ──
+      const tabBar = document.getElementById('tabBar');
+      const tabBtns = tabBar.querySelectorAll('.tab-btn');
+
+      tabBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          // Deactivate all tabs
+          tabBtns.forEach(function(b) { b.classList.remove('active'); });
+          document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+
+          // Activate clicked tab
+          btn.classList.add('active');
+          var targetId = btn.getAttribute('data-tab');
+          document.getElementById(targetId).classList.add('active');
+        });
+      });
+
+      // ── Sub-mode Toggle (Tab 1) ──
+      var modeToggle = document.getElementById('modeToggle');
+      if (modeToggle) {
+        modeToggle.querySelectorAll('.mode-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            modeToggle.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+          });
+        });
+      }
+
+      // ── Question Type Chips (Tab 1) ──
+      var chipsContainer = document.getElementById('questionTypeChips');
+      if (chipsContainer) {
+        chipsContainer.querySelectorAll('.chip').forEach(function(chip) {
+          chip.addEventListener('click', function() {
+            chipsContainer.querySelectorAll('.chip').forEach(function(c) { c.classList.remove('active'); });
+            chip.classList.add('active');
+          });
+        });
+      }
+
+      // ── Folder List (Tab 2) ──
+      var folderList = document.getElementById('folderList');
+      if (folderList) {
+        folderList.querySelectorAll('.folder-item').forEach(function(item) {
+          item.addEventListener('click', function() {
+            folderList.querySelectorAll('.folder-item').forEach(function(i) { i.classList.remove('active'); });
+            item.classList.add('active');
+          });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<!-- prompt: prompts/2026-07-31-m-report.md -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ChemAI 助教 - 我的</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --teal: #13696a;
+      --warm-paper: #faf8f5;
+      --white: #ffffff;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: #e8e8e8;
+    }
+
+    .mobile-shell {
+      max-width: 390px; width: 100%; height: 100vh;
+      margin: 0 auto; position: relative; overflow: hidden;
+      background: var(--warm-paper);
+      box-shadow: 0 0 40px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Top Bar ── */
+    .top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px; min-height: 56px;
+      background: var(--oxford-blue); padding: 0 16px;
+      color: var(--white);
+    }
+    .top-bar .title { font-size: 16px; font-weight: 600; }
+    .settings-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--white);
+    }
+
+    /* ── Scroll ── */
+    .main-scroll {
+      flex: 1; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── Profile Card ── */
+    .profile-card {
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin: 16px; padding: 20px;
+      text-align: center;
+    }
+    .avatar-lg {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: #888;
+      margin: 0 auto;
+    }
+    .profile-name {
+      font-size: 18px; font-weight: 700;
+      color: var(--oxford-blue); margin-top: 12px;
+    }
+    .profile-class {
+      font-size: 14px; color: var(--text-muted); margin-top: 4px;
+    }
+    .bind-code {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 12px;
+    }
+    .bind-label { font-size: 12px; color: var(--text-muted); }
+    .bind-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px; font-weight: 500;
+      background: #f5f5f5; padding: 4px 8px;
+      border-radius: 4px; color: var(--text-primary);
+    }
+
+    /* ── Stats Trio ── */
+    .stats-trio {
+      display: flex; margin: 0 16px 16px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 16px 8px;
+    }
+    .stats-trio .item {
+      flex: 1; text-align: center;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .stats-trio .num {
+      font-size: 22px; font-weight: 700; color: var(--oxford-blue);
+    }
+    .stats-trio .lbl {
+      font-size: 12px; color: var(--text-muted);
+    }
+
+    /* ── Menu List ── */
+    .menu-list {
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: 8px; margin: 0 16px 16px;
+      overflow: hidden;
+    }
+    .menu-item {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 48px; padding: 0 16px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .menu-item:hover { background: #fafafa; }
+    .menu-item + .menu-item { border-top: 1px solid #f0f0f0; }
+
+    .menu-label { font-size: 14px; color: var(--text-primary); }
+    .menu-right { display: flex; align-items: center; gap: 8px; }
+
+    .badge-new {
+      background: #e53935; color: var(--white);
+      font-size: 10px; font-weight: 600; padding: 2px 6px;
+      border-radius: 8px;
+    }
+    .badge-num {
+      background: #f0f0f0; color: var(--text-secondary);
+      font-size: 12px; font-weight: 500;
+      min-width: 22px; height: 22px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .arrow-gray {
+      width: 16px; height: 16px; color: #ccc;
+    }
+
+    /* ── Overlay ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); z-index: 200;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+
+    /* ── Modal Sheet ── */
+    .modal-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      max-height: 70vh;
+      background: var(--white);
+      border-radius: 16px 16px 0 0;
+      z-index: 201;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    .modal-sheet.open { transform: translateY(0); }
+
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 20px 12px;
+      flex-shrink: 0;
+    }
+    .modal-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px; font-weight: 700; color: var(--text-primary);
+    }
+    .modal-close {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: #f0f0f0; border: none; border-radius: 50%;
+      cursor: pointer; font-size: 16px; color: var(--text-secondary);
+    }
+
+    .modal-body { padding: 0 20px 20px; }
+
+    /* ── Modal Stats ── */
+    .modal-stats {
+      display: flex; gap: 8px; margin-bottom: 20px;
+    }
+    .modal-stat {
+      flex: 1; text-align: center;
+      background: #fafafa; border-radius: 8px; padding: 14px 8px;
+    }
+    .modal-stat .num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px; font-weight: 700; color: var(--oxford-blue);
+    }
+    .modal-stat .lbl { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Knowledge Bars ── */
+    .kp-section { margin-bottom: 16px; }
+    .kp-section h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
+
+    .kp-item {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .kp-name { font-size: 13px; color: var(--text-secondary); width: 70px; flex-shrink: 0; }
+    .kp-track {
+      flex: 1; height: 6px;
+      background: #e8e8e8; border-radius: 3px; overflow: hidden;
+    }
+    .kp-fill {
+      height: 100%;
+      background: var(--oxford-blue); border-radius: 3px;
+    }
+    .kp-pct { font-size: 12px; color: var(--text-muted); width: 32px; text-align: right; flex-shrink: 0; }
+
+    /* ── Teacher Comment ── */
+    .teacher-comment {
+      font-size: 14px; color: var(--text-secondary);
+      line-height: 1.7; margin-top: 16px;
+      padding: 12px; background: #fafafa; border-radius: 8px;
+    }
+
+    .btn-close-bottom {
+      width: 100%; height: 44px;
+      background: #f0f0f0; color: var(--text-secondary);
+      border: none; border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      margin-top: 16px;
+    }
+
+    /* ── Bottom Tab ── */
+    .tab-bar {
+      display: flex; height: 56px; min-height: 56px;
+      background: var(--white); border-top: 1px solid #eee; flex-shrink: 0;
+    }
+    .tab-item {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+      cursor: pointer; background: none; border: none;
+      font-family: 'IBM Plex Sans', sans-serif;
+      color: var(--text-muted); transition: color 0.2s;
+    }
+    .tab-item.active { color: var(--oxford-blue); }
+    .tab-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+    .tab-icon svg { width: 18px; height: 18px; }
+    .tab-label { font-size: 10px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="mobile-shell">
+
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <span class="title">我的</span>
+      <button class="settings-btn" aria-label="设置">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+    </header>
+
+    <div class="main-scroll">
+
+      <!-- Profile Card -->
+      <div class="profile-card">
+        <div class="avatar-lg">张</div>
+        <div class="profile-name">张三</div>
+        <div class="profile-class">高一(3)班</div>
+        <div class="bind-code">
+          <span class="bind-label">绑定码</span>
+          <span class="bind-value">X7K2M9</span>
+        </div>
+      </div>
+
+      <!-- Stats Trio -->
+      <div class="stats-trio">
+        <div class="item"><span class="num">85</span><span class="lbl">完成练习</span></div>
+        <div class="item"><span class="num">73%</span><span class="lbl">正确率</span></div>
+        <div class="item"><span class="num">12天</span><span class="lbl">连续打卡</span></div>
+      </div>
+
+      <!-- Menu List -->
+      <div class="menu-list">
+        <div class="menu-item" onclick="openModal()">
+          <span class="menu-label">学习报告</span>
+          <div class="menu-right">
+            <span class="badge-new">新</span>
+            <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-label">学习计划</span>
+          <div class="menu-right">
+            <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
+        <div class="menu-item" onclick="location.href='wrong.html'">
+          <span class="menu-label">我的错题本</span>
+          <div class="menu-right">
+            <span class="badge-num">23</span>
+            <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
+        <div class="menu-item" onclick="location.href='review.html'">
+          <span class="menu-label">复习中心</span>
+          <div class="menu-right">
+            <span class="badge-num">8</span>
+            <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
+        <div class="menu-item">
+          <span class="menu-label">个人设置</span>
+          <div class="menu-right">
+            <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Tab -->
+    <nav class="tab-bar">
+      <button class="tab-item" onclick="location.href='index.html'">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 5.4 1.8"></path><path d="M12 6v4l3 2"></path></svg></span>
+        <span class="tab-label">AI助教</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span>
+        <span class="tab-label">练习</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span>
+        <span class="tab-label">错题</span>
+      </button>
+      <button class="tab-item active">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+        <span class="tab-label">我的</span>
+      </button>
+    </nav>
+
+    <!-- ──── Modal ──── -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal()"></div>
+
+    <div class="modal-sheet" id="modalSheet">
+      <div class="modal-header">
+        <span class="modal-title">学习周报（7月第1周）</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Modal Stats -->
+        <div class="modal-stats">
+          <div class="modal-stat">
+            <div class="num">25</div>
+            <div class="lbl">本周练习</div>
+          </div>
+          <div class="modal-stat">
+            <div class="num">76%</div>
+            <div class="lbl">正确率</div>
+          </div>
+          <div class="modal-stat">
+            <div class="num">3.2h</div>
+            <div class="lbl">学习时长</div>
+          </div>
+        </div>
+
+        <!-- Knowledge Points -->
+        <div class="kp-section">
+          <h3>知识点掌握度</h3>
+          <div class="kp-item">
+            <span class="kp-name">氧化还原</span>
+            <div class="kp-track"><div class="kp-fill" style="width:85%"></div></div>
+            <span class="kp-pct">85%</span>
+          </div>
+          <div class="kp-item">
+            <span class="kp-name">离子反应</span>
+            <div class="kp-track"><div class="kp-fill" style="width:72%"></div></div>
+            <span class="kp-pct">72%</span>
+          </div>
+          <div class="kp-item">
+            <span class="kp-name">化学键</span>
+            <div class="kp-track"><div class="kp-fill" style="width:68%"></div></div>
+            <span class="kp-pct">68%</span>
+          </div>
+          <div class="kp-item">
+            <span class="kp-name">化学平衡</span>
+            <div class="kp-track"><div class="kp-fill" style="width:55%"></div></div>
+            <span class="kp-pct">55%</span>
+          </div>
+          <div class="kp-item">
+            <span class="kp-name">电化学</span>
+            <div class="kp-track"><div class="kp-fill" style="width:60%"></div></div>
+            <span class="kp-pct">60%</span>
+          </div>
+        </div>
+
+        <!-- Teacher Comment -->
+        <div class="teacher-comment">
+          <b>教师评语：</b>张同学本周表现不错，氧化还原反应部分掌握较好，正确率有明显提升。建议重点加强化学平衡和电化学部分的练习，这两块正确率偏低。继续保持打卡节奏！
+        </div>
+
+        <button class="btn-close-bottom" onclick="closeModal()">关闭</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    var overlay = document.getElementById('modalOverlay');
+    var sheet = document.getElementById('modalSheet');
+
+    function openModal() {
+      overlay.classList.add('show');
+      sheet.classList.add('open');
+    }
+
+    function closeModal() {
+      overlay.classList.remove('show');
+      sheet.classList.remove('open');
+    }
+  </script>
+</body>
+</html>

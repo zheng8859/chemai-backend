@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<!-- prompt: prompts/2026-07-31-ocr.md -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1.0">
+  <title>ChemAI 智辅化学 - OCR 答题卡批改</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --oxford-blue-hover: #003366;
+      --teal: #13696a;
+      --teal-hover: #1a8182;
+      --teal-light: #e0f2f1;
+      --warm-paper: #faf8f5;
+      --white: #ffffff;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+      --radius-card: 8px;
+      --radius-chip: 16px;
+      --table-divider: #e0e0e0;
+      --status-done-bg: #e0f2f1;
+      --status-done-text: #004f50;
+      --status-progress-bg: #dbeafe;
+      --status-progress-text: #2563eb;
+      --progress-blue: #3B5BA5;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--warm-paper);
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .top-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 56px; min-height: 56px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 16px; }
+
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px; font-weight: 700;
+      color: var(--oxford-blue); text-decoration: none;
+    }
+
+    .brand-icon { width: 28px; height: 28px; flex-shrink: 0; }
+
+    .breadcrumb {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--text-muted);
+    }
+    .breadcrumb a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+    .breadcrumb a:hover { color: var(--teal); }
+    .breadcrumb .sep { color: var(--border-color); }
+    .breadcrumb .current { color: var(--text-primary); font-weight: 500; }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--oxford-blue); color: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600;
+    }
+
+    /* ── Main Scroll ── */
+    .main-scroll {
+      flex: 1; overflow-y: auto;
+      padding: 24px 32px 0;
+    }
+
+    /* ── Page Title Bar ── */
+    .page-title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .page-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px; font-weight: 700;
+      color: var(--oxford-blue);
+    }
+
+    .title-actions {
+      display: flex; align-items: center; gap: 16px;
+    }
+
+    .toggle-group {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text-secondary);
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px; height: 24px;
+      background: #ccc;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch.active { background: var(--oxford-blue); }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--white);
+      top: 2px; left: 2px;
+      transition: left 0.3s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .toggle-switch.active::after { left: 22px; }
+
+    .form-select {
+      padding: 8px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; color: var(--text-primary);
+      background: var(--white); outline: none; cursor: pointer;
+      transition: border-color 0.2s;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    .form-select:focus { border-color: var(--teal); }
+
+    /* ── Upload Zone ── */
+    .upload-zone {
+      width: 500px; height: 300px;
+      margin: 0 auto 24px;
+      border: 2px dashed #ccc;
+      border-radius: var(--radius-card);
+      background: #fafafa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--teal);
+      background: #f5fafa;
+    }
+
+    .upload-icon {
+      color: #bbb;
+      transition: color 0.2s;
+    }
+
+    .upload-zone:hover .upload-icon { color: var(--teal); }
+
+    .upload-text {
+      font-size: 14px; color: var(--text-muted);
+      text-align: center; line-height: 1.6;
+    }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 24px;
+      background: var(--oxford-blue); color: var(--white);
+      border: none; border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary:hover { background: var(--oxford-blue-hover); }
+
+    .btn-primary svg { width: 16px; height: 16px; }
+
+    /* ── Progress Cards ── */
+    .progress-list {
+      display: flex; flex-direction: column; gap: 8px;
+      max-width: 700px; margin: 0 auto 24px;
+    }
+
+    .progress-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+    }
+
+    .progress-icon {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .progress-icon.done {
+      background: var(--status-done-bg);
+      color: var(--status-done-text);
+    }
+
+    .progress-icon.processing {
+      background: var(--status-progress-bg);
+      color: var(--status-progress-text);
+    }
+
+    .progress-icon.waiting {
+      background: #f5f5f5;
+      color: #999;
+    }
+
+    .progress-icon svg { width: 18px; height: 18px; }
+
+    .progress-info { flex: 1; min-width: 0; }
+
+    .progress-filename {
+      font-size: 14px; font-weight: 500; color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .progress-status {
+      font-size: 12px; display: flex; align-items: center; gap: 6px;
+    }
+
+    .progress-status.done { color: var(--status-done-text); }
+    .progress-status.processing { color: var(--status-progress-text); }
+    .progress-status.waiting { color: var(--text-muted); }
+
+    .progress-bar-track {
+      width: 120px; height: 5px;
+      background: #e0e0e0;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--progress-blue);
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid #e0e0e0;
+      border-top-color: var(--progress-blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .btn-text {
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 12px; color: var(--text-secondary);
+      cursor: pointer; white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .btn-text:hover {
+      border-color: var(--teal); color: var(--teal);
+      background: var(--teal-light);
+    }
+
+    /* ── Results Table ── */
+    .table-section {
+      margin-bottom: 0;
+    }
+
+    .table-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px; font-weight: 700;
+      color: var(--text-primary); margin-bottom: 16px;
+    }
+
+    .table-wrapper {
+      border: 1px solid var(--table-divider);
+      border-radius: var(--radius-card);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    thead th {
+      background: var(--oxford-blue);
+      color: var(--white);
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 500;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--table-divider);
+      color: var(--text-primary);
+    }
+
+    tbody tr:nth-child(even) td {
+      background: #fafafa;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    .score-highlight {
+      font-weight: 600;
+      color: var(--oxford-blue);
+    }
+
+    .status-tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: var(--radius-chip);
+      font-size: 12px; font-weight: 500;
+    }
+
+    .status-tag.done {
+      background: var(--status-done-bg);
+      color: var(--status-done-text);
+    }
+
+    .status-tag.processing {
+      background: var(--status-progress-bg);
+      color: var(--status-progress-text);
+    }
+
+    .action-btns {
+      display: flex; gap: 6px;
+    }
+
+    .action-btns .btn-text { font-size: 11px; padding: 4px 10px; }
+
+    /* ── Bottom Action Bar ── */
+    .bottom-bar {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      background: #f5f5f5;
+      border-top: 1px solid var(--table-divider);
+      z-index: 10;
+    }
+
+    .summary-stats {
+      display: flex; align-items: center; gap: 24px;
+      font-size: 14px; color: var(--text-secondary);
+    }
+
+    .summary-stats .stat-value {
+      font-weight: 700; color: var(--oxford-blue);
+      margin-left: 4px;
+    }
+
+    .btn-group {
+      display: flex; gap: 8px;
+    }
+
+    .btn-teal {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 20px;
+      background: var(--teal); color: var(--white);
+      border: none; border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-teal:hover { background: var(--teal-hover); }
+
+    .btn-outline {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 20px;
+      background: var(--white); color: var(--text-primary);
+      border: 1px solid var(--border-color); border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-outline:hover {
+      border-color: var(--teal); color: var(--teal);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Header -->
+    <header class="top-header">
+      <div class="header-left">
+        <a href="index.html" class="brand">
+          <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 2L27.5 8.5V21.5L16 28L4.5 21.5V8.5L16 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+            <circle cx="16" cy="15" r="4" fill="currentColor"/>
+            <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="22" cy="18" r="1.5" fill="currentColor"/>
+            <circle cx="10" cy="18" r="1.5" fill="currentColor"/>
+          </svg>
+          <span>ChemAI 智辅化学</span>
+        </a>
+        <div class="breadcrumb">
+          <span class="sep">/</span><a href="index.html">对话</a>
+          <span class="sep">/</span><span class="current">OCR 答题卡批改</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span style="font-size:13px;color:var(--text-secondary)">李老师</span>
+        <div class="user-avatar">李</div>
+      </div>
+    </header>
+
+    <!-- Main Scroll -->
+    <div class="main-scroll">
+
+      <!-- Page Title Bar -->
+      <div class="page-title-bar">
+        <h1 class="page-title">OCR 答题卡批改</h1>
+        <div class="title-actions">
+          <div class="toggle-group">
+            <span>批量上传</span>
+            <div class="toggle-switch active" id="batchToggle" onclick="toggleBatch(this)"></div>
+          </div>
+          <select class="form-select">
+            <option>历史记录</option>
+            <option>7月月考 (2026-07-15)</option>
+            <option>期中考试 (2026-07-10)</option>
+            <option>6月月考 (2026-06-20)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Upload Zone -->
+      <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 36C8.686 36 6 33.314 6 30C6 27.05 8.1 24.6 10.9 24.1C10.35 22.7 10 21.15 10 19.5C10 14.8 13.8 11 18.5 11C21.4 11 23.95 12.5 25.5 14.7C26.45 14.25 27.5 14 28.65 14C32.9 14 36.35 17.45 36.35 21.7C36.35 21.9 36.3 22.1 36.3 22.3C39.05 23.1 41 25.7 41 28.75C41 32.75 37.75 36 33.75 36H12Z" fill="#ccc"/>
+            <path d="M24 20V32M24 20L19 25M24 20L29 25" stroke="#fafafa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="upload-text">
+          拖拽答题卡图片到此处，或点击选择文件<br>
+          <span style="font-size:12px;color:#bbb">支持 JPG、PNG 格式，单文件不超过 10MB</span>
+        </div>
+        <button class="btn-primary" style="margin-top:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          选择文件
+        </button>
+        <input type="file" id="fileInput" style="display:none" accept="image/jpeg,image/png" multiple>
+      </div>
+
+      <!-- Upload Progress Cards -->
+      <div class="progress-list">
+
+        <!-- Card 1: Done -->
+        <div class="progress-card">
+          <div class="progress-icon done">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <div class="progress-info">
+            <div class="progress-filename">答题卡_001.jpg</div>
+            <div class="progress-status done">✓ 批改完成</div>
+          </div>
+          <button class="btn-text">查看结果</button>
+        </div>
+
+        <!-- Card 2: Processing -->
+        <div class="progress-card">
+          <div class="progress-icon processing">
+            <div class="spinner"></div>
+          </div>
+          <div class="progress-info">
+            <div class="progress-filename">答题卡_002.jpg</div>
+            <div class="progress-status processing">
+              <span>正在识别中...</span>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" style="width:65%"></div>
+            </div>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted)">65%</span>
+        </div>
+
+        <!-- Card 3: Waiting -->
+        <div class="progress-card">
+          <div class="progress-icon waiting">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div class="progress-info">
+            <div class="progress-filename">答题卡_003.jpg</div>
+            <div class="progress-status waiting">⏳ 等待中</div>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted)">队列第 1 位</span>
+        </div>
+
+      </div>
+
+      <!-- Results Table -->
+      <div class="table-section">
+        <h2 class="table-title">批改结果</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>姓名</th>
+                <th>学号</th>
+                <th>总分</th>
+                <th>选择题</th>
+                <th>填空题</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>张明</td>
+                <td>20240101</td>
+                <td class="score-highlight">85</td>
+                <td>40 / 45</td>
+                <td>45 / 55</td>
+                <td><span class="status-tag done">已批改</span></td>
+                <td>
+                  <div class="action-btns">
+                    <button class="btn-text">详情</button>
+                    <button class="btn-text">导出</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>李华</td>
+                <td>20240102</td>
+                <td class="score-highlight">72</td>
+                <td>35 / 45</td>
+                <td>37 / 55</td>
+                <td><span class="status-tag done">已批改</span></td>
+                <td>
+                  <div class="action-btns">
+                    <button class="btn-text">详情</button>
+                    <button class="btn-text">导出</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>王芳</td>
+                <td>20240103</td>
+                <td class="score-highlight">98</td>
+                <td>45 / 45</td>
+                <td>53 / 55</td>
+                <td><span class="status-tag done">已批改</span></td>
+                <td>
+                  <div class="action-btns">
+                    <button class="btn-text">详情</button>
+                    <button class="btn-text">导出</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>赵磊</td>
+                <td>20240104</td>
+                <td class="score-highlight">62</td>
+                <td>30 / 45</td>
+                <td>32 / 55</td>
+                <td><span class="status-tag processing">批改中</span></td>
+                <td>
+                  <div class="action-btns">
+                    <button class="btn-text">详情</button>
+                    <button class="btn-text">导出</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>陈静</td>
+                <td>20240105</td>
+                <td class="score-highlight">45</td>
+                <td>20 / 45</td>
+                <td>25 / 55</td>
+                <td><span class="status-tag done">已批改</span></td>
+                <td>
+                  <div class="action-btns">
+                    <button class="btn-text">详情</button>
+                    <button class="btn-text">导出</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /main-scroll -->
+
+    <!-- Bottom Action Bar -->
+    <div class="bottom-bar">
+      <div class="summary-stats">
+        <span>平均分<span class="stat-value">72.4</span></span>
+        <span style="color:var(--border-color)">|</span>
+        <span>最高分<span class="stat-value">98</span></span>
+        <span style="color:var(--border-color)">|</span>
+        <span>最低分<span class="stat-value">45</span></span>
+      </div>
+      <div class="btn-group">
+        <button class="btn-teal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          导出成绩
+        </button>
+        <button class="btn-outline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          发送给学生
+        </button>
+        <button class="btn-primary" onclick="location.href='diagnosis.html'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          开始诊断障碍
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /app-shell -->
+
+  <script>
+    function toggleBatch(el) {
+      el.classList.toggle('active');
+    }
+  </script>
+</body>
+</html>

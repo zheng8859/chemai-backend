@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<!-- prompt: prompts/2026-07-31-m-parent.md -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ChemAI 智辅化学 - 家长中心</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --teal: #13696a;
+      --teal-light: #e0f2f1;
+      --warm-paper: #faf8f5;
+      --white: #ffffff;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+      --concept-purple: #7B2D8E;
+      --exam-blue: #3B5BA5;
+      --express-cyan: #00897B;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: #e8e8e8;
+    }
+
+    .mobile-shell {
+      max-width: 390px; width: 100%; height: 100vh;
+      margin: 0 auto; position: relative; overflow: hidden;
+      background: var(--warm-paper);
+      box-shadow: 0 0 40px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column;
+      transform: translateZ(0);
+    }
+
+    /* ── Top Bar ── */
+    .top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px; min-height: 56px;
+      background: var(--oxford-blue); padding: 0 12px; color: var(--white);
+    }
+    .top-bar .title { font-size: 16px; font-weight: 600; }
+    .top-bar-actions { display: flex; gap: 12px; }
+    .icon-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--white);
+    }
+
+    /* ── Child Selector ── */
+    .child-selector {
+      background: var(--white); padding: 12px 16px; text-align: center;
+      border-bottom: 1px solid #eee;
+    }
+    .child-row { display: flex; align-items: center; justify-content: center; gap: 16px; }
+    .arrow-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: 18px;
+    }
+    .child-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    .bind-link {
+      color: var(--teal); font-size: 13px; margin-top: 4px;
+      display: block; text-decoration: none;
+    }
+
+    /* ── Tabs ── */
+    .tab-row {
+      display: flex; height: 44px; min-height: 44px;
+      background: var(--white); border-bottom: 1px solid #eee;
+    }
+    .tab-btn {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 500; color: var(--text-muted);
+      background: none; border: none; cursor: pointer;
+      border-bottom: 2px solid transparent; transition: all 0.2s;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+    .tab-btn.active { color: var(--oxford-blue); border-bottom-color: var(--oxford-blue); }
+
+    /* ── Tab Content ── */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .content-scroll {
+      flex: 1; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── Stats Grid 2x2 ── */
+    .stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; padding: 16px;
+    }
+    .stat-card {
+      background: var(--white); border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 16px;
+    }
+    .stat-card .num {
+      font-size: 22px; font-weight: 700; color: var(--oxford-blue);
+    }
+    .stat-card .lbl {
+      font-size: 12px; color: var(--text-muted); margin-top: 2px;
+    }
+    .stat-card .chip-purple {
+      display: inline-block; margin-top: 4px;
+      padding: 3px 8px; border-radius: 12px;
+      font-size: 11px; font-weight: 500;
+      background: #f3e8ff; color: var(--concept-purple);
+    }
+    .stat-card .date-value {
+      font-size: 14px; font-weight: 700; color: var(--text-primary); margin-top: 4px;
+    }
+
+    /* ── Feature Card ── */
+    .feature-card {
+      background: var(--white); border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 16px; margin: 0 16px 12px;
+    }
+    .feature-title {
+      font-size: 16px; font-weight: 700; color: var(--oxford-blue); margin-bottom: 12px;
+    }
+
+    /* Obstacle bar */
+    .obstacle-bar {
+      display: flex; height: 6px; border-radius: 3px; overflow: hidden;
+    }
+    .obstacle-seg { height: 100%; }
+    .obstacle-seg.concept { background: var(--concept-purple); width: 30%; }
+    .obstacle-seg.exam    { background: var(--exam-blue); width: 50%; }
+    .obstacle-seg.express { background: var(--express-cyan); width: 20%; }
+
+    .obstacle-legend {
+      display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--text-muted);
+    }
+    .legend-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px;
+    }
+    .legend-dot.concept { background: var(--concept-purple); }
+    .legend-dot.exam    { background: var(--exam-blue); }
+    .legend-dot.express { background: var(--express-cyan); }
+
+    .feature-text {
+      font-size: 14px; color: var(--text-secondary);
+      line-height: 1.6; margin-top: 8px;
+    }
+
+    /* Suggestion list */
+    .suggest-list {
+      list-style: none; display: flex; flex-direction: column; gap: 8px;
+    }
+    .suggest-list li {
+      font-size: 14px; color: var(--text-primary);
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .suggest-list .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--oxford-blue); margin-top: 7px; flex-shrink: 0;
+    }
+    .family-tip {
+      background: #f9f9f9; padding: 12px; border-radius: 4px;
+      font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-top: 12px;
+    }
+
+    /* ── Week Selector ── */
+    .week-selector {
+      display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 12px;
+    }
+    .week-selector .week-label { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+
+    /* Modal stats row */
+    .modal-stats {
+      display: flex; gap: 8px; margin-bottom: 12px;
+    }
+    .modal-stat {
+      flex: 1; text-align: center;
+      background: #fafafa; border-radius: 8px; padding: 14px 8px;
+    }
+    .modal-stat .num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px; font-weight: 700; color: var(--oxford-blue);
+    }
+    .modal-stat .lbl { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Knowledge bar */
+    .kp-item {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .kp-name { font-size: 13px; color: var(--text-secondary); width: 70px; flex-shrink: 0; }
+    .kp-track {
+      flex: 1; height: 6px;
+      background: #e8e8e8; border-radius: 3px; overflow: hidden;
+    }
+    .kp-fill { height: 100%; background: var(--oxford-blue); border-radius: 3px; }
+    .kp-pct { font-size: 12px; color: var(--text-muted); width: 32px; text-align: right; flex-shrink: 0; }
+
+    /* AI解读 */
+    .ai-expand-content {
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+    }
+    .ai-expand-content.open { max-height: 300px; }
+    .ai-expand-body {
+      padding-top: 12px;
+      font-size: 14px; color: var(--text-secondary); line-height: 1.6;
+    }
+    .btn-ai {
+      width: 100%; height: 40px;
+      background: var(--teal); color: var(--white);
+      border: none; border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      margin-top: 8px;
+    }
+
+    /* ── Messages ── */
+    .msg-item {
+      padding: 16px; position: relative;
+      border-bottom: 1px solid #f0f0f0; cursor: pointer;
+    }
+    .msg-dot {
+      position: absolute; left: 8px; top: 20px;
+      width: 6px; height: 6px; border-radius: 50%; background: var(--exam-blue);
+    }
+    .msg-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    .msg-item.read .msg-title { font-weight: 400; color: var(--text-secondary); }
+    .msg-preview { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+    .msg-time { font-size: 12px; color: #bbb; margin-top: 4px; }
+    .msg-detail {
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+      font-size: 14px; color: var(--text-secondary); line-height: 1.6;
+    }
+    .msg-item.open .msg-detail { max-height: 200px; }
+    .msg-detail-body { padding-top: 8px; }
+
+    /* ── Floating AI Button ── */
+    .floating-ai {
+      position: fixed; bottom: 24px; right: 16px;
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--oxford-blue); color: var(--white);
+      font-size: 16px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      border: none; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,32,69,.3);
+      z-index: 100;
+    }
+
+    /* ── AI Panel Overlay ── */
+    .ai-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); z-index: 98;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .ai-overlay.show { opacity: 1; pointer-events: auto; }
+
+    /* ── AI Bottom Sheet ── */
+    .ai-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 60vh;
+      background: var(--white); z-index: 99;
+      border-radius: 16px 16px 0 0;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      display: flex; flex-direction: column;
+    }
+    .ai-sheet.open { transform: translateY(0); }
+
+    .sheet-handle {
+      width: 36px; height: 4px; background: #ddd;
+      border-radius: 2px; margin: 12px auto 0;
+    }
+    .sheet-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px 8px;
+    }
+    .sheet-title { font-size: 16px; font-weight: 700; }
+    .sheet-close {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: #f0f0f0; border: none; border-radius: 50%;
+      cursor: pointer; font-size: 14px; color: var(--text-secondary);
+    }
+    .sheet-chips {
+      display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 12px;
+    }
+    .sheet-chip {
+      padding: 8px 12px; border-radius: 16px;
+      font-size: 13px; color: var(--text-primary);
+      background: var(--white); border: 1px solid #ddd;
+      cursor: pointer; white-space: nowrap;
+    }
+    .sheet-input-area {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 20px; border-top: 1px solid #eee; margin-top: auto;
+    }
+    .sheet-input {
+      flex: 1; height: 40px; border-radius: 20px;
+      background: #f0f0f0; border: none; outline: none;
+      padding: 0 16px; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px;
+    }
+    .sheet-send {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--oxford-blue); color: var(--white);
+      border: none; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="mobile-shell">
+
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <span class="title">家长中心</span>
+      <div class="top-bar-actions">
+        <button class="icon-btn" aria-label="设置">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+        <button class="icon-btn" aria-label="退出">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Child Selector -->
+    <div class="child-selector">
+      <div class="child-row">
+        <button class="arrow-btn">&lt;</button>
+        <span class="child-name">张三</span>
+        <button class="arrow-btn">&gt;</button>
+      </div>
+      <a class="bind-link" href="parent-login.html">+ 绑定新子女</a>
+    </div>
+
+    <!-- Tab Row -->
+    <div class="tab-row" id="tabRow">
+      <button class="tab-btn active" data-tab="tab1">概览</button>
+      <button class="tab-btn" data-tab="tab2">学习报告</button>
+      <button class="tab-btn" data-tab="tab3">消息</button>
+    </div>
+
+    <!-- Tab Content Area -->
+    <div class="content-scroll">
+
+      <!-- ═══════ Tab 1: 概览 ═══════ -->
+      <div class="tab-content active" id="tab1">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="num">12题</div>
+            <div class="lbl">本周练习</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">75%</div>
+            <div class="lbl">正确率</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">薄弱知识点</div>
+            <span class="chip-purple">化学方程式配平</span>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">最近学习</div>
+            <div class="date-value">7月10日 19:30</div>
+          </div>
+        </div>
+
+        <!-- 学习特点分析 -->
+        <div class="feature-card">
+          <div class="feature-title">学习特点分析</div>
+          <div class="obstacle-bar">
+            <div class="obstacle-seg concept"></div>
+            <div class="obstacle-seg exam"></div>
+            <div class="obstacle-seg express"></div>
+          </div>
+          <div class="obstacle-legend">
+            <span><span class="legend-dot concept"></span>概念理解 30%</span>
+            <span><span class="legend-dot exam"></span>审题障碍 50%</span>
+            <span><span class="legend-dot express"></span>表述障碍 20%</span>
+          </div>
+          <p class="feature-text">孩子审题能力有待加强，建议多读题目要求，圈画关键词。概念理解方面表现较好，继续保持基础知识的巩固。</p>
+        </div>
+
+        <!-- 本周学习建议 -->
+        <div class="feature-card">
+          <div class="feature-title">本周学习建议</div>
+          <ul class="suggest-list">
+            <li><span class="dot"></span>化学方程式配平专项练习（重点：氧化还原法）</li>
+            <li><span class="dot"></span>离子反应方程式书写规范复习</li>
+            <li><span class="dot"></span>化学键与分子结构知识点梳理</li>
+          </ul>
+          <div class="family-tip">
+            <b>家长建议：</b>家长可以陪孩子一起梳理化学方程式的配平规则，使用化合价升降法练习。每天抽10分钟检查孩子的错题本，了解薄弱环节并给予鼓励。
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════ Tab 2: 学习报告 ═══════ -->
+      <div class="tab-content" id="tab2">
+        <div class="feature-card" style="margin-top:16px">
+          <div class="week-selector">
+            <button class="arrow-btn">&lt;</button>
+            <span class="week-label">7月第1周</span>
+            <button class="arrow-btn">&gt;</button>
+          </div>
+          <div class="modal-stats">
+            <div class="modal-stat"><div class="num">25</div><div class="lbl">完成练习</div></div>
+            <div class="modal-stat"><div class="num">76%</div><div class="lbl">正确率</div></div>
+            <div class="modal-stat"><div class="num">3.2h</div><div class="lbl">学习时长</div></div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-title">知识点掌握</div>
+          <div class="kp-item"><span class="kp-name">氧化还原</span><div class="kp-track"><div class="kp-fill" style="width:85%"></div></div><span class="kp-pct">85%</span></div>
+          <div class="kp-item"><span class="kp-name">离子反应</span><div class="kp-track"><div class="kp-fill" style="width:72%"></div></div><span class="kp-pct">72%</span></div>
+          <div class="kp-item"><span class="kp-name">化学键</span><div class="kp-track"><div class="kp-fill" style="width:68%"></div></div><span class="kp-pct">68%</span></div>
+          <div class="kp-item"><span class="kp-name">化学平衡</span><div class="kp-track"><div class="kp-fill" style="width:55%"></div></div><span class="kp-pct">55%</span></div>
+          <div class="kp-item"><span class="kp-name">电化学</span><div class="kp-track"><div class="kp-fill" style="width:60%"></div></div><span class="kp-pct">60%</span></div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-title">学习特点 + 家庭建议</div>
+          <div class="obstacle-bar" style="margin-bottom:8px">
+            <div class="obstacle-seg concept"></div>
+            <div class="obstacle-seg exam"></div>
+            <div class="obstacle-seg express"></div>
+          </div>
+          <div class="obstacle-legend" style="margin-bottom:8px">
+            <span><span class="legend-dot concept"></span>概念理解 30%</span>
+            <span><span class="legend-dot exam"></span>审题障碍 50%</span>
+            <span><span class="legend-dot express"></span>表述障碍 20%</span>
+          </div>
+          <p class="feature-text" style="margin-top:4px">孩子审题能力有待加强，建议多读题目要求，圈画关键词...</p>
+          <button class="btn-ai" onclick="toggleAiExpand(this)">🤖 AI 解读</button>
+          <div class="ai-expand-content">
+            <div class="ai-expand-body">
+              <b>AI 详细分析：</b><br><br>
+              根据张三近期的学习数据，审题障碍型错误占比最高（50%），主要体现在选择题的题干理解和计算题的条件提取上。建议：<br><br>
+              1. 做题前先通读题目2遍，圈画关键词<br>
+              2. 对于计算题，先列出已知条件和所求量<br>
+              3. 每日进行2-3道审题专项训练<br><br>
+              概念理解方面基础扎实（正确率85%），可以适当增加难度。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════ Tab 3: 消息 ═══════ -->
+      <div class="tab-content" id="tab3">
+        <div class="msg-item" onclick="toggleMsg(this)">
+          <div class="msg-dot"></div>
+          <div class="msg-title">学习报告已生成</div>
+          <div class="msg-preview">张三的7月第一周学习报告已生成，正确率76%，点击查看详情...</div>
+          <div class="msg-time">7月10日</div>
+          <div class="msg-detail"><div class="msg-detail-body">张三本周完成25道练习题，正确率76%，较上周提升4个百分点。氧化还原反应部分（85%）和离子反应（72%）掌握较好，化学平衡（55%）仍需加强。建议本周重点关注化学平衡相关练习。</div></div>
+        </div>
+        <div class="msg-item read" onclick="toggleMsg(this)">
+          <div class="msg-title">系统更新通知</div>
+          <div class="msg-preview">ChemAI 智辅化学已更新至 v0.1.0，新增错题本和复习中心功能...</div>
+          <div class="msg-time">7月8日</div>
+          <div class="msg-detail"><div class="msg-detail-body">本次更新内容：1. 新增智能错题本，自动分类错题并分析错误原因；2. 新增复习中心，根据艾宾浩斯遗忘曲线智能推送复习内容；3. 优化AI助教的化学方程式识别能力。</div></div>
+        </div>
+        <div class="msg-item" onclick="toggleMsg(this)">
+          <div class="msg-dot"></div>
+          <div class="msg-title">考试提醒</div>
+          <div class="msg-preview">高一(3)班化学月考将于7月15日进行，请督促孩子复习备考...</div>
+          <div class="msg-time">7月5日</div>
+          <div class="msg-detail"><div class="msg-detail-body">考试范围：氧化还原反应、离子反应、化学键与分子结构（第一至第三章）。建议复习重点：化学方程式配平、离子方程式书写、化学键类型判断。考试时长90分钟，满分100分。</div></div>
+        </div>
+      </div>
+
+    </div><!-- /content-scroll -->
+
+    <!-- Floating AI Button -->
+    <button class="floating-ai" onclick="openAiPanel()">AI</button>
+
+    <!-- AI Overlay -->
+    <div class="ai-overlay" id="aiOverlay" onclick="closeAiPanel()"></div>
+
+    <!-- AI Bottom Sheet -->
+    <div class="ai-sheet" id="aiSheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">AI学习顾问</span>
+        <button class="sheet-close" onclick="closeAiPanel()">✕</button>
+      </div>
+      <div class="sheet-chips">
+        <button class="sheet-chip">孩子最近学习怎么样？</button>
+        <button class="sheet-chip">如何帮助孩子提高成绩？</button>
+        <button class="sheet-chip">分析最近错题原因</button>
+      </div>
+      <div class="sheet-input-area">
+        <input class="sheet-input" placeholder="输入你的问题...">
+        <button class="sheet-send">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ── Tab Switching ──
+    document.querySelectorAll('#tabRow .tab-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('#tabRow .tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ── AI解读 Toggle ──
+    function toggleAiExpand(btn) {
+      var content = btn.nextElementSibling;
+      content.classList.toggle('open');
+      btn.textContent = content.classList.contains('open') ? '🤖 收起解读' : '🤖 AI 解读';
+    }
+
+    // ── Message Toggle ──
+    function toggleMsg(item) {
+      item.classList.toggle('open');
+    }
+
+    // ── AI Panel ──
+    var aiOverlay = document.getElementById('aiOverlay');
+    var aiSheet = document.getElementById('aiSheet');
+
+    function openAiPanel() {
+      aiOverlay.classList.add('show');
+      aiSheet.classList.add('open');
+    }
+
+    function closeAiPanel() {
+      aiOverlay.classList.remove('show');
+      aiSheet.classList.remove('open');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<!-- prompt: prompts/2026-07-31-m-practice.md -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ChemAI 助教 - 练习</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --teal: #13696a;
+      --teal-light: #e0f2f1;
+      --warm-paper: #faf8f5;
+      --white: #ffffff;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: #e8e8e8;
+    }
+
+    .mobile-shell {
+      max-width: 390px; width: 100%; height: 100vh;
+      margin: 0 auto; position: relative; overflow: hidden;
+      background: var(--warm-paper);
+      box-shadow: 0 0 40px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Top Bar ── */
+    .top-bar {
+      display: flex; align-items: center; gap: 12px;
+      height: 56px; min-height: 56px;
+      background: var(--oxford-blue); padding: 0 12px;
+      color: var(--white);
+    }
+    .top-bar .back-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer;
+      color: var(--white); flex-shrink: 0;
+    }
+    .top-bar .title { font-size: 16px; font-weight: 600; flex: 1; }
+    .top-bar .meta { font-size: 13px; opacity: 0.85; flex-shrink: 0; white-space: nowrap; }
+
+    /* ── Tab Row ── */
+    .tab-row {
+      display: flex;
+      height: 44px; min-height: 44px;
+      background: var(--white);
+      border-bottom: 1px solid #eee;
+    }
+    .tab-row .tab {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 500;
+      color: var(--text-muted);
+      background: none; border: none; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+    .tab-row .tab.active {
+      color: var(--oxford-blue);
+      border-bottom-color: var(--oxford-blue);
+    }
+
+    /* ── View Container ── */
+    .view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .view.active { display: flex; }
+
+    /* ── Task List View ── */
+    .task-scroll {
+      flex: 1; overflow-y: auto;
+      padding: 16px 12px;
+      display: flex; flex-direction: column; gap: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .task-card {
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .task-card-title {
+      font-size: 16px; font-weight: 700; color: var(--text-primary);
+    }
+
+    .task-tags { display: flex; gap: 8px; }
+
+    .task-tag {
+      padding: 4px 10px; border-radius: 12px;
+      font-size: 12px; font-weight: 500;
+      background: #dbeafe; color: #2563eb;
+    }
+
+    .task-progress {
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .progress-track {
+      flex: 1; height: 6px;
+      background: #e0e0e0; border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--oxford-blue); border-radius: 3px;
+    }
+
+    .progress-text {
+      font-size: 12px; color: var(--text-muted); flex-shrink: 0;
+    }
+
+    .btn-full {
+      width: 100%; height: 40px;
+      background: var(--oxford-blue); color: var(--white);
+      border: none; border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-full:hover { background: #003366; }
+
+    .btn-full.done {
+      background: var(--teal);
+    }
+    .btn-full.done:hover { background: #1a8182; }
+
+    /* ── Quiz View ── */
+    .quiz-scroll {
+      flex: 1; overflow-y: auto;
+      padding: 20px 16px;
+      display: flex; flex-direction: column; gap: 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .question-text {
+      font-size: 16px; line-height: 1.7;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .option-btn {
+      display: flex; align-items: center; gap: 14px;
+      width: 100%; height: 56px;
+      background: var(--white);
+      border: 1px solid #ddd; border-radius: 8px;
+      padding: 0 16px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 15px;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: left;
+    }
+
+    .option-btn .opt-letter {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #f0f0f0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .option-btn.correct {
+      background: #e0f2f1;
+      border-color: #2c6e49;
+    }
+
+    .option-btn.correct .opt-letter {
+      background: #2c6e49;
+      color: var(--white);
+    }
+
+    .option-btn.wrong {
+      background: #ffdad6;
+      border-color: #c0392b;
+    }
+
+    .option-btn.wrong .opt-letter {
+      background: #c0392b;
+      color: var(--white);
+    }
+
+    .option-btn:not(.correct):not(.wrong):active {
+      background: #f5f5f5;
+    }
+
+    .quiz-nav {
+      display: flex; justify-content: space-between; gap: 12px;
+      padding: 12px 16px;
+      background: var(--white);
+      border-top: 1px solid #eee;
+      flex-shrink: 0;
+    }
+
+    .btn-nav {
+      flex: 1; height: 44px;
+      border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-nav.prev {
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+
+    .btn-nav.next {
+      background: var(--oxford-blue);
+      border: none;
+      color: var(--white);
+    }
+
+    .btn-nav.next:hover { background: #003366; }
+
+    /* ── Bottom Tab Bar ── */
+    .tab-bar {
+      display: flex; height: 56px; min-height: 56px;
+      background: var(--white); border-top: 1px solid #eee; flex-shrink: 0;
+    }
+    .tab-item {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+      cursor: pointer; background: none; border: none;
+      font-family: 'IBM Plex Sans', sans-serif;
+      color: var(--text-muted); transition: color 0.2s;
+    }
+    .tab-item.active { color: var(--oxford-blue); }
+    .tab-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+    .tab-icon svg { width: 18px; height: 18px; }
+    .tab-label { font-size: 10px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="mobile-shell">
+
+    <!-- ═══════════ View 1: Task List ═══════════ -->
+    <div class="view active" id="viewList">
+
+      <!-- Top Bar -->
+      <header class="top-bar">
+        <button class="back-btn" onclick="history.back()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <span class="title">练习</span>
+        <span class="meta">3/10</span>
+      </header>
+
+      <!-- Tab Row -->
+      <div class="tab-row">
+        <button class="tab active">待完成（7）</button>
+        <button class="tab">已完成（3）</button>
+      </div>
+
+      <!-- Task Cards -->
+      <div class="task-scroll">
+
+        <!-- Card 1 -->
+        <div class="task-card">
+          <div class="task-card-title">氧化还原反应 — 基础练习</div>
+          <div class="task-tags">
+            <span class="task-tag">选择题</span>
+            <span class="task-tag">中等难度</span>
+          </div>
+          <div class="task-progress">
+            <div class="progress-track"><div class="progress-fill" style="width:60%"></div></div>
+            <span class="progress-text">3/5</span>
+          </div>
+          <button class="btn-full" onclick="openQuiz('氧化还原反应 — 基础练习')">继续练习</button>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="task-card">
+          <div class="task-card-title">化学键与分子结构</div>
+          <div class="task-tags">
+            <span class="task-tag">选择题</span>
+            <span class="task-tag">简单难度</span>
+          </div>
+          <div class="task-progress">
+            <div class="progress-track"><div class="progress-fill" style="width:100%"></div></div>
+            <span class="progress-text">5/5</span>
+          </div>
+          <button class="btn-full done">查看结果</button>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="task-card">
+          <div class="task-card-title">离子反应方程式</div>
+          <div class="task-tags">
+            <span class="task-tag">填空题</span>
+            <span class="task-tag">中等难度</span>
+          </div>
+          <div class="task-progress">
+            <div class="progress-track"><div class="progress-fill" style="width:25%"></div></div>
+            <span class="progress-text">1/4</span>
+          </div>
+          <button class="btn-full" onclick="openQuiz('离子反应方程式')">继续练习</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════ View 2: Quiz Interface ═══════════ -->
+    <div class="view" id="viewQuiz">
+
+      <!-- Top Bar -->
+      <header class="top-bar">
+        <button class="back-btn" onclick="backToList()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <span class="title" id="quizTitle">练习</span>
+        <span class="meta" style="margin-right:8px">⏱ 25:30</span>
+        <span class="meta">3/10</span>
+      </header>
+
+      <!-- Question -->
+      <div class="quiz-scroll">
+
+        <div class="question-text">
+          在氧化还原反应 2Fe + 3Cl₂ → 2FeCl₃ 中，氧化剂是？
+        </div>
+
+        <button class="option-btn" onclick="selectOption(this, true)">
+          <span class="opt-letter">A</span> Fe
+        </button>
+        <button class="option-btn" onclick="selectOption(this, false)">
+          <span class="opt-letter">B</span> Cl₂
+        </button>
+        <button class="option-btn" onclick="selectOption(this, false)">
+          <span class="opt-letter">C</span> FeCl₃
+        </button>
+        <button class="option-btn" onclick="selectOption(this, false)">
+          <span class="opt-letter">D</span> 以上都是
+        </button>
+
+      </div>
+
+      <!-- Quiz Nav -->
+      <div class="quiz-nav">
+        <button class="btn-nav prev">← 上一题</button>
+        <button class="btn-nav next">下一题 →</button>
+      </div>
+
+    </div>
+
+    <!-- ═══════════ Bottom Tab Bar ═══════════ -->
+    <nav class="tab-bar">
+      <button class="tab-item" onclick="location.href='index.html'">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 5.4 1.8"></path><path d="M12 6v4l3 2"></path></svg></span>
+        <span class="tab-label">AI助教</span>
+      </button>
+      <button class="tab-item active">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span>
+        <span class="tab-label">练习</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span>
+        <span class="tab-label">错题</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+        <span class="tab-label">我的</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <script>
+    var viewList = document.getElementById('viewList');
+    var viewQuiz = document.getElementById('viewQuiz');
+    var answered = false;
+
+    function openQuiz(title) {
+      document.getElementById('quizTitle').textContent = title;
+      viewList.classList.remove('active');
+      viewQuiz.classList.add('active');
+      resetOptions();
+    }
+
+    function backToList() {
+      viewQuiz.classList.remove('active');
+      viewList.classList.add('active');
+    }
+
+    function selectOption(btn, isCorrect) {
+      if (answered) return;
+      answered = true;
+
+      var allBtns = btn.parentElement.querySelectorAll('.option-btn');
+
+      // Mark clicked button
+      btn.classList.add(isCorrect ? 'correct' : 'wrong');
+
+      // Always reveal correct answer (B)
+      allBtns.forEach(function(b) {
+        if (b.querySelector('.opt-letter').textContent === 'B') {
+          b.classList.add('correct');
+        }
+      });
+    }
+
+    function resetOptions() {
+      answered = false;
+      document.querySelectorAll('#viewQuiz .option-btn').forEach(function(b) {
+        b.classList.remove('correct', 'wrong');
+      });
+    }
+  </script>
+</body>
+</html>

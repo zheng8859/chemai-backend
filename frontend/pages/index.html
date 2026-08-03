@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<!-- prompt: prompts/2026-07-31-chat-panel.md -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1.0">
+  <title>ChemAI 智辅化学 - 教师端</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --oxford-blue-hover: #003366;
+      --teal: #13696a;
+      --teal-hover: #1a8182;
+      --teal-light: #e0f2f1;
+      --warm-paper: #faf8f5;
+      --sidebar-bg: #1a1a2e;
+      --context-bar: #f0ece6;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+      --white: #ffffff;
+      --success: #4caf50;
+      --radius-card: 8px;
+      --radius-bubble: 12px;
+      --radius-chip: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--warm-paper);
+      overflow: hidden;
+    }
+
+    .app-shell {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      height: 100%;
+      background: var(--sidebar-bg);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.18);
+      z-index: 10;
+    }
+
+    .sidebar-header {
+      padding: 20px 16px 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--white);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .new-chat-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: calc(100% - 32px);
+      margin: 0 16px 12px;
+      padding: 10px 14px;
+      background: var(--teal);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .new-chat-btn:hover {
+      background: var(--teal-hover);
+    }
+
+    .new-chat-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 12px;
+    }
+
+    .history-item {
+      padding: 12px;
+      margin-bottom: 6px;
+      border-radius: var(--radius-card);
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .history-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .history-item.active {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .history-title {
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 500;
+      font-size: 13.5px;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-time {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    .sidebar-nav {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 12px 8px 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 8px;
+      color: rgba(255, 255, 255, 0.5);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s ease;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 11px;
+    }
+
+    .nav-item:hover {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .nav-item.active {
+      color: var(--teal);
+    }
+
+    .nav-item svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Main Chat Area */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-width: 0;
+      background: var(--warm-paper);
+    }
+
+    .context-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--context-bar);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+      flex-shrink: 0;
+    }
+
+    .context-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      font-size: 13px;
+      color: var(--text-primary);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .context-tag .close {
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: color 0.2s ease;
+    }
+
+    .context-tag .close:hover {
+      color: var(--text-primary);
+    }
+
+    .context-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+      background: var(--teal-light);
+    }
+
+    .icon-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Message List */
+    .message-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .message {
+      display: flex;
+      gap: 12px;
+      max-width: 80%;
+    }
+
+    .message.ai {
+      align-self: flex-start;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .avatar.ai {
+      background: var(--teal);
+      color: var(--white);
+    }
+
+    .avatar.user {
+      background: var(--oxford-blue);
+      color: var(--white);
+    }
+
+    .bubble-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .bubble {
+      padding: 14px 18px;
+      border-radius: var(--radius-bubble);
+      font-size: 14px;
+      line-height: 1.65;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      max-width: 100%;
+    }
+
+    .message.ai .bubble {
+      background: var(--teal-light);
+      color: var(--text-primary);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message.user .bubble {
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .message.ai .message-time {
+      align-self: flex-start;
+    }
+
+    .message.user .message-time {
+      align-self: flex-end;
+    }
+
+    /* Tool Call Card */
+    .tool-card {
+      margin-top: 10px;
+      background: var(--white);
+      border: 1px solid #b2dfdb;
+      border-left: 3px solid var(--teal);
+      border-radius: var(--radius-card);
+      padding: 12px 14px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .tool-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'IBM Plex Sans', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--teal);
+      margin-bottom: 10px;
+    }
+
+    .tool-header svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .tool-params {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-family: 'IBM Plex Sans', monospace;
+    }
+
+    .tool-params .param-key {
+      color: var(--text-muted);
+    }
+
+    .tool-params .param-value {
+      color: var(--text-primary);
+    }
+
+    .tool-status {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--success);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Quick Prompt Chips */
+    .chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 0 32px 16px;
+      flex-shrink: 0;
+    }
+
+    .chip {
+      padding: 8px 14px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-chip);
+      font-size: 13px;
+      color: var(--text-primary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+
+    .chip:hover {
+      background: var(--teal-light);
+      border-color: var(--teal);
+    }
+
+    /* Formula Toolbar */
+    .formula-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 32px 10px;
+      flex-shrink: 0;
+    }
+
+    .formula-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+
+    .formula-btn:hover {
+      border-color: var(--teal);
+      background: var(--teal-light);
+    }
+
+    /* Input Area */
+    .input-area {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      padding: 0 32px 10px;
+      flex-shrink: 0;
+    }
+
+    .input-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 8px 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      transition: border-color 0.2s ease;
+    }
+
+    .input-wrapper:focus-within {
+      border-color: var(--teal);
+    }
+
+    .attach-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-card);
+      cursor: pointer;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+      transition: background 0.2s ease;
+    }
+
+    .attach-btn:hover {
+      background: var(--teal-light);
+      color: var(--teal);
+    }
+
+    .attach-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .message-input {
+      flex: 1;
+      min-height: 44px;
+      max-height: 120px;
+      border: none;
+      outline: none;
+      resize: none;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      background: transparent;
+      padding: 8px 0;
+    }
+
+    .message-input::placeholder {
+      color: #a0a0a0;
+    }
+
+    .send-btn {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      border-radius: 50%;
+      background: var(--oxford-blue);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--white);
+      transition: background 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0, 32, 69, 0.25);
+    }
+
+    .send-btn:hover {
+      background: var(--oxford-blue-hover);
+    }
+
+    .send-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px 16px;
+      flex-shrink: 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .version-label {
+      font-size: 11px;
+      color: #aaaaaa;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .sidebar ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .sidebar ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 2L27.5 8.5V21.5L16 28L4.5 21.5V8.5L16 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+            <circle cx="16" cy="15" r="4" fill="currentColor"/>
+            <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+            <circle cx="22" cy="18" r="1.5" fill="currentColor"/>
+            <circle cx="10" cy="18" r="1.5" fill="currentColor"/>
+          </svg>
+          <span>ChemAI 智辅化学</span>
+        </div>
+      </div>
+
+      <button class="new-chat-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        新建对话
+      </button>
+
+      <div class="history-list">
+        <div class="history-item active">
+          <div class="history-title">氧化还原反应备课</div>
+          <div class="history-time">今天 14:30</div>
+        </div>
+        <div class="history-item">
+          <div class="history-title">月考成绩分析</div>
+          <div class="history-time">昨天 09:15</div>
+        </div>
+        <div class="history-item">
+          <div class="history-title">期中试卷出题</div>
+          <div class="history-time">7月28日</div>
+        </div>
+        <div class="history-item">
+          <div class="history-title">元素周期表教学</div>
+          <div class="history-time">7月25日</div>
+        </div>
+        <div class="history-item">
+          <div class="history-title">学生错题汇总</div>
+          <div class="history-time">7月20日</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <span>首页</span>
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>工作台</span>
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 20V10"></path>
+            <path d="M12 20V4"></path>
+            <path d="M6 20v-6"></path>
+          </svg>
+          <span>学情</span>
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span>设置</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="chat-area">
+      <!-- Context Tag Bar -->
+      <div class="context-bar">
+        <div class="context-tag">
+          <span>📘 当前班级：高一(3)班</span>
+          <svg class="close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </div>
+        <div class="context-actions">
+          <button class="icon-btn" title="清除上下文">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" title="设置">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Message List -->
+      <div class="message-list">
+        <div class="message ai">
+          <div class="avatar ai">AI</div>
+          <div class="bubble-wrapper">
+            <div class="bubble">您好！我是 ChemAI 智辅化学助手。我可以帮您出题、分析学情、总结知识点，请随时告诉我您的需求。</div>
+            <div class="message-time">14:28</div>
+          </div>
+        </div>
+
+        <div class="message user">
+          <div class="avatar user">师</div>
+          <div class="bubble-wrapper">
+            <div class="bubble">帮我出3道关于氧化还原反应的选择题，难度中等，适合高一学生。</div>
+            <div class="message-time">14:29</div>
+          </div>
+        </div>
+
+        <div class="message ai">
+          <div class="avatar ai">AI</div>
+          <div class="bubble-wrapper">
+            <div class="bubble">
+              好的，正在为您生成题目…
+              <div class="tool-card">
+                <div class="tool-header">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                  工具调用: generate_quiz
+                </div>
+                <div class="tool-params">
+                  <span class="param-key">topic:</span><span class="param-value">氧化还原反应</span>
+                  <span class="param-key">count:</span><span class="param-value">3</span>
+                  <span class="param-key">type:</span><span class="param-value">选择题</span>
+                  <span class="param-key">difficulty:</span><span class="param-value">中等</span>
+                  <span class="param-key">grade:</span><span class="param-value">高一</span>
+                </div>
+                <div class="tool-status">✓ 已完成 · 用时 1.2s</div>
+              </div>
+            </div>
+            <div class="message-time">14:29</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Prompt Chips -->
+      <div class="chips-row">
+        <button class="chip">⚡ 出3道氧化还原题</button>
+        <button class="chip">📊 分析班级月考成绩</button>
+        <button class="chip">📝 最近考试错题统计</button>
+        <button class="chip">📋 生成知识点总结</button>
+        <button class="chip">💡 推荐教学策略</button>
+        <button class="chip">🔍 查看学生薄弱点</button>
+      </div>
+
+      <!-- Formula Toolbar -->
+      <div class="formula-bar">
+        <button class="formula-btn">H<sub>2</sub>O</button>
+        <button class="formula-btn">→</button>
+        <button class="formula-btn">↑</button>
+        <button class="formula-btn">↓</button>
+        <button class="formula-btn">△</button>
+        <button class="formula-btn">···</button>
+      </div>
+
+      <!-- Input Area -->
+      <div class="input-area">
+        <div class="input-wrapper">
+          <button class="attach-btn" title="添加附件">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+          </button>
+          <textarea class="message-input" placeholder="输入您的教学问题…"></textarea>
+        </div>
+        <button class="send-btn" title="发送">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <div class="status-left">
+          <span class="status-dot"></span>
+          <span>就绪</span>
+        </div>
+        <div class="version-label">ChemAI v2.1 · GPT-4o</div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

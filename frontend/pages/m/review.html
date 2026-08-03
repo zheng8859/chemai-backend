@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<!-- prompt: prompts/2026-07-31-m-review.md -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ChemAI 助教 - 复习中心</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --teal: #13696a;
+      --warm-paper: #faf8f5;
+      --white: #ffffff;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+      --level2: #FF6B35;
+      --level1: #3B5BA5;
+      --level0: #2c6e49;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: #e8e8e8;
+    }
+
+    .mobile-shell {
+      max-width: 390px; width: 100%; height: 100vh;
+      margin: 0 auto; position: relative; overflow: hidden;
+      background: var(--warm-paper);
+      box-shadow: 0 0 40px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Top Bar ── */
+    .top-bar {
+      display: flex; align-items: center; gap: 12px;
+      height: 56px; min-height: 56px;
+      background: var(--oxford-blue); padding: 0 12px;
+      color: var(--white);
+    }
+    .back-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; color: var(--white);
+    }
+    .top-bar .title { font-size: 16px; font-weight: 600; flex: 1; }
+
+    /* ── Stats Row ── */
+    .stats-row {
+      display: flex; gap: 8px; padding: 16px;
+    }
+    .stat-card {
+      flex: 1;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 14px 8px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .stat-label { font-size: 12px; color: var(--text-muted); }
+    .stat-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px; font-weight: 700; line-height: 1;
+    }
+    .stat-value.orange { color: var(--level2); }
+    .stat-value.blue   { color: var(--level1); }
+    .stat-value.green  { color: var(--level0); }
+
+    /* ── Scroll ── */
+    .main-scroll {
+      flex: 1; overflow-y: auto;
+      display: flex; flex-direction: column;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── Section Header ── */
+    .section-header {
+      padding: 16px 16px 8px;
+      font-size: 16px; font-weight: 700;
+      color: var(--oxford-blue);
+    }
+    .section-header.done {
+      font-size: 14px; font-weight: 700;
+      color: var(--level0);
+    }
+
+    /* ── Review Card ── */
+    .review-list {
+      padding: 0 16px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .review-card {
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 12px;
+    }
+
+    .review-card-top {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .review-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #e8e8e8;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .review-summary {
+      flex: 1; font-size: 14px; color: var(--text-primary);
+      min-width: 0;
+    }
+
+    .review-level {
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 500; color: var(--white);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .review-level.l2 { background: var(--level2); }
+    .review-level.l1 { background: var(--level1); }
+    .review-level.l0 { background: var(--level0); }
+
+    .btn-review {
+      width: 100%; height: 36px;
+      background: var(--oxford-blue); color: var(--white);
+      border: none; border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-review:active { background: #003366; }
+
+    .btn-review.disabled {
+      background: #ccc; color: #999; cursor: not-allowed; pointer-events: none;
+    }
+
+    /* ── Done Card ── */
+    .done-list {
+      padding: 0 16px 16px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .done-card {
+      background: var(--white); opacity: 0.6;
+      border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 12px;
+    }
+
+    .done-card-top {
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .done-check {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--level0);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .done-info { flex: 1; min-width: 0; }
+
+    .done-title { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+
+    .done-status {
+      font-size: 12px; color: var(--level0); font-weight: 500; margin-top: 2px;
+    }
+
+    /* ── Divider ── */
+    .section-divider {
+      height: 1px; background: #eee; margin: 8px 16px;
+    }
+
+    /* ── Bottom Tab Bar ── */
+    .tab-bar {
+      display: flex; height: 56px; min-height: 56px;
+      background: var(--white); border-top: 1px solid #eee; flex-shrink: 0;
+    }
+    .tab-item {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+      cursor: pointer; background: none; border: none;
+      font-family: 'IBM Plex Sans', sans-serif;
+      color: var(--text-muted); transition: color 0.2s;
+    }
+    .tab-item.active { color: var(--oxford-blue); }
+    .tab-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+    .tab-icon svg { width: 18px; height: 18px; }
+    .tab-label { font-size: 10px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="mobile-shell">
+
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <button class="back-btn" onclick="history.back()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <span class="title">复习中心</span>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">待复习</span>
+        <span class="stat-value orange">8</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">今日已复习</span>
+        <span class="stat-value blue">3</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">已掌握</span>
+        <span class="stat-value green">15</span>
+      </div>
+    </div>
+
+    <!-- Scroll -->
+    <div class="main-scroll">
+
+      <!-- Today Pending -->
+      <h2 class="section-header">今日待复习（8题）</h2>
+      <div class="review-list">
+
+        <!-- Card 1: Level 2 -->
+        <div class="review-card">
+          <div class="review-card-top">
+            <div class="review-num">1</div>
+            <div class="review-summary">氧化还原反应电子转移计算...</div>
+            <span class="review-level l2">Level 2 · 7天后</span>
+          </div>
+          <button class="btn-review">开始复习</button>
+        </div>
+
+        <!-- Card 2: Level 1 -->
+        <div class="review-card">
+          <div class="review-card-top">
+            <div class="review-num">2</div>
+            <div class="review-summary">离子方程式配平练习...</div>
+            <span class="review-level l1">Level 1 · 3天后</span>
+          </div>
+          <button class="btn-review">开始复习</button>
+        </div>
+
+        <!-- Card 3: Level 0 -->
+        <div class="review-card">
+          <div class="review-card-top">
+            <div class="review-num">3</div>
+            <div class="review-summary">化学键类型判断基础...</div>
+            <span class="review-level l0">Level 0 · 首次学习</span>
+          </div>
+          <button class="btn-review">开始复习</button>
+        </div>
+
+      </div>
+
+      <!-- Divider -->
+      <div class="section-divider"></div>
+
+      <!-- Today Done -->
+      <h2 class="section-header done">今日已完成</h2>
+      <div class="done-list">
+
+        <div class="done-card">
+          <div class="done-card-top">
+            <div class="done-check">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--white)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <div class="done-info">
+              <div class="done-title">氧化还原基础练习</div>
+              <div class="done-status">✓ 已掌握</div>
+            </div>
+          </div>
+          <button class="btn-review disabled" style="margin-top:8px">已完成</button>
+        </div>
+
+        <div class="done-card">
+          <div class="done-card-top">
+            <div class="done-check">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <div class="done-info">
+              <div class="done-title">离子反应专项练习</div>
+              <div class="done-status">✓ 已掌握</div>
+            </div>
+          </div>
+          <button class="btn-review disabled" style="margin-top:8px">已完成</button>
+        </div>
+
+        <div class="done-card">
+          <div class="done-card-top">
+            <div class="done-check">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <div class="done-info">
+              <div class="done-title">化学键与分子结构</div>
+              <div class="done-status">✓ 已掌握</div>
+            </div>
+          </div>
+          <button class="btn-review disabled" style="margin-top:8px">已完成</button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar">
+      <button class="tab-item" onclick="location.href='index.html'">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 5.4 1.8"></path><path d="M12 6v4l3 2"></path></svg></span>
+        <span class="tab-label">AI助教</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span>
+        <span class="tab-label">练习</span>
+      </button>
+      <button class="tab-item active">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span>
+        <span class="tab-label">错题</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+        <span class="tab-label">我的</span>
+      </button>
+    </nav>
+
+  </div>
+</body>
+</html>

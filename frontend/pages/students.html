@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1.0">
+  <title>学生管理 - ChemAI 智辅化学</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --oxford-blue-hover: #003366;
+      --teal: #13696a;
+      --teal-hover: #1a8182;
+      --teal-light: #e0f2f1;
+      --warm-paper: #faf8f5;
+      --sidebar-bg: #1a1a2e;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+      --white: #ffffff;
+      --success: #4caf50;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --purple: #7c3aed;
+      --blue: #2563eb;
+      --cyan: #06b6d4;
+      --radius-card: 8px;
+      --radius-chip: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--warm-paper);
+    }
+
+    .page-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Header */
+    .top-header {
+      background: var(--sidebar-bg);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--white);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+    }
+
+    .header-nav {
+      display: flex;
+      gap: 8px;
+    }
+
+    .header-nav a {
+      color: rgba(255,255,255,0.6);
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: var(--radius-card);
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    .header-nav a:hover, .header-nav a.active {
+      color: var(--white);
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: flex;
+      gap: 24px;
+      padding: 20px 32px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 120px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--oxford-blue);
+      font-family: 'Cormorant Garamond', serif;
+    }
+
+    /* Search & Filter */
+    .search-filter-bar {
+      padding: 16px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .search-box:focus {
+      border-color: var(--teal);
+    }
+
+    .search-box::placeholder {
+      color: #a0a0a0;
+    }
+
+    .filter-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      padding: 6px 12px;
+      background: #f0ece6;
+      border: none;
+      border-radius: var(--radius-chip);
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+
+    .filter-chip:hover, .filter-chip.active {
+      background: var(--teal-light);
+      color: var(--teal);
+    }
+
+    /* Student Grid */
+    .student-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      padding: 0 32px 24px;
+      flex: 1;
+    }
+
+    .student-card {
+      background: var(--white);
+      border-radius: var(--radius-card);
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      transition: box-shadow 0.2s ease;
+      cursor: pointer;
+    }
+
+    .student-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .avatar-placeholder {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #e5e5e5;
+      flex-shrink: 0;
+    }
+
+    .card-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .student-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .student-class {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .barrier-bar {
+      display: flex;
+      height: 4px;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .barrier-segment {
+      height: 100%;
+    }
+
+    .barrier-segment.concept { background: var(--purple); }
+    .barrier-segment.reading { background: var(--blue); }
+    .barrier-segment.expression { background: var(--cyan); }
+
+    .trend-dots {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .trend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .trend-dot.up { background: var(--success); }
+    .trend-dot.flat { background: var(--warning); }
+    .trend-dot.down { background: var(--danger); }
+
+    .detail-btn {
+      padding: 6px 14px;
+      background: var(--teal);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-card);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+
+    .detail-btn:hover {
+      background: var(--teal-hover);
+    }
+
+    /* Drawer Overlay */
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      z-index: 100;
+    }
+
+    .drawer-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Detail Drawer */
+    .detail-drawer {
+      position: fixed;
+      top: 0;
+      right: -480px;
+      width: 480px;
+      height: 100vh;
+      background: var(--white);
+      box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+      transition: right 0.3s ease;
+      z-index: 101;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .detail-drawer.open {
+      right: 0;
+    }
+
+    .drawer-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .drawer-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .drawer-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-card);
+      transition: background 0.2s ease;
+    }
+
+    .drawer-close:hover {
+      background: var(--teal-light);
+      color: var(--teal);
+    }
+
+    .drawer-body {
+      padding: 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .info-section h3, .barrier-section h3, .chart-section h3, .tags-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 16px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .info-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .info-value {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .barrier-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .barrier-label {
+      width: 60px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .barrier-track {
+      flex: 1;
+      height: 8px;
+      background: #f0ece6;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .barrier-fill {
+      height: 100%;
+      border-radius: 4px;
+    }
+
+    .barrier-fill.concept { background: var(--purple); }
+    .barrier-fill.reading { background: var(--blue); }
+    .barrier-fill.expression { background: var(--cyan); }
+
+    .barrier-percent {
+      width: 40px;
+      text-align: right;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* CSS Line Chart */
+    .chart-container {
+      width: 100%;
+      height: 120px;
+      position: relative;
+      padding: 10px 0;
+    }
+
+    .chart-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      padding: 5px 10px;
+      background: var(--teal-light);
+      color: var(--teal);
+      border-radius: var(--radius-chip);
+      font-size: 12px;
+    }
+
+    .drawer-actions {
+      padding: 20px 24px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 10px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: var(--radius-card);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'IBM Plex Sans', sans-serif;
+      text-align: center;
+    }
+
+    .action-btn.primary {
+      background: var(--teal);
+      color: var(--white);
+      border: none;
+    }
+
+    .action-btn.primary:hover {
+      background: var(--teal-hover);
+    }
+
+    .action-btn.secondary {
+      background: var(--white);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .action-btn.secondary:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      padding: 16px 32px 32px;
+    }
+
+    .page-btn {
+      min-width: 32px;
+      height: 32px;
+      padding: 0 8px;
+      border: 1px solid var(--border-color);
+      background: var(--white);
+      border-radius: var(--radius-card);
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'IBM Plex Sans', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .page-btn:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    .page-btn.active {
+      background: var(--oxford-blue);
+      color: var(--white);
+      border-color: var(--oxford-blue);
+    }
+
+    .page-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+  </style>
+</head>
+<body>
+  <div class="page-wrapper">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 2L27.5 8.5V21.5L16 28L4.5 21.5V8.5L16 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+          <circle cx="16" cy="15" r="4" fill="currentColor"/>
+          <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+          <circle cx="22" cy="18" r="1.5" fill="currentColor"/>
+          <circle cx="10" cy="18" r="1.5" fill="currentColor"/>
+        </svg>
+        <span>ChemAI 智辅化学</span>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html" data-dom-id="nav-chat">对话</a>
+        <a href="students.html" class="active">学生管理</a>
+        <a href="#">成绩分析</a>
+        <a href="#">设置</a>
+      </nav>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-label">总人数</span>
+        <span class="stat-value">42</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">活跃学生</span>
+        <span class="stat-value">38</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">关注学生</span>
+        <span class="stat-value">5</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">班级平均</span>
+        <span class="stat-value">78.5</span>
+      </div>
+    </div>
+
+    <!-- Search & Filter -->
+    <div class="search-filter-bar">
+      <input type="text" class="search-box" placeholder="搜索学生姓名...">
+      <div class="filter-chips">
+        <button class="filter-chip active">全部班级</button>
+        <button class="filter-chip">高一(1)班</button>
+        <button class="filter-chip">高一(2)班</button>
+        <button class="filter-chip">高一(3)班</button>
+        <button class="filter-chip">概念障碍</button>
+        <button class="filter-chip">审题障碍</button>
+        <button class="filter-chip">表述障碍</button>
+        <button class="filter-chip">活跃状态</button>
+      </div>
+    </div>
+
+    <!-- Student Grid -->
+    <div class="student-grid">
+      <!-- Card 1 -->
+      <div class="student-card">
+        <div class="card-header">
+          <div class="avatar-placeholder"></div>
+          <div class="card-info">
+            <div class="student-name">张小明</div>
+            <div class="student-class">高一(3)班</div>
+          </div>
+        </div>
+        <div class="barrier-bar">
+          <div class="barrier-segment concept" style="width:35%"></div>
+          <div class="barrier-segment reading" style="width:40%"></div>
+          <div class="barrier-segment expression" style="width:25%"></div>
+        </div>
+        <div class="trend-dots">
+          <div class="trend-dot up"></div>
+          <div class="trend-dot up"></div>
+          <div class="trend-dot flat"></div>
+        </div>
+        <button class="detail-btn" onclick="openDrawer()">详情</button>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="student-card">
+        <div class="card-header">
+          <div class="avatar-placeholder"></div>
+          <div class="card-info">
+            <div class="student-name">李思雨</div>
+            <div class="student-class">高一(3)班</div>
+          </div>
+        </div>
+        <div class="barrier-bar">
+          <div class="barrier-segment concept" style="width:20%"></div>
+          <div class="barrier-segment reading" style="width:30%"></div>
+          <div class="barrier-segment expression" style="width:50%"></div>
+        </div>
+        <div class="trend-dots">
+          <div class="trend-dot up"></div>
+          <div class="trend-dot down"></div>
+          <div class="trend-dot up"></div>
+        </div>
+        <button class="detail-btn" onclick="openDrawer()">详情</button>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="student-card">
+        <div class="card-header">
+          <div class="avatar-placeholder"></div>
+          <div class="card-info">
+            <div class="student-name">王浩然</div>
+            <div class="student-class">高一(2)班</div>
+          </div>
+        </div>
+        <div class="barrier-bar">
+          <div class="barrier-segment concept" style="width:45%"></div>
+          <div class="barrier-segment reading" style="width:25%"></div>
+          <div class="barrier-segment expression" style="width:30%"></div>
+        </div>
+        <div class="trend-dots">
+          <div class="trend-dot flat"></div>
+          <div class="trend-dot flat"></div>
+          <div class="trend-dot down"></div>
+        </div>
+        <button class="detail-btn" onclick="openDrawer()">详情</button>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="student-card">
+        <div class="card-header">
+          <div class="avatar-placeholder"></div>
+          <div class="card-info">
+            <div class="student-name">陈佳怡</div>
+            <div class="student-class">高一(1)班</div>
+          </div>
+        </div>
+        <div class="barrier-bar">
+          <div class="barrier-segment concept" style="width:15%"></div>
+          <div class="barrier-segment reading" style="width:55%"></div>
+          <div class="barrier-segment expression" style="width:30%"></div>
+        </div>
+        <div class="trend-dots">
+          <div class="trend-dot up"></div>
+          <div class="trend-dot up"></div>
+          <div class="trend-dot up"></div>
+        </div>
+        <button class="detail-btn" onclick="openDrawer()">详情</button>
+      </div>
+
+      <!-- Card 5 -->
+      <div class="student-card">
+        <div class="card-header">
+          <div class="avatar-placeholder"></div>
+          <div class="card-info">
+            <div class="student-name">刘子轩</div>
+            <div class="student-class">高一(3)班</div>
+          </div>
+        </div>
+        <div class="barrier-bar">
+          <div class="barrier-segment concept" style="width:50%"></div>
+          <div class="barrier-segment reading" style="width:20%"></div>
+          <div class="barrier-segment expression" style="width:30%"></div>
+        </div>
+        <div class="trend-dots">
+          <div class="trend-dot down"></div>
+          <div class="trend-dot flat"></div>
+          <div class="trend-dot up"></div>
+        </div>
+        <button class="detail-btn" onclick="openDrawer()">详情</button>
+      </div>
+
+      <!-- Card 6 -->
+      <div class="student-card">
+        <div class="card-header">
+          <div class="avatar-placeholder"></div>
+          <div class="card-info">
+            <div class="student-name">赵雨薇</div>
+            <div class="student-class">高一(2)班</div>
+          </div>
+        </div>
+        <div class="barrier-bar">
+          <div class="barrier-segment concept" style="width:25%"></div>
+          <div class="barrier-segment reading" style="width:35%"></div>
+          <div class="barrier-segment expression" style="width:40%"></div>
+        </div>
+        <div class="trend-dots">
+          <div class="trend-dot up"></div>
+          <div class="trend-dot down"></div>
+          <div class="trend-dot flat"></div>
+        </div>
+        <button class="detail-btn" onclick="openDrawer()">详情</button>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <button class="page-btn" disabled>上一页</button>
+      <button class="page-btn active">1</button>
+      <button class="page-btn">2</button>
+      <button class="page-btn">3</button>
+      <span style="color:var(--text-muted);padding:0 4px;">...</span>
+      <button class="page-btn">8</button>
+      <button class="page-btn">下一页</button>
+    </div>
+  </div>
+
+  <!-- Drawer Overlay -->
+  <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+  <!-- Detail Drawer -->
+  <aside class="detail-drawer" id="detailDrawer">
+    <div class="drawer-header">
+      <div class="drawer-title">学生详情</div>
+      <button class="drawer-close" onclick="closeDrawer()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- Basic Info -->
+      <div class="info-section">
+        <h3>基本信息</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">姓名</span>
+            <span class="info-value">张小明</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">学号</span>
+            <span class="info-value">2025080101</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">班级</span>
+            <span class="info-value">高一(3)班</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">入学时间</span>
+            <span class="info-value">2025年9月</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barrier Distribution -->
+      <div class="barrier-section">
+        <h3>障碍分布</h3>
+        <div class="barrier-item">
+          <span class="barrier-label">概念</span>
+          <div class="barrier-track">
+            <div class="barrier-fill concept" style="width:35%"></div>
+          </div>
+          <span class="barrier-percent">35%</span>
+        </div>
+        <div class="barrier-item">
+          <span class="barrier-label">审题</span>
+          <div class="barrier-track">
+            <div class="barrier-fill reading" style="width:40%"></div>
+          </div>
+          <span class="barrier-percent">40%</span>
+        </div>
+        <div class="barrier-item">
+          <span class="barrier-label">表述</span>
+          <div class="barrier-track">
+            <div class="barrier-fill expression" style="width:25%"></div>
+          </div>
+          <span class="barrier-percent">25%</span>
+        </div>
+      </div>
+
+      <!-- Score Trend Chart -->
+      <div class="chart-section">
+        <h3>近期成绩趋势</h3>
+        <div class="chart-container">
+          <svg class="chart-svg" viewBox="0 0 400 100" preserveAspectRatio="none">
+            <!-- Grid lines -->
+            <line x1="0" y1="25" x2="400" y2="25" stroke="#f0ece6" stroke-width="1"/>
+            <line x1="0" y1="50" x2="400" y2="50" stroke="#f0ece6" stroke-width="1"/>
+            <line x1="0" y1="75" x2="400" y2="75" stroke="#f0ece6" stroke-width="1"/>
+            <!-- Trend line -->
+            <polyline points="20,60 100,45 180,55 260,30 340,20" fill="none" stroke="#13696a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Data points -->
+            <circle cx="20" cy="60" r="4" fill="#13696a"/>
+            <circle cx="100" cy="45" r="4" fill="#13696a"/>
+            <circle cx="180" cy="55" r="4" fill="#13696a"/>
+            <circle cx="260" cy="30" r="4" fill="#13696a"/>
+            <circle cx="340" cy="20" r="4" fill="#13696a"/>
+            <!-- Labels -->
+            <text x="20" y="92" font-size="10" fill="#888" text-anchor="middle">3月</text>
+            <text x="100" y="92" font-size="10" fill="#888" text-anchor="middle">4月</text>
+            <text x="180" y="92" font-size="10" fill="#888" text-anchor="middle">5月</text>
+            <text x="260" y="92" font-size="10" fill="#888" text-anchor="middle">6月</text>
+            <text x="340" y="92" font-size="10" fill="#888" text-anchor="middle">7月</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Weak Points Tags -->
+      <div class="tags-section">
+        <h3>薄弱知识点</h3>
+        <div class="tag-list">
+          <span class="tag">氧化还原反应</span>
+          <span class="tag">化学方程式配平</span>
+          <span class="tag">摩尔计算</span>
+          <span class="tag">元素周期律</span>
+          <span class="tag">化学键类型</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-actions">
+      <button class="action-btn primary">生成学习计划</button>
+      <button class="action-btn secondary">发送通知</button>
+      <button class="action-btn secondary">编辑信息</button>
+    </div>
+  </aside>
+
+  <script>
+    function openDrawer() {
+      document.getElementById('drawerOverlay').classList.add('open');
+      document.getElementById('detailDrawer').classList.add('open');
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawerOverlay').classList.remove('open');
+      document.getElementById('detailDrawer').classList.remove('open');
+    }
+  </script>
+</body>
+</html>
