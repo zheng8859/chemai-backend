@@ -1,0 +1,953 @@
+{
+  "_description": "",
+  "_version": "1.0",
+  "_total": 86,
+  "tests": [
+    {
+      "id": "B01",
+      "equation": "2H2 + O2 → 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B02",
+      "equation": "N2 + 3H2 → 2NH3",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B03",
+      "equation": "CH4 + 2O2 → CO2 + 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B04",
+      "equation": "CaCO3 → CaO + CO2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B05",
+      "equation": "2KClO3 → 2KCl + 3O2",
+      "expected": {
+        "balance": "passed",
+        "condition": "warning",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B06",
+      "equation": "Fe + O2 → Fe2O3",
+      "expected": {
+        "balance": "blocked",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "blocked"
+      }
+    },
+    {
+      "id": "B07",
+      "equation": "4Fe + 3O2 → 2Fe2O3",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B08",
+      "equation": "Na + H2O → NaOH + H2",
+      "expected": {
+        "balance": "blocked",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "blocked"
+      }
+    },
+    {
+      "id": "B09",
+      "equation": "2Na + 2H2O → 2NaOH + H2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B10",
+      "equation": "Ca(OH)2 + CO2 → CaCO3 + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B11",
+      "equation": "NaOH + HCl → NaCl + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B12",
+      "equation": "H2SO4 + 2NaOH → Na2SO4 + 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B13",
+      "equation": "Fe2O3 + 3CO → 2Fe + 3CO2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B14",
+      "equation": "2Al + 6HCl → 2AlCl3 + 3H2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B15",
+      "equation": "Zn + 2HCl → ZnCl2 + H2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B16",
+      "equation": "CuO + H2 → Cu + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B17",
+      "equation": "2H2O2 → 2H2O + O2",
+      "expected": {
+        "balance": "passed",
+        "condition": "warning",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B18",
+      "equation": "2KMnO4 → K2MnO4 + MnO2 + O2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B19",
+      "equation": "AgNO3 + NaCl → AgCl + NaNO3",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B20",
+      "equation": "BaCl2 + Na2SO4 → BaSO4 + 2NaCl",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B21",
+      "equation": "H2 + Cl2 → 2HCl",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B22",
+      "equation": "N2 + O2 → 2NO",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B23",
+      "equation": "2SO2 + O2 → 2SO3",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B24",
+      "equation": "Fe2(SO4)3 + 6NaOH → 2Fe(OH)3 + 3Na2SO4",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B25",
+      "equation": "Al2(SO4)3 + 6NaOH → 2Al(OH)3 + 3Na2SO4",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B26",
+      "equation": "Cu(OH)2 + 2HCl → CuCl2 + 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B27",
+      "equation": "NH4Cl + NaOH → NaCl + NH3 + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B28",
+      "equation": "2NH4Cl + Ca(OH)2 → CaCl2 + 2NH3 + 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B29",
+      "equation": "Cu + 4HNO3 → Cu(NO3)2 + 2NO2 + 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B30",
+      "equation": "3Cu + 8HNO3 → 3Cu(NO3)2 + 2NO + 4H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B31",
+      "equation": "Fe + CuSO4 → FeSO4 + Cu",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B32",
+      "equation": "2FeCl3 + Fe → 3FeCl2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B33",
+      "equation": "Cl2 + 2NaOH → NaCl + NaClO + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B34",
+      "equation": "2H2S + SO2 → 3S + 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B35",
+      "equation": "3Fe + 2O2 → Fe3O4",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B36",
+      "equation": "2Mg + O2 → 2MgO",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B37",
+      "equation": "S + O2 → SO2",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B38",
+      "equation": "4P + 5O2 → 2P2O5",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B39",
+      "equation": "C + O2 → CO2",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B40",
+      "equation": "2C2H2 + 5O2 → 4CO2 + 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B41",
+      "equation": "C2H5OH + 3O2 → 2CO2 + 3H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B42",
+      "equation": "2H2O → 2H2 + O2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B43",
+      "equation": "2Al + Fe2O3 → 2Fe + Al2O3",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B44",
+      "equation": "Na2CO3 + 2HCl → 2NaCl + CO2 + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B45",
+      "equation": "CaCO3 + 2HCl → CaCl2 + H2CO3",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "failed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B46",
+      "equation": "Na2SO3 + 2HCl → 2NaCl + H2SO3",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "failed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B47",
+      "equation": "NH3 + H2O → NH4OH",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "failed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B48",
+      "equation": "CaCO3 + 2HCl → CaCl2 + CO2 + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B49",
+      "equation": "2NaHCO3 → Na2CO3 + H2O + CO2",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B50",
+      "equation": "CuSO4 + 2NaOH → Cu(OH)2 + Na2SO4",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B51",
+      "equation": "FeCl3 + 3NaOH → Fe(OH)3 + 3NaCl",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B52",
+      "equation": "AlCl3 + 3NH3 + 3H2O → Al(OH)3 + 3NH4Cl",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B53",
+      "equation": "2Al + 2NaOH + 2H2O → 2NaAlO2 + 3H2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B54",
+      "equation": "SiO2 + 2NaOH → Na2SiO3 + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B55",
+      "equation": "3NO2 + H2O → 2HNO3 + NO",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B56",
+      "equation": "4NH3 + 5O2 → 4NO + 6H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B57",
+      "equation": "2SO2 + O2 → 2SO3",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B58",
+      "equation": "N2 + 3H2 → 2NH3",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B59",
+      "equation": "H2O → H2 + O2",
+      "expected": {
+        "balance": "blocked",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "blocked"
+      }
+    },
+    {
+      "id": "B60",
+      "equation": "KClO3 → KCl + O2",
+      "expected": {
+        "balance": "blocked",
+        "condition": "warning",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "blocked"
+      }
+    },
+    {
+      "id": "B61",
+      "equation": "Fe + 2HCl → FeCl3 + H2",
+      "expected": {
+        "balance": "blocked",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "blocked"
+      }
+    },
+    {
+      "id": "B62",
+      "equation": "Cu + 2H2SO4 → CuSO4 + SO2 + 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B63",
+      "equation": "MnO2 + 4HCl → MnCl2 + Cl2 + 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B64",
+      "equation": "2KBr + Cl2 → 2KCl + Br2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B65",
+      "equation": "2KI + Br2 → 2KBr + I2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B66",
+      "equation": "Fe + S → FeS",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B67",
+      "equation": "C + 2H2 → CH4",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B68",
+      "equation": "CO + 2H2 → CH3OH",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B69",
+      "equation": "C2H4 + H2O → C2H5OH",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B70",
+      "equation": "CH3COOH + C2H5OH → CH3COOC2H5 + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B71",
+      "equation": "CaCO3 + 2HCl → CaCl2 + CO2 + H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B72",
+      "equation": "Zn + H2SO4 → ZnSO4 + H2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B73",
+      "equation": "Cu + 2AgNO3 → Cu(NO3)2 + 2Ag",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B74",
+      "equation": "2H2 + O2 → 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B75",
+      "equation": "Fe + O2 → Fe3O4",
+      "expected": {
+        "balance": "blocked",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "blocked"
+      }
+    },
+    {
+      "id": "B76",
+      "equation": "CO + H2O → CO2 + H2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B77",
+      "equation": "CaO + H2O → Ca(OH)2",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B78",
+      "equation": "Na2O + H2O → 2NaOH",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B79",
+      "equation": "CO2 + H2O → H2CO3",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "failed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B80",
+      "equation": "SO3 + H2O → H2SO4",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B81",
+      "equation": "P2O5 + 3H2O → 2H3PO4",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B82",
+      "equation": "2Na + Cl2 → 2NaCl",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B83",
+      "equation": "2H2 + O2 = 2H2O",
+      "expected": {
+        "balance": "passed",
+        "condition": "passed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B84",
+      "equation": "N2 + 3H2 ⇌ 2NH3",
+      "expected": {
+        "balance": "passed",
+        "condition": "failed",
+        "product": "passed",
+        "structure": "passed",
+        "overall": "passed"
+      }
+    },
+    {
+      "id": "B85",
+      "equation": "not an equation",
+      "expected": {
+        "balance": null,
+        "condition": null,
+        "product": null,
+        "structure": null,
+        "overall": "error"
+      }
+    },
+    {
+      "id": "B86",
+      "equation": "",
+      "expected": {
+        "balance": null,
+        "condition": null,
+        "product": null,
+        "structure": null,
+        "overall": "error"
+      }
+    }
+  ]
+}

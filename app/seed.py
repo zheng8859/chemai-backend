@@ -201,12 +201,12 @@ async def seed_demo_org(session) -> tuple[School, Grade, Class, Teacher]:
 
     # Demo Teacher Account + Teacher profile
     result = await session.execute(
-        select(Account).where(Account.username == "teacher_demo")
+        select(Account).where(Account.phone == "13800000000")
     )
     account = result.scalar_one_or_none()
     if account is None:
         account = Account(
-            username="teacher_demo",
+            phone="13800000000",
             password_hash=hash_password("demo123456"),
             role=AccountRole.teacher,
         )
@@ -222,7 +222,6 @@ async def seed_demo_org(session) -> tuple[School, Grade, Class, Teacher]:
             account_id=account.id,
             school_id=school.id,
             name="张老师（演示）",
-            phone="13800000000",
             status=TeacherAccountStatus.approved,
             role=TeacherRole.teacher,
         )

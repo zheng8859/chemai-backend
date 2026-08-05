@@ -23,8 +23,8 @@ from ...schemas.auth import (
     RefreshRequest,
 )
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
-student_router = APIRouter(prefix="/api/students", tags=["students"])
+router = APIRouter(prefix="/auth", tags=["auth"])
+student_router = APIRouter(prefix="/students", tags=["students"])
 
 
 @router.post("/login", response_model=TokenResponse)

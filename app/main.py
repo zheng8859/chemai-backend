@@ -14,7 +14,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
 from .api.deps import AUTH_WHITELIST_PREFIXES
-from .api.v1.auth import router as auth_router, student_router
+from .api.v1 import v1_router
 
 
 # ── Lifespan (startup / shutdown) ──────────────────────────
@@ -61,6 +61,10 @@ async def auth_middleware(
 
     path = request.url.path
 
+    # Skip OPTIONS preflight (CORS)
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
     # Skip whitelisted paths
     if any(path.startswith(prefix) for prefix in AUTH_WHITELIST_PREFIXES):
         return await call_next(request)
@@ -80,8 +84,29 @@ async def auth_middleware(
 
 
 # ── Routers ────────────────────────────────────────────────
-app.include_router(auth_router)
-app.include_router(student_router)
+# 逐个注册子路由到 v1_router，按领域增量添加
+from .api.v1.auth import router as auth_router, student_router
+from .api.v1.org import router as org_router
+from .api.v1.user import router as user_router
+from .api.v1.teaching import router as teaching_router
+from .api.v1.diagnosis import router as diagnosis_router
+from .api.v1.homework import router as homework_router
+from .api.v1.ocr import router as ocr_router
+from .api.v1.question_bank import router as question_bank_router
+from .api.v1.audit import router as audit_router
+
+v1_router.include_router(auth_router)
+v1_router.include_router(student_router)
+v1_router.include_router(org_router)
+v1_router.include_router(user_router)
+v1_router.include_router(teaching_router)
+v1_router.include_router(diagnosis_router)
+v1_router.include_router(homework_router)
+v1_router.include_router(ocr_router)
+v1_router.include_router(question_bank_router)
+v1_router.include_router(audit_router)
+
+app.include_router(v1_router)
 
 
 # ── Health ─────────────────────────────────────────────────

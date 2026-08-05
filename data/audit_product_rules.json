@@ -1,0 +1,44 @@
+{
+  "_description": "四维审核引擎 — 维度3：产物稳定性审核规则库（26号文档 §四）",
+
+  "unstable_intermediates": [
+    { "pattern": "H2CO3",  "replaces": "CO2 + H2O",  "reason": "H2CO3不稳定，分解为CO2和H2O" },
+    { "pattern": "H2SO3",  "replaces": "SO2 + H2O",   "reason": "H2SO3不稳定，分解为SO2和H2O" },
+    { "pattern": "NH4OH",  "replaces": "NH3 + H2O",   "reason": "NH4OH不稳定，分解为NH3和H2O" }
+  ],
+
+  "gas_evolution": [
+    { "reactants": ["碳酸", "CO3"], "acid": true, "product": "CO2", "arrow": "↑", "reason": "碳酸盐遇酸生成CO2气体" },
+    { "reactants": ["亚硫酸", "SO3"], "acid": true, "product": "SO2", "arrow": "↑", "reason": "亚硫酸盐遇酸生成SO2气体" },
+    { "reactants": ["铵", "NH4"], "base": true, "product": "NH3", "arrow": "↑", "reason": "铵盐遇碱加热生成NH3气体" },
+    { "reactants": ["H2S", "硫化物"], "acid": true, "product": "H2S", "arrow": "↑", "reason": "硫化物遇酸生成H2S气体" }
+  ],
+
+  "precipitates": [
+    { "ions": ["Ca2+", "CO32-"], "product": "CaCO3", "color": "白色", "note": "溶于酸" },
+    { "ions": ["Ba2+", "SO42-"], "product": "BaSO4", "color": "白色", "note": "不溶于酸" },
+    { "ions": ["Ag+", "Cl-"],   "product": "AgCl",  "color": "白色", "note": "不溶于酸" },
+    { "ions": ["Fe3+", "OH-"],  "product": "Fe(OH)3", "color": "红褐色" },
+    { "ions": ["Cu2+", "OH-"],  "product": "Cu(OH)2", "color": "蓝色" },
+    { "ions": ["Al3+", "OH-"],  "product": "Al(OH)3", "color": "白色胶状", "note": "溶于过量强碱" },
+    { "ions": ["Mg2+", "OH-"],  "product": "Mg(OH)2", "color": "白色" },
+    { "ions": ["Pb2+", "SO42-"], "product": "PbSO4", "color": "白色" }
+  ],
+
+  "redox_products": [
+    { "acid": "浓H2SO4", "metal": "Cu", "expected": "SO2", "not_expected": "H2", "reason": "浓硫酸氧化性来自S(+6)，被还原为SO2" },
+    { "acid": "稀H2SO4", "metal": "Fe", "expected": "H2", "not_expected": "SO2", "reason": "稀硫酸氧化性来自H+，活泼金属置换出H2" },
+    { "acid": "稀H2SO4", "metal": "Zn", "expected": "H2", "not_expected": "SO2" },
+    { "acid": "浓HNO3", "metal_any": true, "expected": "NO2", "reason": "浓硝酸被还原为NO2" },
+    { "acid": "稀HNO3", "metal_any": true, "expected": "NO", "reason": "稀硝酸被还原为NO" },
+    { "oxidizer": "弱氧化剂", "metal": "Fe", "expected_valence": "Fe2+", "reason": "Fe遇弱氧化剂生成Fe2+" },
+    { "oxidizer": "强氧化剂", "metal": "Fe", "expected_valence": "Fe3+", "reason": "Fe遇强氧化剂生成Fe3+" }
+  ],
+
+  "special_reactions": [
+    { "type": "双水解", "example": "Al3+ + CO32- + H2O → Al(OH)3↓ + CO2↑", "keywords": ["Al3+", "CO32-"] },
+    { "type": "络合溶解", "example": "Cu(OH)2 + 4NH3 → [Cu(NH3)4]2+ + 2OH-", "keywords": ["NH3", "Cu(OH)2"] },
+    { "type": "歧化反应", "example": "Cl2 + 2NaOH → NaCl + NaClO + H2O", "keywords": ["Cl2", "NaOH"] },
+    { "type": "归中反应", "example": "2H2S + SO2 → 3S + 2H2O", "keywords": ["H2S", "SO2"] }
+  ]
+}

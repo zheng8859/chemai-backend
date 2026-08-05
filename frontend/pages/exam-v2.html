@@ -7,7 +7,10 @@
   <title>ChemAI 智辅化学 - 考试工作台</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- KaTeX + mhchem -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <!-- Vue 3 + KaTeX deferred to end of body -->
   <style>
     :root {
       --oxford-blue: #002045;
@@ -22,11 +25,11 @@
       --text-secondary: #666666;
       --text-muted: #888888;
       --success: #4caf50;
+      --error: #b43c28;
       --radius-card: 8px;
       --radius-bubble: 12px;
       --radius-chip: 16px;
 
-      /* Audit badge colors */
       --audit-pass-bg: #e0f2f1;
       --audit-pass-text: #004f50;
       --audit-warn-bg: #fff3cd;
@@ -34,7 +37,6 @@
       --audit-block-bg: #ffdad6;
       --audit-block-text: #93000a;
 
-      /* Status colors */
       --status-active: #1565c0;
       --status-active-bg: #e3f2fd;
       --status-ended: #757575;
@@ -74,761 +76,385 @@
       flex-shrink: 0;
     }
 
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
 
     .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--oxford-blue);
-      text-decoration: none;
+      display: flex; align-items: center; gap: 10px;
+      font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 700;
+      color: var(--oxford-blue); text-decoration: none;
     }
+    .brand-icon { width: 28px; height: 28px; flex-shrink: 0; }
 
-    .brand-icon {
-      width: 28px;
-      height: 28px;
-      flex-shrink: 0;
-    }
-
-    .breadcrumb {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    .breadcrumb a {
-      color: var(--text-secondary);
-      text-decoration: none;
-      transition: color 0.2s ease;
-    }
-
+    .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
+    .breadcrumb a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s ease; }
     .breadcrumb a:hover { color: var(--teal); }
-
     .breadcrumb .sep { color: var(--border-color); }
-
     .breadcrumb .current { color: var(--text-primary); font-weight: 500; }
 
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
+    .header-right { display: flex; align-items: center; gap: 12px; }
     .user-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: var(--oxford-blue);
-      color: var(--white);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 600;
+      width: 32px; height: 32px; border-radius: 50%; background: var(--oxford-blue);
+      color: var(--white); display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600;
     }
 
     /* ── Tab Bar ── */
     .tab-bar {
-      display: flex;
-      gap: 0;
-      padding: 0 32px;
-      background: var(--white);
-      border-bottom: 1px solid var(--border-color);
-      flex-shrink: 0;
+      display: flex; gap: 0; padding: 0 32px;
+      background: var(--white); border-bottom: 1px solid var(--border-color); flex-shrink: 0;
     }
-
     .tab-btn {
-      padding: 14px 24px;
-      font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      background: transparent;
-      border: none;
-      border-bottom: 2px solid transparent;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-      position: relative;
-      bottom: -1px;
+      padding: 14px 24px; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 500;
+      color: var(--text-secondary); background: transparent; border: none;
+      border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s ease;
+      white-space: nowrap; position: relative; bottom: -1px;
     }
-
     .tab-btn:hover { color: var(--text-primary); }
-
-    .tab-btn.active {
-      color: var(--oxford-blue);
-      border-bottom-color: var(--oxford-blue);
-    }
+    .tab-btn.active { color: var(--oxford-blue); border-bottom-color: var(--oxford-blue); }
 
     /* ── Tab Content ── */
-    .tab-content-area {
-      flex: 1;
-      overflow-y: auto;
-      padding: 24px 32px;
-    }
-
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+    .tab-content-area { flex: 1; overflow-y: auto; padding: 24px 32px; }
 
     /* ── Shared Components ── */
     .section-title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 20px;
+      font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 700;
+      color: var(--text-primary); margin-bottom: 20px;
     }
 
     .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 24px;
-      background: var(--oxford-blue);
-      color: var(--white);
-      border: none;
-      border-radius: var(--radius-card);
-      font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 24px; background: var(--oxford-blue); color: var(--white);
+      border: none; border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: background 0.2s ease;
     }
-
     .btn-primary:hover { background: var(--oxford-blue-hover); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-primary svg { width: 16px; height: 16px; }
 
-    .btn-primary svg {
-      width: 16px;
-      height: 16px;
+    .btn-secondary {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 16px; background: var(--white); color: var(--text-secondary);
+      border: 1px solid var(--border-color); border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s ease;
     }
+    .btn-secondary:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+
+    .btn-danger {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 8px 16px; background: transparent; color: var(--error);
+      border: 1px solid var(--error); border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-danger:hover { background: var(--audit-block-bg); }
 
     .form-input {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 14px;
-      color: var(--text-primary);
-      background: var(--white);
-      outline: none;
-      transition: border-color 0.2s ease;
+      width: 100%; padding: 10px 14px; border: 1px solid var(--border-color);
+      border-radius: var(--radius-card); font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; color: var(--text-primary); background: var(--white);
+      outline: none; transition: border-color 0.2s ease;
     }
-
     .form-input:focus { border-color: var(--teal); }
-
     .form-input::placeholder { color: #a0a0a0; }
 
     .form-select {
-      padding: 10px 14px;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 14px;
-      color: var(--text-primary);
-      background: var(--white);
-      outline: none;
-      cursor: pointer;
-      transition: border-color 0.2s ease;
+      padding: 10px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; color: var(--text-primary);
+      background: var(--white); outline: none; cursor: pointer; transition: border-color 0.2s ease;
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      padding-right: 36px;
+      background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px;
     }
-
     .form-select:focus { border-color: var(--teal); }
 
-    .search-input-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
+    textarea.form-input { resize: vertical; min-height: 100px; }
 
+    .search-input-wrapper { position: relative; display: flex; align-items: center; }
     .search-input-wrapper .search-icon {
-      position: absolute;
-      left: 12px;
-      width: 16px;
-      height: 16px;
-      color: var(--text-muted);
-      pointer-events: none;
+      position: absolute; left: 12px; width: 16px; height: 16px;
+      color: var(--text-muted); pointer-events: none;
     }
-
-    .search-input-wrapper .form-input {
-      padding-left: 38px;
-    }
+    .search-input-wrapper .form-input { padding-left: 38px; }
 
     /* ── Chips ── */
-    .chips-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
+    .chips-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
     .chip {
-      padding: 8px 16px;
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-chip);
-      font-size: 13px;
-      font-family: 'IBM Plex Sans', sans-serif;
-      color: var(--text-primary);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s ease;
+      padding: 8px 16px; background: var(--white); border: 1px solid var(--border-color);
+      border-radius: var(--radius-chip); font-size: 13px; font-family: 'IBM Plex Sans', sans-serif;
+      color: var(--text-primary); cursor: pointer; white-space: nowrap; transition: all 0.2s ease;
+      user-select: none;
     }
+    .chip:hover { background: var(--teal-light); border-color: var(--teal); }
+    .chip.active { background: var(--oxford-blue); color: var(--white); border-color: var(--oxford-blue); }
 
-    .chip:hover {
-      background: var(--teal-light);
-      border-color: var(--teal);
+    .chip-remove {
+      margin-left: 6px; cursor: pointer; font-weight: 700; opacity: 0.7;
     }
-
-    .chip.active {
-      background: var(--oxford-blue);
-      color: var(--white);
-      border-color: var(--oxford-blue);
-    }
+    .chip-remove:hover { opacity: 1; }
 
     /* ── Sub-mode Toggle ── */
-    .mode-toggle {
-      display: inline-flex;
-      border-radius: var(--radius-card);
-      overflow: hidden;
-      border: 1px solid var(--border-color);
-    }
-
+    .mode-toggle { display: inline-flex; border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--border-color); }
     .mode-btn {
-      padding: 8px 20px;
-      font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      background: var(--white);
-      border: none;
-      border-right: 1px solid var(--border-color);
-      cursor: pointer;
-      transition: all 0.2s ease;
+      padding: 8px 20px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500;
+      color: var(--text-secondary); background: var(--white);
+      border: none; border-right: 1px solid var(--border-color); cursor: pointer; transition: all 0.2s ease;
     }
-
     .mode-btn:last-child { border-right: none; }
-
     .mode-btn:hover { background: var(--teal-light); }
-
-    .mode-btn.active {
-      background: var(--oxford-blue);
-      color: var(--white);
-    }
+    .mode-btn.active { background: var(--oxford-blue); color: var(--white); }
 
     /* ── Checkbox ── */
-    .checkbox-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: var(--text-primary);
-      cursor: pointer;
-    }
-
-    .checkbox-label input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--teal);
-      cursor: pointer;
-    }
+    .checkbox-label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-primary); cursor: pointer; }
+    .checkbox-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--teal); cursor: pointer; }
 
     /* ── Audit Badges ── */
-    .audit-badges {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
+    .audit-badges { display: flex; gap: 8px; flex-wrap: wrap; }
     .audit-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 10px;
-      border-radius: var(--radius-chip);
-      font-size: 12px;
-      font-weight: 500;
+      display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+      border-radius: var(--radius-chip); font-size: 12px; font-weight: 500;
     }
-
-    .audit-badge.pass {
-      background: var(--audit-pass-bg);
-      color: var(--audit-pass-text);
-    }
-
-    .audit-badge.warning {
-      background: var(--audit-warn-bg);
-      color: var(--audit-warn-text);
-    }
-
-    .audit-badge.blocked {
-      background: var(--audit-block-bg);
-      color: var(--audit-block-text);
-    }
-
+    .audit-badge.pass { background: var(--audit-pass-bg); color: var(--audit-pass-text); }
+    .audit-badge.warning { background: var(--audit-warn-bg); color: var(--audit-warn-text); }
+    .audit-badge.blocked { background: var(--audit-block-bg); color: var(--audit-block-text); }
     .audit-icon { font-size: 11px; }
 
     /* ── Question Cards ── */
-    .question-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
+    .question-list { display: flex; flex-direction: column; gap: 12px; }
     .question-card {
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      padding: 16px 20px;
-      transition: box-shadow 0.2s ease;
+      background: var(--white); border: 1px solid var(--border-color);
+      border-radius: var(--radius-card); padding: 16px 20px;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
     }
+    .question-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .question-card.blocked { border-left: 4px solid var(--audit-block-text); }
+    .question-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+    .question-card-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+    .question-card-type { font-size: 12px; color: var(--teal); background: var(--teal-light); padding: 2px 10px; border-radius: var(--radius-chip); font-weight: 500; flex-shrink: 0; }
+    .question-card-body { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px; }
+    .question-card-footer { display: flex; align-items: center; justify-content: space-between; }
+    .question-card-actions { display: flex; gap: 8px; }
 
-    .question-card:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
+    /* RAG source tag */
+    .rag-source-tag { font-size: 11px; color: var(--teal); background: var(--teal-light); padding: 2px 8px; border-radius: var(--radius-chip); margin-bottom: 8px; display: inline-block; }
 
-    .question-card-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-
-    .question-card-title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 4px;
-    }
-
-    .question-card-type {
-      font-size: 12px;
-      color: var(--teal);
-      background: var(--teal-light);
-      padding: 2px 10px;
-      border-radius: var(--radius-chip);
-      font-weight: 500;
-      flex-shrink: 0;
-    }
-
-    .question-card-body {
-      font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.6;
-      margin-bottom: 12px;
-    }
-
-    .question-card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .question-card-actions {
-      display: flex;
-      gap: 8px;
-    }
+    /* Trap hints panel */
+    .trap-hints { margin-top: 8px; border-top: 1px dashed var(--border-color); padding-top: 8px; }
+    .trap-hints-toggle { font-size: 12px; color: var(--teal); cursor: pointer; user-select: none; }
+    .trap-hints-content { margin-top: 6px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
 
     .btn-icon-text {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 6px 12px;
-      font-size: 12px;
-      font-family: 'IBM Plex Sans', sans-serif;
-      color: var(--text-secondary);
-      background: transparent;
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; font-size: 12px;
+      font-family: 'IBM Plex Sans', sans-serif; color: var(--text-secondary); background: transparent;
+      border: 1px solid var(--border-color); border-radius: var(--radius-card); cursor: pointer;
       transition: all 0.2s ease;
     }
-
-    .btn-icon-text:hover {
-      border-color: var(--teal);
-      color: var(--teal);
-      background: var(--teal-light);
-    }
-
-    .btn-icon-text svg {
-      width: 13px;
-      height: 13px;
-    }
+    .btn-icon-text:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+    .btn-icon-text svg { width: 13px; height: 13px; }
 
     /* ── Tab 1 Layout ── */
-    .workbench-layout {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      max-width: 960px;
-    }
-
-    .workbench-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      padding: 20px;
-    }
-
-    .control-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .control-label {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      min-width: 60px;
-      flex-shrink: 0;
-    }
-
-    .control-row .form-select {
-      width: 140px;
-    }
-
-    .control-row .search-input-wrapper {
-      flex: 1;
-      min-width: 200px;
-    }
+    .workbench-layout { display: flex; flex-direction: column; gap: 20px; max-width: 960px; }
+    .workbench-controls { display: flex; flex-direction: column; gap: 16px; background: var(--white); border: 1px solid var(--border-color); border-radius: var(--radius-card); padding: 20px; }
+    .control-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .control-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); min-width: 60px; flex-shrink: 0; }
+    .control-row .form-select { width: 140px; }
+    .control-row .search-input-wrapper { flex: 1; min-width: 200px; }
 
     .btn-generate {
-      width: 100%;
-      height: 48px;
-      background: var(--oxford-blue);
-      color: var(--white);
-      border: none;
-      border-radius: var(--radius-card);
-      font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s ease;
-      margin-top: 4px;
+      width: 100%; height: 48px; background: var(--oxford-blue); color: var(--white);
+      border: none; border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s ease; margin-top: 4px;
     }
-
     .btn-generate:hover { background: var(--oxford-blue-hover); }
+    .btn-generate:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* Spinner */
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: var(--white); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Qty stepper */
+    .qty-stepper { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
+    .qty-stepper button { width: 22px; height: 22px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--white); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; color: var(--text-primary); }
+    .qty-stepper button:hover { background: var(--teal-light); border-color: var(--teal); }
+    .qty-stepper span { min-width: 20px; text-align: center; font-size: 13px; font-weight: 500; }
 
     /* ── Tab 2 Layout ── */
-    .bank-layout {
-      display: flex;
-      gap: 24px;
-      height: 100%;
-    }
-
-    .bank-sidebar {
-      width: 200px;
-      min-width: 200px;
-      flex-shrink: 0;
-    }
-
-    .folder-list {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
+    .bank-layout { display: flex; gap: 24px; height: 100%; }
+    .bank-sidebar { width: 200px; min-width: 200px; flex-shrink: 0; }
+    .folder-list { display: flex; flex-direction: column; gap: 2px; }
     .folder-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      border-radius: var(--radius-card);
-      font-size: 14px;
-      color: var(--text-primary);
-      cursor: pointer;
-      transition: all 0.2s ease;
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      border-radius: var(--radius-card); font-size: 14px; color: var(--text-primary);
+      cursor: pointer; transition: all 0.2s ease;
     }
-
     .folder-item:hover { background: var(--teal-light); }
-
-    .folder-item.active {
-      background: var(--oxford-blue);
-      color: var(--white);
-    }
-
-    .folder-item svg {
-      width: 18px;
-      height: 18px;
-      flex-shrink: 0;
-    }
-
-    .folder-item .count {
-      margin-left: auto;
-      font-size: 12px;
-      opacity: 0.7;
-    }
-
-    .bank-grid-area {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .bank-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-    }
-
+    .folder-item.active { background: var(--oxford-blue); color: var(--white); }
+    .folder-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .folder-item .count { margin-left: auto; font-size: 12px; opacity: 0.7; }
+    .bank-grid-area { flex: 1; min-width: 0; }
+    .bank-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
     .bank-card {
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      padding: 16px;
-      cursor: pointer;
-      transition: all 0.2s ease;
+      background: var(--white); border: 1px solid var(--border-color); border-radius: var(--radius-card);
+      padding: 16px; cursor: pointer; transition: all 0.2s ease; position: relative;
     }
-
-    .bank-card:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      border-color: var(--teal);
-    }
-
+    .bank-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-color: var(--teal); }
     .bank-card-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: var(--radius-card);
-      background: var(--teal-light);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 12px;
-      color: var(--teal);
+      width: 40px; height: 40px; border-radius: var(--radius-card); background: var(--teal-light);
+      display: flex; align-items: center; justify-content: center; margin-bottom: 12px; color: var(--teal);
     }
-
-    .bank-card-icon svg {
-      width: 20px;
-      height: 20px;
-    }
-
-    .bank-card-title {
-      font-weight: 600;
-      font-size: 14px;
-      margin-bottom: 4px;
-      color: var(--text-primary);
-    }
-
-    .bank-card-meta {
-      font-size: 12px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
+    .bank-card-icon svg { width: 20px; height: 20px; }
+    .bank-card-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; color: var(--text-primary); }
+    .bank-card-meta { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
 
     /* ── Tab 3 Layout ── */
-    .history-layout {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      max-width: 960px;
-    }
-
-    .history-filters {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .history-filters .search-input-wrapper {
-      flex: 1;
-    }
-
-    .history-filters .form-select {
-      width: 140px;
-    }
+    .history-layout { display: flex; flex-direction: column; gap: 20px; max-width: 960px; }
+    .history-filters { display: flex; gap: 12px; align-items: center; }
+    .history-filters .search-input-wrapper { flex: 1; }
+    .history-filters .form-select { width: 140px; }
 
     .history-card {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      padding: 16px 20px;
-      transition: box-shadow 0.2s ease;
-      cursor: pointer;
+      display: flex; align-items: center; gap: 16px; background: var(--white);
+      border: 1px solid var(--border-color); border-radius: var(--radius-card);
+      padding: 16px 20px; transition: box-shadow 0.2s ease; cursor: pointer;
     }
-
-    .history-card:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-
+    .history-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .history-card-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius-card);
-      background: var(--teal-light);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      color: var(--teal);
+      width: 48px; height: 48px; border-radius: var(--radius-card); background: var(--teal-light);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--teal);
     }
+    .history-card-icon svg { width: 24px; height: 24px; }
+    .history-card-info { flex: 1; min-width: 0; }
+    .history-card-title { font-weight: 600; font-size: 15px; color: var(--text-primary); margin-bottom: 4px; }
+    .history-card-detail { font-size: 13px; color: var(--text-secondary); display: flex; gap: 16px; align-items: center; }
+    .history-card-tags { display: flex; gap: 8px; flex-shrink: 0; }
+    .history-card-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-    .history-card-icon svg {
-      width: 24px;
-      height: 24px;
-    }
-
-    .history-card-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .history-card-title {
-      font-weight: 600;
-      font-size: 15px;
-      color: var(--text-primary);
-      margin-bottom: 4px;
-    }
-
-    .history-card-detail {
-      font-size: 13px;
-      color: var(--text-secondary);
-      display: flex;
-      gap: 16px;
-      align-items: center;
-    }
-
-    .history-card-tags {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .region-tag {
-      padding: 4px 10px;
-      background: var(--teal-light);
-      color: var(--teal);
-      border-radius: var(--radius-chip);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .year-tag {
-      padding: 4px 10px;
-      background: #e8eaf6;
-      color: #283593;
-      border-radius: var(--radius-chip);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .question-count-tag {
-      padding: 4px 10px;
-      background: #f5f5f5;
-      color: var(--text-secondary);
-      border-radius: var(--radius-chip);
-      font-size: 12px;
-      font-weight: 500;
-    }
+    .region-tag { padding: 4px 10px; background: var(--teal-light); color: var(--teal); border-radius: var(--radius-chip); font-size: 12px; font-weight: 500; }
+    .year-tag { padding: 4px 10px; background: #e8eaf6; color: #283593; border-radius: var(--radius-chip); font-size: 12px; font-weight: 500; }
+    .question-count-tag { padding: 4px 10px; background: #f5f5f5; color: var(--text-secondary); border-radius: var(--radius-chip); font-size: 12px; font-weight: 500; }
 
     /* ── Tab 4 Layout ── */
-    .exam-layout {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      max-width: 960px;
-    }
-
-    .exam-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
+    .exam-layout { display: flex; flex-direction: column; gap: 20px; max-width: 960px; }
+    .exam-list { display: flex; flex-direction: column; gap: 12px; }
     .exam-card {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      padding: 16px 20px;
-      transition: box-shadow 0.2s ease;
-      cursor: pointer;
+      display: flex; align-items: center; gap: 16px; background: var(--white);
+      border: 1px solid var(--border-color); border-radius: var(--radius-card);
+      padding: 16px 20px; transition: box-shadow 0.2s ease; cursor: pointer;
     }
-
-    .exam-card:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-
+    .exam-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .exam-card-avatar {
-      width: 44px;
-      height: 44px;
-      border-radius: var(--radius-card);
-      background: var(--teal-light);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      color: var(--teal);
+      width: 44px; height: 44px; border-radius: var(--radius-card); background: var(--teal-light);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--teal);
     }
+    .exam-card-avatar svg { width: 22px; height: 22px; }
+    .exam-card-info { flex: 1; min-width: 0; }
+    .exam-card-title { font-weight: 600; font-size: 15px; color: var(--text-primary); margin-bottom: 4px; }
+    .exam-card-meta { font-size: 13px; color: var(--text-secondary); display: flex; gap: 16px; align-items: center; }
+    .exam-card-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-    .exam-card-avatar svg {
-      width: 22px;
-      height: 22px;
-    }
+    .status-label { padding: 4px 12px; border-radius: var(--radius-chip); font-size: 12px; font-weight: 500; flex-shrink: 0; }
+    .status-label.active-status { background: var(--status-active-bg); color: var(--status-active); }
+    .status-label.ended { background: var(--status-ended-bg); color: var(--status-ended); }
+    .status-label.draft { background: var(--status-draft-bg); color: var(--status-draft); }
 
-    .exam-card-info {
-      flex: 1;
-      min-width: 0;
-    }
+    /* ── Skeleton Screen ── */
+    .skeleton { background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s ease-in-out infinite; border-radius: 4px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .skeleton-card { height: 120px; margin-bottom: 12px; }
+    .skeleton-line { height: 14px; margin-bottom: 8px; }
+    .skeleton-line.short { width: 60%; }
 
-    .exam-card-title {
-      font-weight: 600;
-      font-size: 15px;
-      color: var(--text-primary);
-      margin-bottom: 4px;
-    }
+    /* ── Empty State ── */
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+    .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .empty-state-text { font-size: 14px; margin-bottom: 16px; }
 
-    .exam-card-meta {
-      font-size: 13px;
-      color: var(--text-secondary);
-      display: flex;
-      gap: 16px;
-      align-items: center;
-    }
+    /* ── Error State ── */
+    .error-state { text-align: center; padding: 32px 24px; color: var(--error); }
+    .error-state-text { font-size: 14px; margin-bottom: 12px; }
 
-    .status-label {
-      padding: 4px 12px;
-      border-radius: var(--radius-chip);
-      font-size: 12px;
-      font-weight: 500;
-      flex-shrink: 0;
-    }
+    /* ── Toast ── */
+    .toast-container { position: fixed; top: 72px; right: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 12px 20px; border-radius: var(--radius-card); font-size: 13px; color: var(--white); min-width: 240px; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: toast-in 0.3s ease; display: flex; align-items: center; gap: 8px; }
+    .toast.success { background: #2c6e49; }
+    .toast.error { background: var(--error); }
+    .toast.warning { background: #e67e00; }
+    @keyframes toast-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
 
-    .status-label.active-status {
-      background: var(--status-active-bg);
-      color: var(--status-active);
-    }
+    /* ── Modal ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9000; display: flex; align-items: center; justify-content: center; }
+    .modal-card { background: var(--white); border-radius: var(--radius-card); box-shadow: 0 8px 32px rgba(0,0,0,0.18); padding: 24px; min-width: 360px; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; }
+    .modal-card.wide { max-width: 800px; }
+    .modal-header { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 700; margin-bottom: 16px; color: var(--text-primary); }
+    .modal-body { flex: 1; overflow-y: auto; margin-bottom: 16px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 12px; }
+    .modal-list-item { padding: 10px 14px; border-radius: var(--radius-card); cursor: pointer; transition: background 0.2s ease; border: 1px solid transparent; }
+    .modal-list-item:hover { background: var(--teal-light); }
+    .modal-list-item.selected { border-color: var(--teal); background: var(--teal-light); }
 
-    .status-label.ended {
-      background: var(--status-ended-bg);
-      color: var(--status-ended);
-    }
+    /* Checklist Modal */
+    .chk-search-bar { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .chk-search-bar input { flex: 1; }
+    .chk-actions { display: flex; gap: 8px; margin-bottom: 8px; }
+    .chk-actions button { padding: 4px 10px; font-size: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--white); cursor: pointer; color: var(--text-secondary); }
+    .chk-actions button:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+    .chk-list { overflow-y: auto; }
+    .chk-row { border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 6px; overflow: hidden; }
+    .chk-row.selected { border-color: var(--teal); background: var(--teal-light); }
+    .chk-row-header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; user-select: none; }
+    .chk-row-check { width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--teal); cursor: pointer; }
+    .chk-row-label { flex: 1; min-width: 0; }
+    .chk-row-label .src-tag { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-right: 4px; }
+    .chk-row-label .src-tag.bank { background: var(--teal-light); color: var(--teal); }
+    .chk-row-label .src-tag.history { background: #e8eaf6; color: #283593; }
+    .chk-row-label .type-tag { font-size: 11px; color: var(--text-muted); margin-right: 4px; }
+    .chk-row-label .chk-title { font-size: 13px; color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+    /* Checklist drawer */
+    .chk-drawer { width: 38%; min-width: 200px; max-width: 320px; border-left: 1px solid var(--border-color); padding-left: 12px; display: flex; flex-direction: column; flex-shrink: 0; animation: drawer-in 0.2s ease; }
+    @keyframes drawer-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+    .chk-drawer-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--border-color); }
+    .chk-drawer-close { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text-muted); padding: 2px 6px; border-radius: 4px; }
+    .chk-drawer-close:hover { background: var(--audit-block-bg); color: var(--error); }
+    .chk-drawer-body { flex: 1; overflow-y: auto; font-size: 12px; line-height: 1.6; }
+    .chk-row.active { border-color: var(--oxford-blue) !important; }
+    .chk-tooltip { position: fixed; z-index: 9500; background: var(--oxford-blue); color: var(--white); padding: 6px 10px; border-radius: 4px; font-size: 12px; max-width: 400px; pointer-events: none; line-height: 1.5; }
+    .modal-card.draggable { cursor: move; user-select: none; }
+    .modal-body.no-mb { margin-bottom: 0; }
 
-    .status-label.draft {
-      background: var(--status-draft-bg);
-      color: var(--status-draft);
-    }
+    /* ── Subject chips in question card ── */
+    .subject-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .subject-chip { padding: 2px 8px; background: #f0f4ff; color: #283593; border-radius: var(--radius-chip); font-size: 11px; }
+
+    /* ── OCR area ── */
+    .dropzone { border: 2px dashed var(--border-color); border-radius: var(--radius-card); padding: 48px 24px; text-align: center; transition: all 0.2s ease; cursor: pointer; color: var(--text-muted); background: var(--white); }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+    .dropzone-icon { font-size: 36px; margin-bottom: 12px; }
+    .progress-bar-container { background: #e0e0e0; border-radius: 4px; height: 8px; margin: 12px 0; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--teal); border-radius: 4px; transition: width 0.3s ease; }
+
+    /* ── OCR result table ── */
+    .ocr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ocr-table th, .ocr-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+    .ocr-table th { font-weight: 600; color: var(--text-secondary); background: #fafafa; }
+    .ocr-table td input { width: 100%; border: 1px solid transparent; padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: inherit; }
+    .ocr-table td input:focus { border-color: var(--teal); outline: none; }
+
+    /* ── Pagination ── */
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px; }
+    .pagination button { padding: 6px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-card); background: var(--white); cursor: pointer; font-size: 13px; color: var(--text-primary); transition: all 0.2s ease; }
+    .pagination button:hover:not(:disabled) { border-color: var(--teal); color: var(--teal); }
+    .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pagination button.active { background: var(--oxford-blue); color: var(--white); border-color: var(--oxford-blue); }
+    .pagination span { font-size: 13px; color: var(--text-secondary); }
+
+    /* ── Knowledge search dropdown ── */
+    .search-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1px solid var(--border-color); border-radius: var(--radius-card); max-height: 200px; overflow-y: auto; z-index: 100; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .search-dropdown-item { padding: 8px 14px; cursor: pointer; font-size: 13px; transition: background 0.15s ease; }
+    .search-dropdown-item:hover { background: var(--teal-light); }
+    .search-dropdown-item.selected { background: var(--oxford-blue); color: var(--white); }
 
     /* ── Scrollbar ── */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -838,495 +464,1764 @@
   </style>
 </head>
 <body>
-  <div class="app-shell">
+  <div id="app">
+    <div class="app-shell">
 
-    <!-- Top Header -->
-    <header class="top-header">
-      <div class="header-left">
-        <a href="index.html" class="brand">
-          <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 2L27.5 8.5V21.5L16 28L4.5 21.5V8.5L16 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
-            <circle cx="16" cy="15" r="4" fill="currentColor"/>
-            <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
-            <circle cx="22" cy="18" r="1.5" fill="currentColor"/>
-            <circle cx="10" cy="18" r="1.5" fill="currentColor"/>
-          </svg>
-          <span>ChemAI 智辅化学</span>
-        </a>
-        <div class="breadcrumb">
-          <span class="sep">/</span>
-          <a href="index.html">对话</a>
-          <span class="sep">/</span>
-          <span class="current">考试工作台</span>
-        </div>
-      </div>
-      <div class="header-right">
-        <span style="font-size:13px;color:var(--text-secondary)">李老师</span>
-        <div class="user-avatar">李</div>
-      </div>
-    </header>
-
-    <!-- Tab Bar -->
-    <nav class="tab-bar" id="tabBar">
-      <button class="tab-btn active" data-tab="tab-create">出题工作台</button>
-      <button class="tab-btn" data-tab="tab-bank">题库管理</button>
-      <button class="tab-btn" data-tab="tab-history">历史真题库</button>
-      <button class="tab-btn" data-tab="tab-exams">考试列表</button>
-    </nav>
-
-    <!-- Tab Content -->
-    <div class="tab-content-area">
-
-      <!-- ═══════════════ Tab 1: 出题工作台 ═══════════════ -->
-      <div class="tab-panel active" id="tab-create">
-        <div class="workbench-layout">
-
-          <!-- Sub-mode Toggle -->
-          <div class="control-row">
-            <span class="control-label">模式</span>
-            <div class="mode-toggle" id="modeToggle">
-              <button class="mode-btn active" data-mode="ai">🤖 AI 生成</button>
-              <button class="mode-btn" data-mode="manual">✏️ 手动录入</button>
-              <button class="mode-btn" data-mode="ocr">📷 OCR 导入</button>
-            </div>
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <a href="index.html" class="brand">
+            <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 2L27.5 8.5V21.5L16 28L4.5 21.5V8.5L16 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+              <circle cx="16" cy="15" r="4" fill="currentColor"/>
+              <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+              <circle cx="22" cy="18" r="1.5" fill="currentColor"/>
+              <circle cx="10" cy="18" r="1.5" fill="currentColor"/>
+            </svg>
+            <span>ChemAI 智辅化学</span>
+          </a>
+          <div class="breadcrumb">
+            <span class="sep">/</span>
+            <a href="index.html">对话</a>
+            <span class="sep">/</span>
+            <span class="current">考试工作台</span>
           </div>
+        </div>
+        <div class="header-right">
+          <span style="font-size:13px;color:var(--text-secondary)">{{ userDisplayName }}</span>
+          <div class="user-avatar">{{ userInitial }}</div>
+        </div>
+      </header>
 
-          <!-- Controls -->
-          <div class="workbench-controls">
-            <!-- Question Type Chips -->
+      <!-- Tab Bar -->
+      <nav class="tab-bar">
+        <button class="tab-btn" :class="{ active: currentTab === 'create' }" @click="currentTab = 'create'">出题工作台</button>
+        <button class="tab-btn" :class="{ active: currentTab === 'bank' }" @click="currentTab = 'bank'">题库管理</button>
+        <button class="tab-btn" :class="{ active: currentTab === 'history' }" @click="currentTab = 'history'">历史真题库</button>
+        <button class="tab-btn" :class="{ active: currentTab === 'exams' }" @click="currentTab = 'exams'">考试列表</button>
+      </nav>
+
+      <!-- Tab Content -->
+      <div class="tab-content-area">
+
+        <!-- ══════════ Tab 1: 出题工作台 ══════════ -->
+        <div v-show="currentTab === 'create'">
+          <div class="workbench-layout">
+
+            <!-- Sub-mode Toggle -->
             <div class="control-row">
-              <span class="control-label">题型</span>
-              <div class="chips-row" id="questionTypeChips">
-                <button class="chip active">选择题</button>
-                <button class="chip">填空题</button>
-                <button class="chip">计算题</button>
-                <button class="chip">方程式配平</button>
-                <button class="chip">实验探究</button>
+              <span class="control-label">模式</span>
+              <div class="mode-toggle">
+                <button class="mode-btn" :class="{ active: createMode === 'ai' }" @click="createMode = 'ai'">🤖 AI 生成</button>
+                <button class="mode-btn" :class="{ active: createMode === 'manual' }" @click="createMode = 'manual'">✏️ 手动录入</button>
+                <button class="mode-btn" :class="{ active: createMode === 'ocr' }" @click="createMode = 'ocr'">📷 OCR 导入</button>
               </div>
             </div>
 
-            <!-- Difficulty + Knowledge Search -->
-            <div class="control-row">
-              <span class="control-label">难度</span>
-              <select class="form-select">
-                <option>简单</option>
-                <option selected>中等</option>
-                <option>困难</option>
-              </select>
-              <span class="control-label" style="margin-left:12px">知识点</span>
+            <!-- ══ Mode 1: AI 生成 ══ -->
+            <div v-if="createMode === 'ai'">
+              <div class="workbench-controls">
+                <!-- Question Type Chips (multi-select with qty) -->
+                <div class="control-row">
+                  <span class="control-label">题型</span>
+                  <div class="chips-row">
+                    <button v-for="(qt, qi) in questionTypes" :key="qt.value"
+                      class="chip" :class="{ active: qt.selected }"
+                      @click="toggleQuestionType(qi)">
+                      {{ qt.label }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Difficulty + Knowledge Search -->
+                <div class="control-row">
+                  <span class="control-label">难度</span>
+                  <select class="form-select" v-model="genDifficulty">
+                    <option value="easy">简单</option>
+                    <option value="medium">中等</option>
+                    <option value="hard">困难</option>
+                  </select>
+                  <span class="control-label" style="margin-left:12px">知识点</span>
+                  <div class="search-input-wrapper" style="position:relative">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" class="form-input" placeholder="搜索知识点..." v-model="kpSearchText" @input="onKpSearchInput" @focus="onKpFocus" @blur="onKpBlur">
+                    <div class="search-dropdown" v-if="kpDropdownVisible && kpSuggestions.length">
+                      <div class="search-dropdown-item" v-for="kp in kpSuggestions" :key="kp.name"
+                        :class="{ selected: isKpSelected(kp) }"
+                        @mousedown.prevent="toggleKp(kp)">
+                        {{ kp.name }} <span style="color:var(--text-muted);font-size:11px">{{ kp.category }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Selected KPs -->
+                <div class="control-row" v-if="selectedKps.length">
+                  <span class="control-label">已选</span>
+                  <div class="chips-row">
+                    <span v-for="kp in selectedKps" :key="kp.name" class="chip active" style="font-size:12px">
+                      {{ kp.name }} <span class="chip-remove" @click="removeKp(kp)">×</span>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Variant Checkbox -->
+                <div class="control-row">
+                  <label class="checkbox-label">
+                    <input type="checkbox" v-model="genVariant">
+                    <span>基于真题变体</span>
+                  </label>
+                  <button v-if="genVariant" class="btn-secondary" @click="openVariantBrowser" style="font-size:12px">
+                    {{ variantBlueprint ? `蓝本题: ${variantBlueprint.source || '#' + variantBlueprint.id}` : '选择蓝本题' }}
+                  </button>
+                </div>
+
+                <!-- Generate Button -->
+                <button class="btn-generate" :disabled="genLoading" @click="generateQuestions">
+                  <span v-if="genLoading" class="spinner"></span>
+                  {{ genLoading ? '生成中...' : '⚡ 生成题目' }}
+                </button>
+              </div>
+
+              <!-- Error -->
+              <div v-if="genError" class="error-state">
+                <div class="error-state-text">{{ genError }}</div>
+                <button class="btn-secondary" @click="generateQuestions">重试</button>
+              </div>
+
+              <!-- Generated Question Cards -->
+              <template v-if="genQuestions.length">
+                <h2 class="section-title" style="margin-top:20px">生成的题目 ({{ genQuestions.length }})</h2>
+                <div class="question-list">
+                  <div v-for="(q, idx) in genQuestions" :key="idx" class="question-card" :class="{ blocked: isQuestionBlocked(q) }">
+                    <div class="question-card-header">
+                      <div>
+                        <div class="question-card-title">Q{{ idx + 1 }} · {{ q.knowledge_point_tags?.[0] || '题目' }}</div>
+                      </div>
+                      <span class="question-card-type">{{ typeLabel(q.question_type) }}</span>
+                    </div>
+                    <div class="question-card-body" v-katex>
+                      {{ q.content }}
+                      <template v-if="q.options && q.options.length">
+                        <br><span v-for="(opt, oi) in q.options" :key="oi" style="display:block;margin-left:16px">{{ opt }}</span>
+                      </template>
+                    </div>
+                    <!-- RAG source -->
+                    <div v-if="q.rag_mark" class="rag-source-tag">
+                      📎 基于 {{ q.rag_mark.source_question_preview || '真题' }} 变体生成
+                    </div>
+                    <div class="question-card-footer">
+                      <div class="audit-badges" v-if="q.audit_report">
+                        <span class="audit-badge" v-for="dim in auditDimensions" :key="dim.key"
+                          :class="auditBadgeClass(q.audit_report[dim.key])">
+                          <span class="audit-icon">{{ auditIcon(q.audit_report[dim.key]) }}</span> {{ dim.label }}
+                        </span>
+                      </div>
+                      <div class="audit-badges" v-else>
+                        <span class="audit-badge pass"><span class="audit-icon">✓</span> 已通过</span>
+                      </div>
+                      <div class="question-card-actions">
+                        <button class="btn-icon-text" @click="editQuestion(q)">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          编辑
+                        </button>
+                        <button class="btn-icon-text" @click="saveToBank(q)">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                          收藏
+                        </button>
+                        <button class="btn-icon-text" @click="addToExam(q)">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                          加入考试
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Blocked warning -->
+                    <div v-if="isQuestionBlocked(q)" style="margin-top:8px;padding:6px 12px;background:var(--audit-block-bg);color:var(--audit-block-text);border-radius:6px;font-size:12px;font-weight:500">
+                      ⚠ 审核未通过，不会下发给学生
+                    </div>
+                    <!-- Trap Hints -->
+                    <div class="trap-hints" v-if="q.trap_hints && q.trap_hints.length">
+                      <span class="trap-hints-toggle" @click="q._showHints = !q._showHints">
+                        {{ q._showHints ? '▾' : '▸' }} 教学提示 ({{ q.trap_hints.length }}条)
+                      </span>
+                      <div class="trap-hints-content" v-if="q._showHints">
+                        <div v-for="(h, hi) in q.trap_hints" :key="hi">• {{ h }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Empty state for no questions -->
+              <div v-if="!genLoading && !genError && !genQuestions.length" class="empty-state">
+                <div class="empty-state-icon">🧪</div>
+                <div class="empty-state-text">配置参数后点击"生成题目"开始智能出题</div>
+              </div>
+            </div>
+
+            <!-- ══ Mode 2: 手动录入 ══ -->
+            <div v-if="createMode === 'manual'" class="workbench-controls">
+              <div class="control-row">
+                <span class="control-label">题型</span>
+                <select class="form-select" v-model="manualForm.question_type" style="width:160px">
+                  <option value="choice">选择题</option>
+                  <option value="fill_blank">填空题</option>
+                  <option value="calculation">计算题</option>
+                  <option value="experiment_inquiry">实验探究</option>
+                  <option value="equation_balancing">方程式配平</option>
+                </select>
+                <span class="control-label" style="margin-left:12px">难度</span>
+                <select class="form-select" v-model="manualForm.difficulty" style="width:140px">
+                  <option value="easy">简单</option>
+                  <option value="medium">中等</option>
+                  <option value="hard">困难</option>
+                </select>
+              </div>
+              <div class="control-row">
+                <span class="control-label">正文</span>
+                <textarea class="form-input" v-model="manualForm.content" placeholder="输入题目正文，化学式用 $...$ 或 \ce{...} 包裹" rows="3"></textarea>
+              </div>
+              <!-- Options for choice type -->
+              <div v-if="manualForm.question_type === 'choice'">
+                <div class="control-row" v-for="(opt, oi) in manualForm.options" :key="oi">
+                  <span class="control-label">{{ String.fromCharCode(65 + oi) }}.</span>
+                  <input type="text" class="form-input" v-model="manualForm.options[oi]" :placeholder="'选项 ' + String.fromCharCode(65 + oi)">
+                  <button v-if="manualForm.options.length > 2" class="btn-danger" style="padding:4px 8px;font-size:11px" @click="manualForm.options.splice(oi, 1)">×</button>
+                </div>
+                <button v-if="manualForm.options.length < 6" class="btn-secondary" style="margin-top:4px" @click="manualForm.options.push('')">+ 添加选项</button>
+              </div>
+              <div class="control-row">
+                <span class="control-label">答案</span>
+                <input type="text" class="form-input" v-model="manualForm.answer" placeholder="选择题填选项字母，其他题型填答案内容" style="flex:1">
+              </div>
+              <div class="control-row">
+                <span class="control-label">解析</span>
+                <textarea class="form-input" v-model="manualForm.analysis" placeholder="题目解析（可选）" rows="2"></textarea>
+              </div>
+              <!-- KPs for manual -->
+              <div class="control-row">
+                <span class="control-label">知识点</span>
+                <div class="search-input-wrapper" style="flex:1;position:relative">
+                  <input type="text" class="form-input" placeholder="搜索知识点..." v-model="manualKpSearch" @input="onManualKpSearch" @focus="manualKpDropdown = true" @blur="onManualKpBlur">
+                  <div class="search-dropdown" v-if="manualKpDropdown && manualKpSuggestions.length">
+                    <div class="search-dropdown-item" v-for="kp in manualKpSuggestions" :key="kp.name"
+                      @mousedown.prevent="addManualKp(kp)">{{ kp.name }}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="control-row" v-if="manualForm.knowledge_point_tags.length">
+                <span class="control-label">已选</span>
+                <div class="chips-row">
+                  <span v-for="(kp, ki) in manualForm.knowledge_point_tags" :key="ki" class="chip active" style="font-size:12px">
+                    {{ kp }} <span class="chip-remove" @click="manualForm.knowledge_point_tags.splice(ki, 1)">×</span>
+                  </span>
+                </div>
+              </div>
+              <button class="btn-generate" :disabled="manualSaving" @click="submitManual">
+                <span v-if="manualSaving" class="spinner"></span>
+                {{ manualSaving ? '保存中...' : '保存题目' }}
+              </button>
+              <div v-if="manualError" class="error-state"><div class="error-state-text">{{ manualError }}</div></div>
+            </div>
+
+            <!-- ══ Mode 3: OCR 导入 ══ -->
+            <div v-if="createMode === 'ocr'" class="workbench-controls">
+              <div class="dropzone" :class="{ dragover: ocrDragover }"
+                @dragover.prevent="ocrDragover = true"
+                @dragleave="ocrDragover = false"
+                @drop.prevent="onOcrDrop"
+                @click="onOcrClick">
+                <div class="dropzone-icon">📤</div>
+                <div>拖拽或点击上传答题卡图片 (JPG/PNG/PDF)</div>
+                <div style="font-size:12px;margin-top:8px;color:var(--text-muted)">单文件上限 10 MB，单批上限 10 张</div>
+                <input type="file" ref="ocrFileInput" accept="image/jpeg,image/png,application/pdf" multiple style="display:none" @change="onOcrFileChange">
+              </div>
+
+              <!-- OCR Progress -->
+              <div v-if="ocrUploading">
+                <div style="margin:12px 0;font-size:13px;color:var(--text-secondary)">上传中...</div>
+                <div class="progress-bar-container"><div class="progress-bar-fill" :style="{ width: ocrProgress + '%' }"></div></div>
+              </div>
+
+              <!-- OCR Results Table -->
+              <div v-if="ocrResults.length">
+                <h3 class="section-title" style="margin-top:20px">识别结果预览</h3>
+                <div style="overflow-x:auto">
+                  <table class="ocr-table">
+                    <thead>
+                      <tr><th>#</th><th>题目内容</th><th>题型</th><th>答案</th><th>状态</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(r, ri) in ocrResults" :key="ri">
+                        <td>{{ ri + 1 }}</td>
+                        <td><input v-model="r.content" placeholder="题目内容"></td>
+                        <td><input v-model="r.question_type" placeholder="题型" style="width:80px"></td>
+                        <td><input v-model="r.answer" placeholder="答案" style="width:80px"></td>
+                        <td><span class="audit-badge pass">✓</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <button class="btn-generate" style="margin-top:12px" :disabled="ocrSaving" @click="batchSaveOcr">
+                  <span v-if="ocrSaving" class="spinner"></span>
+                  {{ ocrSaving ? '批量保存中...' : '批量保存到题库' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════ Tab 2: 题库管理 ══════════ -->
+        <div v-show="currentTab === 'bank'">
+          <div class="bank-layout">
+            <!-- Loading / Error / Empty -->
+            <template v-if="foldersLoading">
+              <div style="width:200px"><div class="skeleton skeleton-line" style="width:80%"></div><div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:70%"></div></div>
+              <div style="flex:1"><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div></div>
+            </template>
+            <template v-else-if="foldersError">
+              <div class="error-state" style="width:100%">
+                <div class="error-state-text">{{ foldersError }}</div>
+                <button class="btn-secondary" @click="loadFolders">重试</button>
+              </div>
+            </template>
+            <template v-else-if="!folders.length">
+              <div class="empty-state" style="width:100%">
+                <div class="empty-state-icon">📁</div>
+                <div class="empty-state-text">暂无题库，请先在出题工作台创建题目</div>
+                <button class="btn-primary" @click="currentTab = 'create'">去出题</button>
+              </div>
+            </template>
+            <template v-else>
+              <!-- Folder Sidebar -->
+              <div class="bank-sidebar">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                  <h2 class="section-title" style="margin-bottom:0">题库</h2>
+                  <button class="btn-secondary" style="padding:4px 10px;font-size:12px" @click="newFolder">+ 新建</button>
+                </div>
+                <div class="folder-list">
+                  <div class="folder-item" v-for="f in folders" :key="f.id"
+                    :class="{ active: selectedFolderId === f.id }"
+                    @click="selectFolder(f)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <span>{{ f.name }}</span>
+                    <span class="count">{{ f.question_count || 0 }}</span>
+                    <span v-if="selectedFolderId === f.id" style="margin-left:4px;cursor:pointer;opacity:0.6;font-size:12px" @click.stop="deleteFolder(f)" title="删除文件夹">✕</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Question Grid -->
+              <div class="bank-grid-area" ref="bankGridRef">
+                <h2 class="section-title">{{ selectedFolder ? selectedFolder.name + ' · 全部题目' : '全部题目' }}</h2>
+                <div class="bank-grid">
+                  <div v-for="item in bankItems" :key="item.id" class="bank-card" @click="previewQuestion(item)">
+                    <div class="bank-card-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                    </div>
+                    <div class="bank-card-title">{{ item.content?.substring(0, 24) || '题目' }}...</div>
+                    <div class="bank-card-meta">{{ typeLabel(item.question_type) }} · {{ diffLabel(item.difficulty) }}</div>
+                    <button class="btn-danger" style="position:absolute;top:6px;right:6px;padding:2px 6px;font-size:10px" @click.stop="removeFromFolder(item)" title="从文件夹移除">✕</button>
+                  </div>
+                </div>
+                <div ref="bankSentinel" style="height:1px"></div>
+                <div v-if="bankLoadingMore" style="text-align:center;padding:16px;color:var(--text-muted)">加载中...</div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- ══════════ Tab 3: 历史真题库 ══════════ -->
+        <div v-show="currentTab === 'history'">
+          <div class="history-layout">
+            <!-- Filters -->
+            <div class="history-filters">
               <div class="search-input-wrapper">
                 <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <input type="text" class="form-input" placeholder="搜索知识点..." value="氧化还原反应">
+                <input type="text" class="form-input" placeholder="搜索真题..." v-model="historySearch" @input="onHistorySearch">
               </div>
+              <select class="form-select" v-model="historySourceFilter" @change="loadHistoricalExams(true)">
+                <option value="">全部地区</option>
+                <option value="北京">北京</option>
+                <option value="上海">上海</option>
+                <option value="江苏">江苏</option>
+                <option value="浙江">浙江</option>
+                <option value="全国卷">全国卷</option>
+                <option value="湖南卷">湖南卷</option>
+              </select>
+              <select class="form-select" v-model="historyYearFilter" @change="loadHistoricalExams(true)">
+                <option value="">全部年份</option>
+                <option v-for="y in historyYears" :key="y" :value="y">{{ y }}</option>
+              </select>
             </div>
 
-            <!-- Variant Checkbox -->
-            <div class="control-row">
-              <label class="checkbox-label">
-                <input type="checkbox" checked>
-                <span>生成变体（自动生成同知识点不同问法的变体题）</span>
-              </label>
-            </div>
+            <h2 class="section-title">真题列表</h2>
 
-            <!-- Generate Button -->
-            <button class="btn-generate">⚡ 生成题目</button>
+            <!-- Loading / Error / Empty -->
+            <template v-if="historyLoading">
+              <div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>
+            </template>
+            <template v-else-if="historyError">
+              <div class="error-state"><div class="error-state-text">{{ historyError }}</div><button class="btn-secondary" @click="loadHistoricalExams(true)">重试</button></div>
+            </template>
+            <template v-else-if="!historicalExams.length">
+              <div class="empty-state"><div class="empty-state-icon">📚</div><div class="empty-state-text">暂无真题数据</div></div>
+            </template>
+            <template v-else>
+              <div class="history-card" v-for="he in historicalExams" :key="he.id">
+                <div class="history-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                </div>
+                <div class="history-card-info">
+                  <div class="history-card-title">{{ he.source || '真题' }} · {{ he.year || '' }}</div>
+                  <div class="history-card-detail">
+                    <span>📝 {{ he.content?.substring(0, 60) || '暂无预览' }}...</span>
+                  </div>
+                </div>
+                <div class="history-card-tags">
+                  <span class="region-tag" v-if="he.source">{{ he.source }}</span>
+                  <span class="year-tag" v-if="he.year">{{ he.year }}</span>
+                  <span class="question-count-tag" v-if="he.difficulty">{{ diffLabel(he.difficulty) }}</span>
+                </div>
+                <div class="history-card-actions">
+                  <button class="btn-icon-text" @click="setAsBlueprint(he)">设为蓝本</button>
+                </div>
+              </div>
+              <div ref="historySentinel" style="height:1px"></div>
+              <div v-if="historyLoadingMore" style="text-align:center;padding:16px;color:var(--text-muted)">加载中...</div>
+            </template>
           </div>
+        </div>
 
-          <!-- Generated Question Cards -->
-          <h2 class="section-title">生成的题目</h2>
-          <div class="question-list">
-            <!-- Card 1 -->
-            <div class="question-card">
-              <div class="question-card-header">
-                <div>
-                  <div class="question-card-title">Q1 · 氧化还原反应方程式配平</div>
+        <!-- ══════════ Tab 4: 考试列表 ══════════ -->
+        <div v-show="currentTab === 'exams'">
+          <div class="exam-layout">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <h2 class="section-title" style="margin-bottom:0">考试列表</h2>
+              <button class="btn-primary" @click="createExam">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                创建考试
+              </button>
+            </div>
+
+            <!-- Loading / Error / Empty -->
+            <template v-if="examsLoading">
+              <div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>
+            </template>
+            <template v-else-if="examsError">
+              <div class="error-state"><div class="error-state-text">{{ examsError }}</div><button class="btn-secondary" @click="loadExams">重试</button></div>
+            </template>
+            <template v-else-if="!exams.length">
+              <div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-text">暂无考试记录，点击上方按钮创建</div></div>
+            </template>
+            <template v-else>
+              <div class="exam-list">
+                <div class="exam-card" v-for="exam in pagedExams" :key="exam.id">
+                  <div class="exam-card-avatar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                  </div>
+                  <div class="exam-card-info">
+                    <div class="exam-card-title">{{ exam.name || '未命名考试' }}</div>
+                    <div class="exam-card-meta">
+                      <span v-if="exam.exam_date">📅 {{ exam.exam_date }}</span>
+                      <span v-if="exam.question_count">📝 {{ exam.question_count }} 题</span>
+                      <span v-if="exam.participant_count">👥 {{ exam.participant_count }} 人</span>
+                    </div>
+                  </div>
+                  <span class="status-label" :class="examStatusClass(exam.status)">{{ examStatusLabel(exam.status) }}</span>
+                  <div class="exam-card-actions">
+                    <button class="btn-icon-text" @click="viewExamQuestions(exam)">查看题目</button>
+                    <button v-if="exam.status === 'draft' || exam.status === 'pending'" class="btn-icon-text" @click="addQuestionsToExam(exam)">添加题目</button>
+                    <button v-if="exam.status === 'draft' || exam.status === 'pending'" class="btn-icon-text" @click="publishExam(exam)">发布</button>
+                    <button v-if="exam.status === 'in_progress'" class="btn-icon-text" @click="finalizeExam(exam)">完成</button>
+                    <button v-if="exam.status !== 'in_progress'" class="btn-danger" style="padding:4px 8px;font-size:11px" @click="deleteExam(exam)">删除</button>
+                  </div>
                 </div>
-                <span class="question-card-type">选择题</span>
               </div>
-              <div class="question-card-body">
-                已知反应：KMnO₄ + HCl → KCl + MnCl₂ + Cl₂↑ + H₂O，配平后 HCl 的系数是多少？
-                <br>A. 8 &nbsp;&nbsp; B. 10 &nbsp;&nbsp; C. 16 &nbsp;&nbsp; D. 20
+              <!-- Pagination -->
+              <div class="pagination" v-if="examTotalPages > 1">
+                <button :disabled="examPage <= 1" @click="examPage--">上一页</button>
+                <button v-for="p in examPageNumbers" :key="p" :class="{ active: p === examPage }" @click="examPage = p">{{ p }}</button>
+                <button :disabled="examPage >= examTotalPages" @click="examPage++">下一页</button>
+                <span>共 {{ exams.length }} 条</span>
               </div>
-              <div class="question-card-footer">
-                <div class="audit-badges">
-                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 系数</span>
-                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 条件</span>
-                  <span class="audit-badge warning"><span class="audit-icon">⚠</span> 产物</span>
-                  <span class="audit-badge blocked"><span class="audit-icon">✗</span> 结构</span>
+            </template>
+          </div>
+        </div>
+
+      </div><!-- /tab-content-area -->
+    </div><!-- /app-shell -->
+
+    <!-- ══════════ Modal System ══════════ -->
+    <Teleport to="body">
+      <div class="modal-overlay" v-if="modal.visible" @click.self="cancelModal">
+        <div class="modal-card" :class="{ wide: modal.wide, draggable: modal.type === 'checklist' }" id="modalCard">
+          <div class="modal-header">{{ modal.title }}</div>
+          <div class="modal-body">
+            <!-- Confirm -->
+            <p v-if="modal.type === 'confirm'">{{ modal.message }}</p>
+            <!-- Prompt -->
+            <input v-if="modal.type === 'prompt'" type="text" class="form-input" v-model="modal.inputValue" :placeholder="modal.placeholder" @keyup.enter="confirmModal">
+            <!-- Select -->
+            <div v-if="modal.type === 'select'">
+              <div class="modal-list-item" v-for="opt in modal.options" :key="opt.id"
+                :class="{ selected: modal.selectedId === opt.id }"
+                @click="modal.selectedId = opt.id">{{ opt.name || opt.label }}</div>
+            </div>
+            <!-- Preview -->
+            <div v-if="modal.type === 'preview'" style="max-height:400px;overflow-y:auto;line-height:1.8;font-size:13px">
+              <!-- Single question detail -->
+              <div v-if="modal.previewData">
+                <div style="margin-bottom:12px;font-weight:500;color:var(--text-primary)" v-katex>{{ modal.previewData.content || '暂无内容' }}</div>
+                <div v-if="modal.previewData.options && modal.previewData.options.length" style="margin-bottom:12px;padding-left:16px">
+                  <div v-for="(opt, oi) in modal.previewData.options" :key="oi" v-katex>{{ opt }}</div>
                 </div>
-                <div class="question-card-actions">
-                  <button class="btn-icon-text">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                    编辑
-                  </button>
-                  <button class="btn-icon-text">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    收藏
-                  </button>
+                <div style="margin-bottom:8px"><span style="color:var(--text-muted)">答案：</span><span style="color:var(--success);font-weight:600">{{ modal.previewData.answer || '无' }}</span></div>
+                <div v-if="modal.previewData.analysis" style="margin-bottom:8px"><span style="color:var(--text-muted)">解析：</span><span v-katex>{{ modal.previewData.analysis }}</span></div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+                  <span v-if="modal.previewData.question_type" style="font-size:12px;color:var(--teal);background:var(--teal-light);padding:2px 8px;border-radius:12px">{{ typeLabel(modal.previewData.question_type) }}</span>
+                  <span v-if="modal.previewData.difficulty" style="font-size:12px;color:var(--text-secondary);background:#f5f5f5;padding:2px 8px;border-radius:12px">{{ diffLabel(modal.previewData.difficulty) }}</span>
+                  <span v-for="kp in (modal.previewData.knowledge_point_tags || [])" :key="kp" style="font-size:12px;color:#283593;background:#f0f4ff;padding:2px 8px;border-radius:12px">{{ kp }}</span>
+                </div>
+              </div>
+              <!-- Question list -->
+              <div v-else-if="modal.previewDataList">
+                <div v-for="(q, qi) in modal.previewDataList" :key="qi" style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #eee">
+                  <div style="font-weight:600;margin-bottom:4px">Q{{ qi+1 }}.</div>
+                  <div v-katex style="color:var(--text-primary)">{{ q.content || '' }}</div>
+                  <div v-if="q.options && q.options.length" style="padding-left:16px;margin-top:4px">
+                    <div v-for="(opt, oi) in q.options" :key="oi" v-katex>{{ opt }}</div>
+                  </div>
+                  <div style="margin-top:6px">
+                    <span style="color:var(--text-muted);font-size:12px">答案：</span><span style="color:var(--success);font-size:12px;font-weight:600">{{ q.answer || '无' }}</span>
+                    <span v-if="q.question_type" style="margin-left:8px;font-size:11px;color:var(--teal);background:var(--teal-light);padding:1px 6px;border-radius:8px">{{ typeLabel(q.question_type) }}</span>
+                    <span v-if="q.difficulty" style="margin-left:4px;font-size:11px;color:var(--text-muted)">{{ diffLabel(q.difficulty) }}</span>
+                    <span v-for="kp in (q.knowledge_point_tags || [])" :key="kp" style="margin-left:4px;font-size:11px;color:#283593;background:#f0f4ff;padding:1px 6px;border-radius:8px">{{ kp }}</span>
+                  </div>
+                  <div v-if="q.analysis" v-katex style="font-size:12px;color:var(--text-secondary);margin-top:4px">解析：{{ q.analysis }}</div>
+                </div>
+              </div>
+              <div v-else v-html="modal.previewContent" v-katex></div>
+            </div>
+            <!-- Checklist -->
+            <div v-if="modal.type === 'checklist'" style="display:flex;flex-direction:column;min-height:0;flex:1">
+              <p style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">{{ modal.message }}</p>
+              <div class="chk-search-bar">
+                <input type="text" class="form-input" placeholder="搜索题目..." v-model="modal.checklistSearch" @input="onChecklistSearch" style="height:32px;font-size:12px">
+              </div>
+              <div class="chk-actions">
+                <button @click="checklistSelectAll">全选</button>
+                <button @click="checklistInvert">反选</button>
+                <span style="font-size:12px;color:var(--text-muted)">已选 {{ checklistCheckedCount }}</span>
+              </div>
+              <div style="display:flex;flex:1;min-height:0;gap:0">
+                <!-- List -->
+                <div class="chk-list" :style="{ flex: modal.checklistDetail ? 1 : 1 }">
+                  <div v-for="opt in modal.checklistFiltered" :key="opt.id" class="chk-row"
+                    :class="{ selected: modal.checkedItems[opt.id], active: modal.checklistDetail && modal.checklistDetail.id === opt.id }"
+                    :style="modal.checklistDetail && modal.checklistDetail.id === opt.id ? 'border-color:var(--oxford-blue);background:rgba(0,32,69,0.04)' : ''">
+                    <div class="chk-row-header" @click="openChecklistDetail(opt)">
+                      <input type="checkbox" class="chk-row-check" v-model="modal.checkedItems[opt.id]" @click.stop>
+                      <div class="chk-row-label">
+                        <span class="src-tag" :class="opt.source">{{ opt.source === 'bank' ? '题库' : '真题' }}</span>
+                        <span class="type-tag">{{ opt.typeLabel || '' }}</span>
+                        <span class="chk-title" @mouseenter="showChecklistTooltip($event, opt)" @mouseleave="hideChecklistTooltip" v-html="renderLatex(opt.label)"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Detail Drawer -->
+                <div v-if="modal.checklistDetail" class="chk-drawer">
+                  <div class="chk-drawer-header">
+                    <span style="font-weight:600;font-size:13px">题目详情</span>
+                    <button class="chk-drawer-close" @click="closeChecklistDetail">✕</button>
+                  </div>
+                  <div class="chk-drawer-body">
+                    <div style="margin-bottom:10px;font-size:13px;line-height:1.6;color:var(--text-primary)" v-html="renderLatex(modal.checklistDetail.content || modal.checklistDetail.label)"></div>
+                    <div v-if="modal.checklistDetail._options && modal.checklistDetail._options.length" style="margin-bottom:8px">
+                      <div v-for="(o, oi) in modal.checklistDetail._options" :key="oi" style="font-size:12px;color:var(--text-secondary);padding:2px 0;padding-left:8px" v-html="renderLatex(o)"></div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                      <span style="font-size:11px;color:var(--teal);background:var(--teal-light);padding:2px 8px;border-radius:8px">{{ modal.checklistDetail._difficulty || '未知' }}</span>
+                      <span style="font-size:11px;color:#283593;background:#e8eaf6;padding:2px 8px;border-radius:8px">{{ modal.checklistDetail._sourceName || (modal.checklistDetail.source === 'bank' ? '题库' : '真题') }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <!-- Card 2 -->
-            <div class="question-card">
-              <div class="question-card-header">
-                <div>
-                  <div class="question-card-title">Q2 · 化学键类型与分子极性判断</div>
-                </div>
-                <span class="question-card-type">选择题</span>
-              </div>
-              <div class="question-card-body">
-                下列分子中，属于极性分子的是？<br>
-                A. CO₂ &nbsp;&nbsp; B. CH₄ &nbsp;&nbsp; C. H₂O &nbsp;&nbsp; D. CCl₄
-              </div>
-              <div class="question-card-footer">
-                <div class="audit-badges">
-                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 系数</span>
-                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 条件</span>
-                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 产物</span>
-                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 结构</span>
-                </div>
-                <div class="question-card-actions">
-                  <button class="btn-icon-text">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                    编辑
-                  </button>
-                  <button class="btn-icon-text">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    收藏
-                  </button>
+            <!-- Variant Browser -->
+            <div v-if="modal.type === 'variant-browser'">
+              <div class="history-card" v-for="he in modal.variants" :key="he.id"
+                style="cursor:pointer" @click="modal.selectedId = he.id"
+                :style="{ borderColor: modal.selectedId === he.id ? 'var(--teal)' : '' }">
+                <div class="history-card-info">
+                  <div class="history-card-title">{{ he.source }} {{ he.year }}</div>
+                  <div class="history-card-detail">{{ he.content?.substring(0, 80) }}...</div>
                 </div>
               </div>
             </div>
-
-            <!-- Card 3 -->
-            <div class="question-card">
-              <div class="question-card-header">
-                <div>
-                  <div class="question-card-title">Q3 · 化学反应速率影响因素</div>
-                </div>
-                <span class="question-card-type">计算题</span>
-              </div>
-              <div class="question-card-body">
-                某反应在 25°C 时的速率常数为 k₁，在 35°C 时速率常数为 k₂ = 3k₁，求该反应的活化能（气体常数 R = 8.314 J/(mol·K)）。
-              </div>
-              <div class="question-card-footer">
-                <div class="audit-badges">
-                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 系数</span>
-                  <span class="audit-badge warning"><span class="audit-icon">⚠</span> 条件</span>
-                  <span class="audit-badge pass"><span class="audit-icon">✓</span> 产物</span>
-                  <span class="audit-badge warning"><span class="audit-icon">⚠</span> 结构</span>
-                </div>
-                <div class="question-card-actions">
-                  <button class="btn-icon-text">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                    编辑
-                  </button>
-                  <button class="btn-icon-text">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    收藏
-                  </button>
-                </div>
-              </div>
+            <!-- Manage (for bank folder management) -->
+            <div v-if="modal.type === 'manage'">
+              <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">{{ modal.message }}</p>
             </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" @click="cancelModal">{{ modal.cancelText || '取消' }}</button>
+            <button class="btn-primary" v-if="modal.type !== 'confirm'" @click="confirmModal">{{ modal.confirmText || '确认' }}</button>
+            <button class="btn-primary" v-if="modal.type === 'confirm'" @click="confirmModal">{{ modal.confirmText || '确认' }}</button>
+            <button class="btn-danger" v-if="modal.type === 'confirm' && modal.danger" @click="confirmModal">{{ modal.dangerText || '删除' }}</button>
           </div>
         </div>
       </div>
+      <div class="chk-tooltip" ref="checklistTooltip" style="display:none"></div>
+    </Teleport>
 
-      <!-- ═══════════════ Tab 2: 题库管理 ═══════════════ -->
-      <div class="tab-panel" id="tab-bank">
-        <div class="bank-layout">
-          <!-- Folder Sidebar -->
-          <div class="bank-sidebar">
-            <h2 class="section-title">题库</h2>
-            <div class="folder-list" id="folderList">
-              <div class="folder-item active">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                <span>化学</span>
-                <span class="count">128</span>
-              </div>
-              <div class="folder-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                <span>物理</span>
-                <span class="count">86</span>
-              </div>
-              <div class="folder-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                <span>生物</span>
-                <span class="count">54</span>
-              </div>
-              <div class="folder-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                <span>月考</span>
-                <span class="count">32</span>
-              </div>
-              <div class="folder-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                <span>期中期末考试</span>
-                <span class="count">45</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Question Grid -->
-          <div class="bank-grid-area">
-            <h2 class="section-title">化学 · 全部题目</h2>
-            <div class="bank-grid">
-              <div class="bank-card">
-                <div class="bank-card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                </div>
-                <div class="bank-card-title">氧化还原配平专练</div>
-                <div class="bank-card-meta">选择题 · 中等 · 12题</div>
-              </div>
-              <div class="bank-card">
-                <div class="bank-card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 0l-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                </div>
-                <div class="bank-card-title">化学键与结构</div>
-                <div class="bank-card-meta">选择题 · 简单 · 20题</div>
-              </div>
-              <div class="bank-card">
-                <div class="bank-card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                </div>
-                <div class="bank-card-title">反应速率计算</div>
-                <div class="bank-card-meta">计算题 · 困难 · 8题</div>
-              </div>
-              <div class="bank-card">
-                <div class="bank-card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                </div>
-                <div class="bank-card-title">实验探究题集</div>
-                <div class="bank-card-meta">实验探究 · 中等 · 6题</div>
-              </div>
-              <div class="bank-card">
-                <div class="bank-card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                </div>
-                <div class="bank-card-title">方程式配平题库</div>
-                <div class="bank-card-meta">方程式配平 · 中等 · 15题</div>
-              </div>
-              <div class="bank-card">
-                <div class="bank-card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                </div>
-                <div class="bank-card-title">填空题综合训练</div>
-                <div class="bank-card-meta">填空题 · 中等 · 18题</div>
-              </div>
-            </div>
-          </div>
-        </div>
+    <!-- ══════════ Toast Container ══════════ -->
+    <Teleport to="body">
+      <div class="toast-container">
+        <div v-for="(t, ti) in toasts" :key="ti" class="toast" :class="t.type">{{ t.message }}</div>
       </div>
+    </Teleport>
 
-      <!-- ═══════════════ Tab 3: 历史真题库 ═══════════════ -->
-      <div class="tab-panel" id="tab-history">
-        <div class="history-layout">
-          <!-- Filters -->
-          <div class="history-filters">
-            <div class="search-input-wrapper">
-              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input type="text" class="form-input" placeholder="搜索真题...">
-            </div>
-            <select class="form-select">
-              <option>全部地区</option>
-              <option>北京</option>
-              <option>上海</option>
-              <option>江苏</option>
-              <option>浙江</option>
-              <option>全国卷</option>
-            </select>
-            <select class="form-select">
-              <option>全部年份</option>
-              <option>2024</option>
-              <option>2023</option>
-              <option>2022</option>
-              <option>2021</option>
-              <option>2020</option>
-            </select>
-          </div>
+  </div><!-- /#app -->
 
-          <h2 class="section-title">真题列表</h2>
-
-          <!-- History Cards -->
-          <div class="history-card">
-            <div class="history-card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-            </div>
-            <div class="history-card-info">
-              <div class="history-card-title">2024年高考化学（北京卷）</div>
-              <div class="history-card-detail">
-                <span>📝 共 28 题</span>
-                <span>⏱ 满分 100 分</span>
-              </div>
-            </div>
-            <div class="history-card-tags">
-              <span class="region-tag">北京</span>
-              <span class="year-tag">2024</span>
-              <span class="question-count-tag">28题</span>
-            </div>
-          </div>
-
-          <div class="history-card">
-            <div class="history-card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-            </div>
-            <div class="history-card-info">
-              <div class="history-card-title">2023年高考化学（全国甲卷）</div>
-              <div class="history-card-detail">
-                <span>📝 共 26 题</span>
-                <span>⏱ 满分 100 分</span>
-              </div>
-            </div>
-            <div class="history-card-tags">
-              <span class="region-tag">全国卷</span>
-              <span class="year-tag">2023</span>
-              <span class="question-count-tag">26题</span>
-            </div>
-          </div>
-
-          <div class="history-card">
-            <div class="history-card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-            </div>
-            <div class="history-card-info">
-              <div class="history-card-title">2022年高考化学（江苏卷）</div>
-              <div class="history-card-detail">
-                <span>📝 共 25 题</span>
-                <span>⏱ 满分 100 分</span>
-              </div>
-            </div>
-            <div class="history-card-tags">
-              <span class="region-tag">江苏</span>
-              <span class="year-tag">2022</span>
-              <span class="question-count-tag">25题</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══════════════ Tab 4: 考试列表 ═══════════════ -->
-      <div class="tab-panel" id="tab-exams">
-        <div class="exam-layout">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <h2 class="section-title" style="margin-bottom:0">考试列表</h2>
-            <button class="btn-primary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              创建考试
-            </button>
-          </div>
-
-          <div class="exam-list">
-            <!-- Exam Card 1: Active -->
-            <div class="exam-card">
-              <div class="exam-card-avatar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-              </div>
-              <div class="exam-card-info">
-                <div class="exam-card-title">高一(3)班 化学月考（10月）</div>
-                <div class="exam-card-meta">
-                  <span>📅 2026-10-15</span>
-                  <span>📝 20 题</span>
-                  <span>👥 42 名学生</span>
-                </div>
-              </div>
-              <span class="status-label active-status">● 进行中</span>
-            </div>
-
-            <!-- Exam Card 2: Ended -->
-            <div class="exam-card">
-              <div class="exam-card-avatar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-              </div>
-              <div class="exam-card-info">
-                <div class="exam-card-title">高一(3)班 化学期中考试</div>
-                <div class="exam-card-meta">
-                  <span>📅 2026-07-10</span>
-                  <span>📝 30 题</span>
-                  <span>📊 平均分 78.5</span>
-                </div>
-              </div>
-              <span class="status-label ended">已结束</span>
-            </div>
-
-            <!-- Exam Card 3: Draft -->
-            <div class="exam-card">
-              <div class="exam-card-avatar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-              </div>
-              <div class="exam-card-info">
-                <div class="exam-card-title">高一 期末复习综合卷</div>
-                <div class="exam-card-meta">
-                  <span>📅 待定</span>
-                  <span>📝 15 题（未完成）</span>
-                  <span>✏️ 最后编辑：7月28日</span>
-                </div>
-              </div>
-              <span class="status-label draft">草稿</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /tab-content-area -->
-  </div><!-- /app-shell -->
+  <!-- CDN scripts (deferred to avoid blocking render) -->
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/mhchem.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
 
   <script>
-    (function() {
-      // ── Tab Switching ──
-      const tabBar = document.getElementById('tabBar');
-      const tabBtns = tabBar.querySelectorAll('.tab-btn');
+    const { createApp, reactive, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 
-      tabBtns.forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          // Deactivate all tabs
-          tabBtns.forEach(function(b) { b.classList.remove('active'); });
-          document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    const app = createApp({
+      setup() {
+        // ═══════════════════════════════════════════════
+        // 1. API Layer
+        // ═══════════════════════════════════════════════
+        const API_BASE = 'http://127.0.0.1:8000/api/v1';
 
-          // Activate clicked tab
-          btn.classList.add('active');
-          var targetId = btn.getAttribute('data-tab');
-          document.getElementById(targetId).classList.add('active');
+        async function apiRequest(method, path, body = null, params = null) {
+          let url = `${API_BASE}${path}`;
+          if (params) {
+            const parts = [];
+            for (const [k, v] of Object.entries(params)) {
+              if (Array.isArray(v)) {
+                for (const vv of v) parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(vv));
+              } else if (v !== null && v !== undefined) {
+                parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+              }
+            }
+            if (parts.length) url += '?' + parts.join('&');
+          }
+          const opts = {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+          };
+          // Auth token
+          const token = localStorage.getItem('access_token');
+          if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+
+          if (body && method !== 'GET') {
+            opts.body = JSON.stringify(body);
+          }
+
+          const controller = new AbortController();
+          opts.signal = controller.signal;
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+          try {
+            const res = await fetch(url, opts);
+            clearTimeout(timeoutId);
+            if (res.status === 204) return null;
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.detail || data.message || `请求失败 (${res.status})`);
+            }
+            return data;
+          } catch (e) {
+            clearTimeout(timeoutId);
+            if (e.name === 'AbortError') throw new Error('请求超时，请重试');
+            throw e;
+          }
+        }
+
+        const api = {
+          get: (path, params) => apiRequest('GET', path, null, params),
+          post: (path, body, params) => apiRequest('POST', path, body, params),
+          patch: (path, body) => apiRequest('PATCH', path, body),
+          del: (path) => apiRequest('DELETE', path),
+        };
+
+        // 本地示例知识点：后端不可达时用于保证搜索仍有反馈
+        const FALLBACK_KPS = [
+          { name: '氧化还原反应', category: '无机化学' },
+          { name: '离子反应', category: '无机化学' },
+          { name: '化学计量', category: '无机化学' },
+          { name: '元素周期律', category: '无机化学' },
+          { name: '化学键', category: '无机化学' },
+          { name: '分子结构与性质', category: '无机化学' },
+          { name: '晶体结构', category: '无机化学' },
+          { name: '原电池', category: '电化学' },
+          { name: '电解池', category: '电化学' },
+          { name: '金属腐蚀与防护', category: '电化学' },
+          { name: '电解质溶液', category: '电解质溶液' },
+          { name: '盐类水解', category: '电解质溶液' },
+          { name: '酸碱中和滴定', category: '电解质溶液' },
+          { name: '沉淀溶解平衡', category: '电解质溶液' },
+          { name: '化学平衡', category: '化学平衡' },
+          { name: '化学平衡常数', category: '化学平衡' },
+          { name: '化学反应速率', category: '化学平衡' },
+          { name: '勒夏特列原理', category: '化学平衡' },
+          { name: '热化学方程式', category: '热化学' },
+          { name: '盖斯定律', category: '热化学' },
+          { name: '反应热计算', category: '热化学' },
+          { name: '有机化合物命名', category: '有机化学' },
+          { name: '同分异构体', category: '有机化学' },
+          { name: '烃的性质', category: '有机化学' },
+          { name: '卤代烃', category: '有机化学' },
+          { name: '醇与酚', category: '有机化学' },
+          { name: '醛与酮', category: '有机化学' },
+          { name: '羧酸与酯', category: '有机化学' },
+          { name: '有机合成路线', category: '有机化学' },
+          { name: '原子结构', category: '物质结构' },
+          { name: '核外电子排布', category: '物质结构' },
+          { name: '杂化轨道理论', category: '物质结构' },
+          { name: '价层电子对互斥理论', category: '物质结构' },
+          { name: '常见仪器与操作', category: '实验化学' },
+          { name: '物质的分离与提纯', category: '实验化学' },
+          { name: '物质的检验与鉴别', category: '实验化学' },
+          { name: '气体制备与收集', category: '实验化学' },
+          { name: '定量实验', category: '实验化学' },
+        ];
+        function fallbackKps(keyword, limit = 8) {
+          if (!keyword) return [];
+          const lower = keyword.toLowerCase();
+          return FALLBACK_KPS.filter(kp =>
+            kp.name.toLowerCase().includes(lower) ||
+            (kp.category && kp.category.toLowerCase().includes(lower))
+          ).slice(0, limit);
+        }
+
+        // ═══════════════════════════════════════════════
+        // 2. Global State
+        // ═══════════════════════════════════════════════
+        const currentTab = ref('create');
+        const userDisplayName = ref('李老师');
+        const userInitial = computed(() => userDisplayName.value.charAt(0));
+
+        // Tab 1 — AI Generate
+        const createMode = ref('ai');
+        const questionTypes = reactive([
+          { label: '选择题', value: 'choice', selected: true, qty: 3 },
+          { label: '填空题', value: 'fill_blank', selected: false, qty: 2 },
+          { label: '计算题', value: 'calculation', selected: false, qty: 1 },
+          { label: '方程式配平', value: 'equation_balancing', selected: false, qty: 2 },
+          { label: '实验探究', value: 'experiment_inquiry', selected: false, qty: 1 },
+        ]);
+        const genDifficulty = ref('medium');
+        const kpSearchText = ref('');
+        const kpSuggestions = ref([]);
+        const kpDropdownVisible = ref(false);
+        const selectedKps = reactive([]);
+        let kpSearchTimer = null;
+        const genVariant = ref(false);
+        const variantBlueprint = ref(null);
+        const genLoading = ref(false);
+        const genError = ref('');
+        const genQuestions = reactive([]);
+
+        // Tab 1 — Manual Entry
+        const manualForm = reactive({
+          question_type: 'choice',
+          difficulty: 'medium',
+          content: '',
+          options: ['', '', '', ''],
+          answer: '',
+          analysis: '',
+          knowledge_point_tags: [],
         });
+        const manualKpSearch = ref('');
+        const manualKpSuggestions = ref([]);
+        const manualKpDropdown = ref(false);
+        let manualKpTimer = null;
+        const manualSaving = ref(false);
+        const manualError = ref('');
+
+        // Tab 1 — OCR
+        const ocrDragover = ref(false);
+        const ocrUploading = ref(false);
+        const ocrProgress = ref(0);
+        const ocrResults = reactive([]);
+        const ocrSaving = ref(false);
+        const ocrFileInput = ref(null);
+
+        // Tab 2 — Bank
+        const folders = reactive([]);
+        const foldersLoading = ref(false);
+        const foldersError = ref('');
+        const selectedFolderId = ref(null);
+        const selectedFolder = computed(() => folders.find(f => f.id === selectedFolderId.value));
+        const bankItems = reactive([]);
+        const bankLoadingMore = ref(false);
+        const bankOffset = ref(0);
+        const bankLimit = 20;
+        const bankHasMore = ref(true);
+        const bankGridRef = ref(null);
+        const bankSentinel = ref(null);
+
+        // Tab 3 — History
+        const historicalExams = reactive([]);
+        const historyLoading = ref(false);
+        const historyError = ref('');
+        const historySearch = ref('');
+        const historySourceFilter = ref('');
+        const historyYearFilter = ref('');
+        const historyOffset = ref(0);
+        const historyLoadingMore = ref(false);
+        const historyHasMore = ref(true);
+        const historySentinel = ref(null);
+        const historyYears = [2024, 2023, 2022, 2021, 2020, 2019, 2018];
+        let historySearchTimer = null;
+
+        // Tab 4 — Exams
+        const exams = reactive([]);
+        const examsLoading = ref(false);
+        const examsError = ref('');
+        const examPage = ref(1);
+        const examLimit = 10;
+        const examTotalPages = computed(() => Math.max(1, Math.ceil(exams.length / examLimit)));
+        const pagedExams = computed(() => {
+          const start = (examPage.value - 1) * examLimit;
+          return exams.slice(start, start + examLimit);
+        });
+        const examPageNumbers = computed(() => {
+          const pages = [];
+          for (let i = 1; i <= examTotalPages.value; i++) pages.push(i);
+          return pages;
+        });
+
+        // Modal
+        const modal = reactive({
+          visible: false,
+          type: null,
+          title: '',
+          message: '',
+          inputValue: '',
+          placeholder: '',
+          options: [],
+          selectedId: null,
+          previewContent: '',
+          previewData: null,
+          previewDataList: null,
+          variants: [],
+          checkedItems: {},
+          checklistSearch: '',
+          checklistFiltered: [],
+          checklistAll: [],
+          checklistDetail: null,
+          listMaxHeight: '350px',
+          wide: false,
+          cancelText: '',
+          confirmText: '',
+          danger: false,
+          dangerText: '',
+          resolve: null,
+        });
+
+        // Toast
+        const toasts = reactive([]);
+        function toast(message, type = 'success') {
+          toasts.push({ message, type });
+          setTimeout(() => toasts.shift(), 3000);
+        }
+
+        // Audit dimensions
+        const auditDimensions = [
+          { key: 'balance', label: '配平' },
+          { key: 'condition', label: '条件' },
+          { key: 'product', label: '产物' },
+          { key: 'structure', label: '结构' },
+        ];
+
+        // ═══════════════════════════════════════════════
+        // 3. Helper Functions
+        // ═══════════════════════════════════════════════
+        function toggleQuestionType(qi) {
+          const qt = questionTypes[qi];
+          qt.selected = !qt.selected;
+          if (!qt.selected && qt.qty === 0) qt.qty = 1;
+        }
+
+        function decQty(qi) {
+          if (questionTypes[qi].qty > 1) questionTypes[qi].qty--;
+        }
+
+        function incQty(qi) {
+          if (questionTypes[qi].qty < 10) questionTypes[qi].qty++;
+        }
+
+        function typeLabel(type) {
+          const map = { choice: '选择题', fill_blank: '填空题', calculation: '计算题', experiment_inquiry: '实验探究', equation_balancing: '方程式配平' };
+          return map[type] || type || '未知';
+        }
+
+        function diffLabel(d) {
+          const map = { easy: '简单', medium: '中等', hard: '困难', competition: '竞赛' };
+          return map[d] || d || '中等';
+        }
+
+        function auditBadgeClass(dimension) {
+          if (!dimension) return '';
+          if (dimension.status === 'passed') return 'pass';
+          if (dimension.status === 'warning') return 'warning';
+          return 'blocked';
+        }
+
+        function auditIcon(dimension) {
+          if (!dimension) return '';
+          if (dimension.status === 'passed') return '✓';
+          if (dimension.status === 'warning') return '⚠';
+          return '✗';
+        }
+
+        function isQuestionBlocked(q) {
+          if (!q.audit_report) return false;
+          return Object.values(q.audit_report).some(d => d && d.status === 'blocked');
+        }
+
+        function examStatusClass(status) {
+          const map = { in_progress: 'active-status', completed: 'ended', draft: 'draft', pending: 'draft', published: 'active-status' };
+          return map[status] || 'draft';
+        }
+
+        function examStatusLabel(status) {
+          const map = { draft: '草稿', pending: '草稿', published: '已发布', in_progress: '● 进行中', completed: '已结束' };
+          return map[status] || '草稿';
+        }
+
+        // ═══════════════════════════════════════════════
+        // 4. Knowledge Point Search
+        // ═══════════════════════════════════════════════
+        function onKpSearchInput() {
+          console.log('onKpSearchInput:', kpSearchText.value);
+          clearTimeout(kpSearchTimer);
+          kpSearchTimer = setTimeout(() => searchKps(kpSearchText.value), 250);
+        }
+
+        async function searchKps(keyword) {
+          console.log('searchKps:', keyword);
+          if (!keyword) { kpSuggestions.value = []; return; }
+          try {
+            const res = await api.get('/knowledge-points/search', { keyword, limit: 10 });
+            console.log('searchKps response:', res);
+            kpSuggestions.value = (Array.isArray(res) ? res : (res.data || res.items || [])).slice(0, 8);
+            kpDropdownVisible.value = true;
+            console.log('kpSuggestions:', kpSuggestions.value);
+          } catch (e) {
+            console.error('searchKps error:', e);
+            kpSuggestions.value = fallbackKps(keyword, 8);
+            kpDropdownVisible.value = true;
+            if (kpSuggestions.value.length) {
+              toast('后端服务暂不可用，已使用本地示例知识点', 'warning');
+            } else {
+              toast('搜索失败：' + (e.message || '无法连接后端服务'), 'error');
+            }
+          }
+        }
+
+        function onKpFocus() { kpDropdownVisible.value = true; }
+
+        function onKpBlur() { setTimeout(() => { kpDropdownVisible.value = false; }, 150); }
+
+        function isKpSelected(kp) { return selectedKps.some(s => s.name === kp.name); }
+
+        function toggleKp(kp) {
+          const idx = selectedKps.findIndex(s => s.name === kp.name);
+          if (idx >= 0) selectedKps.splice(idx, 1);
+          else selectedKps.push(kp);
+          kpSearchText.value = '';
+          kpSuggestions.value = [];
+        }
+
+        function removeKp(kp) { const idx = selectedKps.findIndex(s => s.name === kp.name); if (idx >= 0) selectedKps.splice(idx, 1); }
+
+        // ═══════════════════════════════════════════════
+        // 5. Modal System
+        // ═══════════════════════════════════════════════
+        function showModal(type, opts = {}) {
+          return new Promise((resolve) => {
+            Object.assign(modal, {
+              visible: true, type,
+              title: opts.title || '', message: opts.message || '',
+              inputValue: opts.inputValue || '', placeholder: opts.placeholder || '',
+              options: opts.options || [], selectedId: opts.selectedId || null,
+              previewContent: opts.previewContent || '',
+              previewData: opts.previewData || null,
+              previewDataList: opts.previewDataList || null,
+              variants: opts.variants || [],
+              checkedItems: Object.fromEntries((opts.options || []).map(o => [o.id, false])),
+              checklistSearch: '',
+              checklistFiltered: opts.options || [],
+              checklistAll: opts.options || [],
+              wide: opts.wide || false,
+              cancelText: opts.cancelText || '取消', confirmText: opts.confirmText || '确认',
+              danger: opts.danger || false, dangerText: opts.dangerText || '删除',
+              resolve,
+            });
+          });
+        }
+
+        function confirmModal() {
+          const resolve = modal.resolve;
+          if (modal.type === 'confirm') resolve(true);
+          else if (modal.type === 'prompt') resolve(modal.inputValue);
+          else if (modal.type === 'select' || modal.type === 'variant-browser') resolve(modal.selectedId);
+          else if (modal.type === 'checklist') {
+            const ids = Object.entries(modal.checkedItems).filter(([k,v]) => v).map(([k]) => parseInt(k));
+            resolve(ids);
+          }
+          else if (modal.type === 'preview' || modal.type === 'manage') resolve(true);
+          modal.visible = false;
+        }
+
+        function cancelModal() {
+          const resolve = modal.resolve;
+          resolve(modal.type === 'confirm' ? false : null);
+          modal.visible = false;
+          modal.checklistDetail = null;
+        }
+
+        // ═══════════════════════════════════════════════
+        // 6. Tab 1: AI Generate
+        // ═══════════════════════════════════════════════
+        async function generateQuestions() {
+          // Validate
+          const selectedTypes = questionTypes.filter(qt => qt.selected);
+          if (!selectedTypes.length) { toast('请至少选择一种题型', 'warning'); return; }
+          if (!selectedKps.length) { toast('请至少选择一个知识点', 'warning'); return; }
+
+          genLoading.value = true;
+          genError.value = '';
+          genQuestions.splice(0, genQuestions.length);
+
+          try {
+            const body = {
+              knowledge_points: selectedKps.map(k => k.name),
+              difficulty: genDifficulty.value,
+              question_types: selectedTypes.flatMap(qt => Array(qt.qty).fill(qt.value)),
+            };
+            if (variantBlueprint.value && genVariant.value) {
+              body.variant_qid = String(variantBlueprint.value.id);
+              body.variant_source = 'historical';
+            }
+
+            const res = await api.post('/questions/generate', body);
+            const questions = res.questions || res.data?.questions || [];
+            questions.forEach(q => { q._showHints = false; });
+            genQuestions.push(...questions);
+            if (questions.length === 0) {
+              toast('生成完成，但未返回题目', 'warning');
+            } else {
+              toast(`成功生成 ${questions.length} 道题目`);
+            }
+          } catch (e) {
+            genError.value = e.message || '生成失败';
+            toast(genError.value, 'error');
+          } finally {
+            genLoading.value = false;
+          }
+        }
+
+        async function openVariantBrowser() {
+          try {
+            const res = await api.get('/historical-exams', { limit: 20 });
+            const items = Array.isArray(res) ? res : (res.data || res.items || []);
+            const id = await showModal('variant-browser', { title: '选择蓝本题', variants: items, wide: true });
+            if (id) {
+              variantBlueprint.value = items.find(i => i.id === id) || { id };
+              toast('已选择蓝本题');
+            }
+          } catch (e) { toast('加载真题列表失败: ' + e.message, 'error'); }
+        }
+
+        async function saveToBank(q) {
+          const inputName = await showModal('prompt', { title: '保存到题库', placeholder: '输入题库文件夹名称', inputValue: 'AI生成-' + new Date().toISOString().slice(0, 10) });
+          if (inputName === null) return; // cancelled
+          const setName = inputName || 'AI生成-' + new Date().toISOString().slice(0, 10);
+          try {
+            // Check if folder exists
+            let setId = null;
+            const existing = folders.find(f => f.name === setName);
+            if (existing) {
+              setId = existing.id;
+            } else {
+              const created = await api.post('/question-sets', { name: setName });
+              setId = created.id || created.data?.id;
+            }
+            if (!setId) throw new Error('无法获取题库文件夹ID');
+            // Add question to folder
+            await api.post(`/question-sets/${setId}/items`, {
+              question_id: q.id,
+              question_set_id: setId,
+              sort_order: 0
+            });
+            toast(`已保存到「${setName}」`);
+            await loadFolders();
+            // Refresh items if this folder is selected
+            if (selectedFolderId.value === setId) {
+              bankOffset.value = 0;
+              bankHasMore.value = true;
+              bankItems.splice(0, bankItems.length);
+              await loadBankItems();
+            }
+          } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+        }
+
+        async function addToExam(q) {
+          try {
+            const res = await api.get('/exams', { limit: 50 });
+            const exams = Array.isArray(res) ? res : (res.data || res.items || []);
+            const opts = exams.map(e => ({ id: e.id, name: e.name || `考试 #${e.id}` }));
+            const examId = await showModal('select', { title: '选择目标考试', options: opts });
+            if (!examId) return;
+            await api.post(`/exams/${examId}/questions`, null, { question_ids: [q.id] });
+            toast('已加入考试');
+          } catch (e) { toast('加入考试失败: ' + e.message, 'error'); }
+        }
+
+        function editQuestion(q) {
+          showModal('preview', {
+            title: '编辑题目',
+            previewData: {
+              content: q.content || '',
+              options: q.options || [],
+              answer: q.answer || '',
+              analysis: q.analysis || '',
+              question_type: q.question_type || '',
+              difficulty: q.difficulty || '',
+              knowledge_point_tags: q.knowledge_point_tags || [],
+            },
+            wide: true
+          });
+        }
+
+        // ═══════════════════════════════════════════════
+        // 7. Tab 1: Manual Entry
+        // ═══════════════════════════════════════════════
+        async function onManualKpSearch() {
+          clearTimeout(manualKpTimer);
+          manualKpTimer = setTimeout(async () => {
+            if (!manualKpSearch.value) { manualKpSuggestions.value = []; return; }
+            try {
+              const res = await api.get('/knowledge-points/search', { keyword: manualKpSearch.value, limit: 8 });
+              manualKpSuggestions.value = (Array.isArray(res) ? res : (res.data || res.items || [])).slice(0, 8);
+              manualKpDropdown.value = true;
+            } catch (e) {
+              console.error('onManualKpSearch error:', e);
+              manualKpSuggestions.value = fallbackKps(manualKpSearch.value, 8);
+              manualKpDropdown.value = true;
+              if (manualKpSuggestions.value.length) {
+                toast('后端服务暂不可用，已使用本地示例知识点', 'warning');
+              }
+            }
+          }, 250);
+        }
+
+        function onManualKpBlur() { setTimeout(() => { manualKpDropdown.value = false; }, 150); }
+
+        function addManualKp(kp) {
+          if (!manualForm.knowledge_point_tags.includes(kp.name)) {
+            manualForm.knowledge_point_tags.push(kp.name);
+          }
+          manualKpSearch.value = '';
+          manualKpSuggestions.value = [];
+        }
+
+        async function submitManual() {
+          if (!manualForm.content.trim()) { toast('请输入题目正文', 'warning'); return; }
+          if (!manualForm.answer.trim()) { toast('请输入答案', 'warning'); return; }
+          manualSaving.value = true;
+          manualError.value = '';
+          try {
+            const body = {
+              questions: [{
+                content: manualForm.content,
+                question_type: manualForm.question_type,
+                options: manualForm.question_type === 'choice' ? manualForm.options.filter(o => o.trim()) : [],
+                answer: manualForm.answer,
+                analysis: manualForm.analysis,
+                knowledge_point_tags: [...manualForm.knowledge_point_tags],
+                difficulty: manualForm.difficulty,
+              }],
+              source_name: '手动录入',
+            };
+            await api.post('/questions/import', body);
+            toast('题目已保存');
+            // Reset form
+            manualForm.content = '';
+            manualForm.answer = '';
+            manualForm.analysis = '';
+            manualForm.knowledge_point_tags.splice(0, manualForm.knowledge_point_tags.length);
+          } catch (e) {
+            manualError.value = e.message;
+            toast(e.message, 'error');
+          } finally { manualSaving.value = false; }
+        }
+
+        // ═══════════════════════════════════════════════
+        // 8. Tab 1: OCR
+        // ═══════════════════════════════════════════════
+        function onOcrClick() { ocrFileInput.value?.click(); }
+
+        function onOcrDrop(e) {
+          ocrDragover.value = false;
+          const files = e.dataTransfer?.files;
+          if (files) handleOcrFiles(files);
+        }
+
+        function onOcrFileChange(e) {
+          const files = e.target?.files;
+          if (files) handleOcrFiles(files);
+        }
+
+        async function handleOcrFiles(files) {
+          const validFiles = Array.from(files).filter(f => f.size <= 10 * 1024 * 1024);
+          if (!validFiles.length) { toast('文件过大，单文件上限 10 MB', 'warning'); return; }
+          if (validFiles.length > 10) { toast('单批上限 10 张', 'warning'); return; }
+
+          ocrUploading.value = true;
+          ocrProgress.value = 0;
+          ocrResults.splice(0, ocrResults.length);
+
+          try {
+            // Simulate upload progress
+            const progressInterval = setInterval(() => {
+              if (ocrProgress.value < 90) ocrProgress.value += 10;
+            }, 300);
+
+            await api.post('/ocr/tasks/batch', { file_count: validFiles.length });
+            clearInterval(progressInterval);
+            ocrProgress.value = 100;
+
+            // Load session tasks
+            const sessionsRes = await api.get('/ocr/sessions', { limit: 1 });
+            const sessions = sessionsRes.data || sessionsRes.items || [];
+            if (sessions.length) {
+              const tasksRes = await api.get(`/ocr/sessions/${sessions[0].id}/tasks`);
+              const tasks = tasksRes.data || tasksRes.items || [];
+              tasks.forEach(t => ocrResults.push({
+                id: t.id,
+                content: t.content || '',
+                question_type: t.question_type || 'choice',
+                answer: t.answer || '',
+              }));
+            }
+
+            if (!ocrResults.length) {
+              // Stub: create placeholder results
+              for (let i = 0; i < validFiles.length; i++) {
+                ocrResults.push({ content: '', question_type: 'choice', answer: '' });
+              }
+              toast(`已上传 ${validFiles.length} 个文件，请在下方输入识别内容`, 'warning');
+            } else {
+              toast(`OCR 识别完成，共 ${ocrResults.length} 道题`);
+            }
+          } catch (e) {
+            // Stub fallback
+            for (let i = 0; i < validFiles.length; i++) {
+              ocrResults.push({ content: '', question_type: 'choice', answer: '' });
+            }
+            toast('OCR 识别服务暂未就绪，请手动输入题目内容', 'warning');
+          } finally { ocrUploading.value = false; }
+        }
+
+        async function batchSaveOcr() {
+          const valid = ocrResults.filter(r => r.content.trim());
+          if (!valid.length) { toast('没有可保存的题目', 'warning'); return; }
+          ocrSaving.value = true;
+          try {
+            await api.post('/questions/import', {
+              questions: valid.map(r => ({
+                content: r.content,
+                question_type: r.question_type || 'choice',
+                options: [],
+                answer: r.answer || '',
+                difficulty: 'medium',
+                knowledge_point_tags: [],
+              })),
+              source_name: 'OCR导入',
+            });
+            toast(`成功保存 ${valid.length} 道题目`);
+            ocrResults.splice(0, ocrResults.length);
+          } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+          finally { ocrSaving.value = false; }
+        }
+
+        // ═══════════════════════════════════════════════
+        // 9. Tab 2: Bank
+        // ═══════════════════════════════════════════════
+        async function loadFolders() {
+          foldersLoading.value = true;
+          foldersError.value = '';
+          try {
+            const res = await api.get('/question-sets', { limit: 50 });
+            const data = Array.isArray(res) ? res : (res.data || res.items || []);
+            folders.splice(0, folders.length, ...data);
+          } catch (e) { foldersError.value = e.message; }
+          finally { foldersLoading.value = false; }
+        }
+
+        async function selectFolder(f) {
+          selectedFolderId.value = f.id;
+          bankOffset.value = 0;
+          bankHasMore.value = true;
+          bankItems.splice(0, bankItems.length);
+          await loadBankItems();
+        }
+
+        async function loadBankItems() {
+          if (!bankHasMore.value) return;
+          bankLoadingMore.value = true;
+          try {
+            const res = await api.get(`/question-sets/${selectedFolderId.value}/items`, {
+              limit: bankLimit, offset: bankOffset.value,
+            });
+            const data = Array.isArray(res) ? res : (Array.isArray(res) ? res : (res.data || res.items || []));
+            if (data.length < bankLimit) bankHasMore.value = false;
+            bankItems.push(...data);
+            bankOffset.value += data.length;
+          } catch (e) { toast('加载题目失败: ' + e.message, 'error'); }
+          finally { bankLoadingMore.value = false; }
+        }
+
+        async function newFolder() {
+          const name = await showModal('prompt', { title: '新建题库文件夹', placeholder: '输入文件夹名称' });
+          if (!name) return;
+          try {
+            await api.post('/question-sets', { name });
+            toast(`文件夹「${name}」已创建`);
+            await loadFolders();
+          } catch (e) { toast('创建失败: ' + e.message, 'error'); }
+        }
+
+        async function deleteFolder(f) {
+          const ok = await showModal('confirm', { title: '删除题库', message: `确定要删除「${f.name}」吗？文件夹内的题目不会被删除。`, danger: true });
+          if (!ok) return;
+          try {
+            await api.del(`/question-sets/${f.id}`);
+            if (selectedFolderId.value === f.id) {
+              selectedFolderId.value = null;
+              bankItems.splice(0, bankItems.length);
+            }
+            toast(`「${f.name}」已删除`);
+            await loadFolders();
+          } catch (e) { toast('删除失败: ' + e.message, 'error'); }
+        }
+
+        async function removeFromFolder(item) {
+          if (!selectedFolderId.value) return;
+          try {
+            await api.del(`/question-sets/items/${item.id}`);
+            const idx = bankItems.findIndex(i => i.id === item.id);
+            if (idx >= 0) bankItems.splice(idx, 1);
+            // Update folder count
+            const f = folders.find(x => x.id === selectedFolderId.value);
+            if (f && f.question_count > 0) f.question_count--;
+            toast('已从文件夹移除');
+          } catch (e) { toast('移除失败: ' + e.message, 'error'); }
+        }
+
+        function previewQuestion(item) {
+          showModal('preview', {
+            title: '题目详情',
+            previewData: {
+              content: item.content || '',
+              options: item.options || [],
+              answer: item.answer || '',
+              analysis: item.analysis || '',
+              question_type: item.question_type || '',
+              difficulty: item.difficulty || '',
+              knowledge_point_tags: item.knowledge_point_tags || [],
+            },
+            wide: true
+          });
+        }
+
+        // ═══════════════════════════════════════════════
+        // 10. Tab 3: History
+        // ═══════════════════════════════════════════════
+        async function loadHistoricalExams(reset = false) {
+          if (reset) {
+            historyOffset.value = 0;
+            historyHasMore.value = true;
+            historicalExams.splice(0, historicalExams.length);
+          }
+          if (!historyHasMore.value) return;
+          if (reset) historyLoading.value = true; else historyLoadingMore.value = true;
+          historyError.value = '';
+
+          try {
+            const params = { limit: 20, offset: historyOffset.value };
+            if (historySourceFilter.value) params.source = historySourceFilter.value;
+            if (historyYearFilter.value) params.year = historyYearFilter.value;
+            if (historySearch.value) params.knowledge_point = historySearch.value;
+
+            const res = await api.get('/historical-exams', params);
+            const data = Array.isArray(res) ? res : (res.data || res.items || []);
+            if (data.length < 20) historyHasMore.value = false;
+            if (reset) historicalExams.splice(0, historicalExams.length, ...data);
+            else historicalExams.push(...data);
+            historyOffset.value += data.length;
+          } catch (e) { historyError.value = e.message; }
+          finally { historyLoading.value = false; historyLoadingMore.value = false; }
+        }
+
+        function onHistorySearch() {
+          clearTimeout(historySearchTimer);
+          historySearchTimer = setTimeout(() => loadHistoricalExams(true), 300);
+        }
+
+        // ═══════════════════════════════════════════════
+        // Checklist helpers
+        // ═══════════════════════════════════════════════
+        const checklistTooltip = ref(null);
+        const checklistCheckedCount = computed(() => {
+          return Object.values(modal.checkedItems).filter(Boolean).length;
+        });
+
+        function onChecklistSearch() {
+          const kw = (modal.checklistSearch || '').toLowerCase();
+          modal.checklistFiltered = modal.checklistAll.filter(opt =>
+            !kw || (opt.label || '').toLowerCase().includes(kw)
+          );
+        }
+
+        function toggleItemCheck(id) {
+          modal.checkedItems[id] = !modal.checkedItems[id];
+        }
+
+        function checklistSelectAll() {
+          modal.checklistFiltered.forEach(opt => { modal.checkedItems[opt.id] = true; });
+        }
+
+        function checklistInvert() {
+          modal.checklistFiltered.forEach(opt => {
+            modal.checkedItems[opt.id] = !modal.checkedItems[opt.id];
+          });
+        }
+
+        function openChecklistDetail(opt) {
+          modal.checklistDetail = opt;
+        }
+
+        function closeChecklistDetail() {
+          modal.checklistDetail = null;
+        }
+
+        function showChecklistTooltip(e, opt) {
+          const tip = checklistTooltip.value;
+          if (!tip || !opt.fullTitle) return;
+          if ((opt.fullTitle || '').length < 60) return;
+          tip.innerHTML = renderLatex(opt.fullTitle);
+          tip.style.display = 'block';
+          const rect = e.target.getBoundingClientRect();
+          tip.style.left = rect.left + 'px';
+          tip.style.top = (rect.bottom + 4) + 'px';
+        }
+
+        function hideChecklistTooltip() {
+          const tip = checklistTooltip.value;
+          if (tip) tip.style.display = 'none';
+        }
+
+        function renderLatex(text) {
+          if (!text || !window.katex) return text || '';
+          let html = String(text);
+          // Render $...$ formulas
+          html = html.replace(/\$([^$]+?)\$/g, (m, f) => {
+            try { return katex.renderToString(f, { throwOnError: false, trust: true }); }
+            catch (e) { return m; }
+          });
+          // Render \ce{...}
+          html = html.replace(/\\ce\{([^}]+?)\}/g, (m, f) => {
+            try { return katex.renderToString('\\ce{' + f + '}', { throwOnError: false, trust: true }); }
+            catch (e) { return m; }
+          });
+          return html;
+        }
+
+        function setAsBlueprint(he) {
+          variantBlueprint.value = he;
+          genVariant.value = true;
+          currentTab.value = 'create';
+          toast(`已设置蓝本题: ${he.source} ${he.year}`);
+        }
+
+        // ═══════════════════════════════════════════════
+        // 11. Tab 4: Exams
+        // ═══════════════════════════════════════════════
+        async function loadExams() {
+          examsLoading.value = true;
+          examsError.value = '';
+          try {
+            const res = await api.get('/exams', { limit: 100 });
+            const data = Array.isArray(res) ? res : (res.data || res.items || []);
+            exams.splice(0, exams.length, ...data);
+            examPage.value = 1;
+          } catch (e) { examsError.value = e.message; }
+          finally { examsLoading.value = false; }
+        }
+
+        async function createExam() {
+          const name = await showModal('prompt', { title: '创建新考试', placeholder: '输入考试名称' });
+          if (!name) return;
+          try {
+            const now = new Date().toISOString().slice(0, 10);
+            await api.post('/exams', { name, exam_date: now, class_id: 1, exam_type: 'monthly' });
+            toast('考试已创建');
+            await loadExams();
+          } catch (e) { toast('创建失败: ' + e.message, 'error'); }
+        }
+
+        async function publishExam(exam) {
+          const ok = await showModal('confirm', { title: '发布考试', message: `确定要发布「${exam.name}」吗？发布后学生将收到考试。` });
+          if (!ok) return;
+          try {
+            await api.post(`/exams/${exam.id}/publish`);
+            exam.status = 'in_progress';
+            toast('考试已发布');
+          } catch (e) { toast('发布失败: ' + e.message, 'error'); }
+        }
+
+        async function deleteExam(exam) {
+          const ok = await showModal('confirm', { title: '删除考试', message: `确定要删除「${exam.name}」吗？此操作不可恢复。`, danger: true, dangerText: '删除' });
+          if (!ok) return;
+          try {
+            await api.del(`/exams/${exam.id}`);
+            const idx = exams.findIndex(e => e.id === exam.id);
+            if (idx >= 0) exams.splice(idx, 1);
+            toast('考试已删除');
+          } catch (e) { toast('删除失败: ' + e.message, 'error'); }
+        }
+
+        async function viewExamQuestions(exam) {
+          try {
+            const res = await api.get(`/exams/${exam.id}/questions`);
+            const questions = res.questions || res.data?.questions || [];
+            if (!questions.length) {
+              showModal('preview', { title: `${exam.name} - 题目列表`, previewContent: '该考试暂无题目，请先添加题目。', wide: true });
+              return;
+            }
+            showModal('preview', {
+              title: `${exam.name} - ${questions.length} 道题`,
+              previewDataList: questions.map(q => ({
+                content: q.content || '',
+                question_type: q.question_type || '',
+                difficulty: q.difficulty || '',
+                answer: q.answer || '',
+                analysis: q.analysis || '',
+                options: q.options || [],
+                knowledge_point_tags: q.knowledge_point_tags || [],
+              })),
+              wide: true
+            });
+          } catch (e) { toast('加载题目失败: ' + e.message, 'error'); }
+        }
+
+        async function addQuestionsToExam(exam) {
+          try {
+            const [qRes, hRes] = await Promise.all([
+              api.get('/questions', { limit: 200 }),
+              api.get('/historical-exams', { limit: 200 })
+            ]);
+            const bankQs = Array.isArray(qRes) ? qRes : (qRes.data || qRes.items || []);
+            const histQs = Array.isArray(hRes) ? hRes : (hRes.data || hRes.items || []);
+
+            const allOpts = [
+              ...bankQs.map(q => ({
+                id: q.id, source: 'bank',
+                label: (q.content || '').substring(0, 80),
+                fullTitle: q.content || '',
+                typeLabel: typeLabel(q.question_type),
+                content: q.content || '',
+                _options: q.options || [],
+                _difficulty: diffLabel(q.difficulty),
+                _sourceName: '题库',
+                _expanded: false,
+              })),
+              ...histQs.map(h => ({
+                id: h.id, source: 'history',
+                label: (h.content || '').substring(0, 80),
+                fullTitle: h.content || '',
+                typeLabel: typeLabel(h.question_type || 'choice'),
+                content: h.content || '',
+                _options: h.options || [],
+                _difficulty: diffLabel(h.difficulty || 'medium'),
+                _sourceName: `${h.source || ''} ${h.year || ''}`.trim(),
+                _expanded: false,
+              })),
+            ];
+
+            if (!allOpts.length) {
+              toast('暂无可用题目，请先在出题工作台生成或导入题目', 'warning');
+              return;
+            }
+
+            const selectedIds = await showModal('checklist', {
+              title: `添加题目到「${exam.name}」`,
+              options: allOpts,
+              message: `共 ${allOpts.length} 道题可用（题库 + 真题），勾选后确认`,
+              wide: true
+            });
+            if (!selectedIds || !selectedIds.length) return;
+
+            await api.post(`/exams/${exam.id}/questions`, null, { question_ids: selectedIds });
+            toast(`已添加 ${selectedIds.length} 道题目`);
+            exam.question_count = (exam.question_count || 0) + selectedIds.length;
+          } catch (e) { toast('添加失败: ' + e.message, 'error'); }
+        }
+
+        async function finalizeExam(exam) {
+          const ok = await showModal('confirm', { title: '完成考试', message: `确定将「${exam.name}」标记为已完成吗？` });
+          if (!ok) return;
+          try {
+            await api.post(`/exams/${exam.id}/finalize`);
+            exam.status = 'completed';
+            toast('考试已完成');
+          } catch (e) { toast('操作失败: ' + e.message, 'error'); }
+        }
+
+        // ═══════════════════════════════════════════════
+        // 12. Infinite Scroll Setup
+        // ═══════════════════════════════════════════════
+        let bankObserver = null;
+        let historyObserver = null;
+
+        function setupInfiniteScroll() {
+          // Bank
+          if (bankSentinel.value) {
+            bankObserver = new IntersectionObserver((entries) => {
+              if (entries[0].isIntersecting && selectedFolderId.value && bankHasMore.value && !bankLoadingMore.value) {
+                loadBankItems();
+              }
+            }, { threshold: 0.1 });
+            bankObserver.observe(bankSentinel.value);
+          }
+          // History
+          if (historySentinel.value) {
+            historyObserver = new IntersectionObserver((entries) => {
+              if (entries[0].isIntersecting && historyHasMore.value && !historyLoadingMore.value) {
+                loadHistoricalExams(false);
+              }
+            }, { threshold: 0.1 });
+            historyObserver.observe(historySentinel.value);
+          }
+        }
+
+        // ═══════════════════════════════════════════════
+        // 13. Initial Load
+        // ═══════════════════════════════════════════════
+        onMounted(() => {
+          loadFolders();
+          loadExams();
+          loadHistoricalExams(true);
+          nextTick(() => setupInfiniteScroll());
+        });
+
+        onUnmounted(() => {
+          if (bankObserver) bankObserver.disconnect();
+          if (historyObserver) historyObserver.disconnect();
+        });
+
+        // ═══════════════════════════════════════════════
+        // Return all reactive state
+        // ═══════════════════════════════════════════════
+        return {
+          currentTab,
+          userDisplayName, userInitial,
+          // Tab 1
+          createMode, questionTypes, genDifficulty, kpSearchText, kpSuggestions, kpDropdownVisible,
+          selectedKps, genVariant, variantBlueprint, genLoading, genError, genQuestions,
+          manualForm, manualKpSearch, manualKpSuggestions, manualKpDropdown, manualSaving, manualError,
+          ocrDragover, ocrUploading, ocrProgress, ocrResults, ocrSaving, ocrFileInput,
+          // Tab 2
+          folders, foldersLoading, foldersError, selectedFolderId, selectedFolder, bankItems, bankLoadingMore, bankGridRef, bankSentinel,
+          // Tab 3
+          historicalExams, historyLoading, historyError, historySearch, historySourceFilter, historyYearFilter,
+          historyLoadingMore, historySentinel, historyYears,
+          // Tab 4
+          exams, examsLoading, examsError, examPage, pagedExams, examTotalPages, examPageNumbers,
+          // Modal & Toast
+          modal, toasts,
+          // Helpers
+          auditDimensions,
+          toggleQuestionType, decQty, incQty, typeLabel, diffLabel, auditBadgeClass, auditIcon, isQuestionBlocked,
+          examStatusClass, examStatusLabel,
+          onKpSearchInput, onKpFocus, onKpBlur, isKpSelected, toggleKp, removeKp,
+          generateQuestions, openVariantBrowser, saveToBank, addToExam, editQuestion,
+          onManualKpSearch, onManualKpBlur, addManualKp, submitManual,
+          onOcrClick, onOcrDrop, onOcrFileChange, batchSaveOcr,
+          loadFolders, selectFolder, newFolder, deleteFolder, removeFromFolder, previewQuestion,
+          loadHistoricalExams, onHistorySearch, setAsBlueprint,
+          checklistCheckedCount, toggleItemCheck, onChecklistSearch, checklistSelectAll, checklistInvert, openChecklistDetail, closeChecklistDetail, showChecklistTooltip, hideChecklistTooltip,
+          loadExams, createExam, publishExam, deleteExam, viewExamQuestions, addQuestionsToExam, finalizeExam,
+          confirmModal, cancelModal,
+          showModal, checklistTooltip, renderLatex,
+        };
+      }
+    });
+
+    // ═══════════════════════════════════════════════
+    // v-katex custom directive
+    // ═══════════════════════════════════════════════
+    app.directive('katex', {
+      mounted(el) {
+        renderKatex(el);
+      },
+      updated(el) {
+        renderKatex(el);
+      }
+    });
+
+    function renderKatex(el) {
+      if (!window.katex) return;
+      // Only process if not already rendered (check for existing katex spans)
+      if (el.dataset.katexRendered === 'true') {
+        // For updated content, re-render by resetting first
+        el.innerHTML = el._originalHTML || el.innerHTML;
+      }
+      if (!el._originalHTML) el._originalHTML = el.innerHTML;
+
+      // Find and replace $...$ formulas
+      let html = el.innerHTML;
+      // Match $...$ (non-greedy, not $$)
+      html = html.replace(/\$([^$]+?)\$/g, (match, formula) => {
+        try {
+          return katex.renderToString(formula, { throwOnError: false, trust: true });
+        } catch (e) {
+          return match;
+        }
+      });
+      // Match \ce{...}
+      html = html.replace(/\\ce\{([^}]+?)\}/g, (match, formula) => {
+        try {
+          return katex.renderToString('\\ce{' + formula + '}', { throwOnError: false, trust: true });
+        } catch (e) {
+          return match;
+        }
       });
 
-      // ── Sub-mode Toggle (Tab 1) ──
-      var modeToggle = document.getElementById('modeToggle');
-      if (modeToggle) {
-        modeToggle.querySelectorAll('.mode-btn').forEach(function(btn) {
-          btn.addEventListener('click', function() {
-            modeToggle.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
-            btn.classList.add('active');
-          });
-        });
-      }
+      el.innerHTML = html;
+      el.dataset.katexRendered = 'true';
+    }
 
-      // ── Question Type Chips (Tab 1) ──
-      var chipsContainer = document.getElementById('questionTypeChips');
-      if (chipsContainer) {
-        chipsContainer.querySelectorAll('.chip').forEach(function(chip) {
-          chip.addEventListener('click', function() {
-            chipsContainer.querySelectorAll('.chip').forEach(function(c) { c.classList.remove('active'); });
-            chip.classList.add('active');
-          });
-        });
-      }
-
-      // ── Folder List (Tab 2) ──
-      var folderList = document.getElementById('folderList');
-      if (folderList) {
-        folderList.querySelectorAll('.folder-item').forEach(function(item) {
-          item.addEventListener('click', function() {
-            folderList.querySelectorAll('.folder-item').forEach(function(i) { i.classList.remove('active'); });
-            item.classList.add('active');
-          });
-        });
-      }
-    })();
+    // ═══════════════════════════════════════════════
+    // Mount
+    // ═══════════════════════════════════════════════
+    app.mount('#app');
   </script>
 </body>
 </html>
