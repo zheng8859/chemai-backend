@@ -54,6 +54,12 @@ from .teaching import (
     PracticeSubmitRequest,
     GradingRunRequest,
     GradingRunResponse,
+    ExamQuestionAssociateResponse,
+    ExamPublishResponse,
+    ExamFinalizeResponse,
+    ExamQuestionItem,
+    ExamQuestionsResponse,
+    QuestionImportResponse,
 )
 
 from .diagnosis import (

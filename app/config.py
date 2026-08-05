@@ -7,6 +7,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 
+# ── 四维审核引擎数据目录 ──────────────────────────────────
+CHEMAI_DATA_DIR = os.getenv("CHEMAI_DATA_DIR", str(DATA_DIR))
+
 # ── 数据库 ─────────────────────────────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{PROJECT_ROOT}/data/chemai.db")
 CHECKPOINT_DB_URL = os.getenv("CHECKPOINT_DB_URL", f"sqlite+aiosqlite:///{PROJECT_ROOT}/data/checkpoint.db")

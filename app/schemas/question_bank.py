@@ -12,7 +12,7 @@ from .base import ORMBase
 
 # ── QuestionSet ────────────────────────────────────────────
 class QuestionSetCreate(BaseModel):
-    teacher_id: int
+    teacher_id: int | None = None
     name: str = Field(..., max_length=200)
     description: str | None = None
 
@@ -22,6 +22,7 @@ class QuestionSetRead(ORMBase):
     teacher_id: int
     name: str
     description: str | None
+    question_count: int = 0
     created_at: datetime
 
 
@@ -31,6 +32,12 @@ class QuestionSetItemRead(ORMBase):
     question_set_id: int
     question_id: int
     sort_order: int
+    content: str | None = None
+    question_type: str | None = None
+    difficulty: str | None = None
+    options: list | None = None
+    answer: str | None = None
+    knowledge_point_tags: list | None = None
 
 
 class QuestionSetItemAdd(BaseModel):
