@@ -51,6 +51,10 @@
 | 题目 | Question | 一道完整的化学试题，含正文、选项、答案、解析、知识点标签、难度和来源 |
 | 学生作答 | StudentAnswer | 学生对一道题的单次作答记录，含作答内容、正误判定和障碍类型标签 |
 | 题库 | Question Set / Bank | 教师创建的题目组织容器，按知识点或考试分类管理，支持文件夹层级 |
+| 题库文件夹 | QuestionSet | 题库顶层组织单元，属性：名称、所属教师、描述、题目数量、是否系统预设。系统预设文件夹不可删除 |
+| 题库-题目关联 | QuestionSetItem | QuestionSet 与 Question 的多对多中间实体，含排序字段，删除文件夹时级联删除关联但不删除题目实体 |
+| 题库 CRUD | Bank CRUD | API：GET/POST question-sets 列表与创建、GET/DELETE question-sets/{id} 详情与删除、GET/POST/DELETE question-sets/{id}/items 题目管理、PATCH items/{id}/reorder 排序 |
+| 题目收藏 | Save to Bank | 从出题工作台将 AI 生成或手动录入的题目保存到指定题库文件夹（创建 QuestionSet + 逐题创建 QuestionSetItem）|
 | 历年真题库 | Historical Exam Bank | 全国卷 (2008-2020) + 湖南卷 (2021-2025)，共 250 道真题，作为 RAG 知识底座 |
 | 变体题 | Variant Question | 基于指定蓝本题生成的同知识点、同难度变体（数值/物质/选项/题干/难度五维变体）|
 | 周报 | Weekly Report | LLM 生成的 200 字自然语言学情总结，家长端使用通俗语言、鼓励为主 |
@@ -128,20 +132,27 @@
 ### 5.4 考试状态（Exam State）
 
 ```
-draft → published → in_progress → grading → completed → archived
-  ↓                                                      ↑
-cancelled ────────────────────────────────────────────────┘
+                   POST /exams/{id}/publish
+  pending ──────────────────────────────▶ in_progress
+    │                                        │
+    │ POST /exams/{id}/questions             │ POST /exams/{id}/finalize
+    ▼   (添加/移除题目)                        ▼
+  [组卷]                                  completed
+    │                                        │
+    │ DELETE /exams/{id}                     │ DELETE /exams/{id}
+    ▼   (仅 pending/completed 可删)           ▼
+  [*]                                     [*]
 ```
 
-| 状态 | 英文 | 定义 |
-|------|------|------|
-| 草稿 | draft | 教师创建中，尚未发布，可自由编辑 |
-| 已发布 | published | 已向班级发布，等待学生开始作答 |
-| 进行中 | in_progress | 学生正在作答中 |
-| 批改中 | grading | 作答截止，正在批改（OCR 或人工）|
-| 已完成 | completed | 批改完毕，成绩和诊断已生成 |
-| 已归档 | archived | 历史考试，仅可查看不可修改 |
-| 已取消 | cancelled | 发布后被教师取消 |
+| 状态 | 英文 | 数据库值 | 触发 API | 允许操作 |
+|------|------|---------|---------|---------|
+| 草稿 | draft | `pending` | `POST /exams` 创建 | 添加/移除题目、编辑名称、删除、发布 |
+| 进行中 | in_progress | `in_progress` | `POST /exams/{id}/publish` | 查看题目、完成 |
+| 已完成 | completed | `completed` | `POST /exams/{id}/finalize` | 查看题目、导出试卷、删除 |
+
+> 发布校验：考试 ≥1 道题 + 统计参考学生数 → 状态转为 `in_progress`，考试出现在学生端练习任务列表。
+> 完成动作：统计参考人数、计算班级统计 → 状态转为 `completed`。
+> 删除策略：仅 `pending` 和 `completed` 可删，`in_progress` 禁止删除。
 
 ---
 
@@ -204,9 +215,57 @@ cancelled ───────────────────────�
 
 ---
 
-## 十、补充索引
+## 十、向量检索（Vector Retrieval）
 
-### 10.1 题目来源（Question Source）
+### 10.1 嵌入方案
+
+| 配置项 | 值 |
+|--------|-----|
+| 客户端 | `chromadb.PersistentClient`（嵌入式，零运维） |
+| 存储路径 | `data/chroma_db/` |
+| Collection | `exam_questions` |
+| 距离度量 | cosine + HNSW 索引 |
+| Embedding 模型 | `dashscope text-embedding-v3`（1024 维） |
+| 回退方案 | ChromaDB 不可用 → 降级纯关键词匹配；embedding API 不可用 → MD5 伪向量（仅供测试） |
+
+### 10.2 索引策略
+
+**每个知识点一个独立向量**（非每道题一个向量）。一道题标注 N 个知识点 → 生成 N 条向量记录，ID 格式 `{question_id}::kp-{N}`。嵌入文本结构：
+
+```
+考点：{知识点名称}。题型：{题型}。难度：{难度}。
+来源：{地区 + 年份 + 题号}。题目：{正文前500字符}。答案：{正确答案}
+```
+
+### 10.3 检索流程
+
+三层递进搜索，仅在 **AI 出题 RAG 上下文注入** 场景使用：
+
+| 层 | 方法 | 触发条件 |
+|:--:|------|---------|
+| 1 | 关键词匹配（知识点重叠度 + 难度匹配） | 始终执行 |
+| 2 | ChromaDB 向量检索（候选范围内精筛） | 关键词结果 < limit |
+| 3 | 联网搜索兜底（MiMo + DeepSeek 总结） | 关键词 < 3 且前两层不足 |
+
+### 10.4 索引同步
+
+- **全量构建**：启动时检查 Collection 是否为空 / 维度是否匹配 / 数量是否达标，任一不满足则清空重建
+- **增量同步**：`save_to_bank` / `POST /import-questions` 后追加写入新题目
+
+### 10.5 应用场景
+
+| 场景 | 输入 | 输出 |
+|------|------|------|
+| AI 出题 RAG | 知识点列表 | Top-5 相似真题 → LLM Prompt |
+| 变体题生成 | 一道蓝本题 | 同知识点相似题 → LLM 变体参考 |
+| 自适应练习 | 学生错题知识点 | 难度匹配的同类题（规划中） |
+| 知识图谱关联 | 知识点名称 | 语义相近的关联知识点（规划中） |
+
+---
+
+## 十一、补充索引
+
+### 11.1 题目来源（Question Source）
 
 | 来源 | 英文 | 定义 |
 |------|------|------|
@@ -215,7 +274,7 @@ cancelled ───────────────────────�
 | 日常练习 | daily_practice | 从日常作业中收集的题目 |
 | OCR 导入 | ocr_import | 从纸质试卷 OCR 识别导入的题目 |
 
-### 10.2 教师子角色（Teacher Sub-Role）
+### 11.2 教师子角色（Teacher Sub-Role）
 
 | 角色 | 英文 | 权限范围 |
 |------|------|------|
