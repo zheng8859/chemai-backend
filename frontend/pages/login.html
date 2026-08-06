@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1.0">
+  <title>ChemAI 智辅化学 - 登录</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --oxford-blue-hover: #003366;
+      --teal: #13696a;
+      --teal-light: #e0f2f1;
+      --warm-paper: #faf8f5;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+      --white: #ffffff;
+      --error: #b43c28;
+      --radius-card: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--warm-paper);
+      background-image:
+        radial-gradient(ellipse at 20% 80%, rgba(19, 105, 106, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(0, 32, 69, 0.04) 0%, transparent 50%);
+    }
+
+    .login-card {
+      width: 400px;
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 40px 36px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: var(--oxford-blue);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .brand svg { width: 32px; height: 32px; flex-shrink: 0; }
+
+    .subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--white);
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-input:focus { border-color: var(--teal); }
+    .form-input::placeholder { color: #a0a0a0; }
+    .form-input.error { border-color: var(--error); }
+
+    .error-text {
+      font-size: 12px;
+      color: var(--error);
+      margin-top: 6px;
+      display: none;
+    }
+
+    .error-text.visible { display: block; }
+
+    .btn-login {
+      width: 100%;
+      height: 48px;
+      margin-top: 8px;
+      background: var(--oxford-blue);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-login:hover { background: var(--oxford-blue-hover); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: var(--white);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .demo-hint {
+      margin-top: 24px;
+      padding: 12px;
+      background: var(--teal-light);
+      border-radius: var(--radius-card);
+      font-size: 12px;
+      color: var(--teal);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .demo-hint code {
+      background: rgba(0,0,0,0.06);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'IBM Plex Sans', monospace;
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-card">
+  <a href="index.html" class="brand">
+    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 2L27.5 8.5V21.5L16 28L4.5 21.5V8.5L16 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+      <circle cx="16" cy="15" r="4" fill="currentColor"/>
+    </svg>
+    <span>ChemAI 智辅化学</span>
+  </a>
+  <div class="subtitle">教师端 · AI 驱动的化学教学辅助平台</div>
+
+  <form id="loginForm">
+    <div class="form-group">
+      <label class="form-label" for="phone">手机号</label>
+      <input type="text" id="phone" class="form-input" placeholder="请输入手机号" autocomplete="tel" maxlength="20">
+      <div class="error-text" id="phoneError"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="password">密码</label>
+      <input type="password" id="password" class="form-input" placeholder="请输入密码" autocomplete="current-password">
+      <div class="error-text" id="passwordError"></div>
+    </div>
+
+    <div class="error-text" id="loginError" style="text-align:center;margin-bottom:8px"></div>
+
+    <button type="submit" class="btn-login" id="loginBtn">
+      登录
+    </button>
+  </form>
+
+  <div class="demo-hint">
+    演示账号 <code>13800000000</code> / <code>demo123456</code>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('loginForm');
+  const phoneInput = document.getElementById('phone');
+  const passwordInput = document.getElementById('password');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
+  const phoneError = document.getElementById('phoneError');
+  const passwordError = document.getElementById('passwordError');
+
+  function clearErrors() {
+    [loginError, phoneError, passwordError].forEach(el => {
+      el.textContent = '';
+      el.classList.remove('visible');
+    });
+    phoneInput.classList.remove('error');
+    passwordInput.classList.remove('error');
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearErrors();
+
+    const phone = phoneInput.value.trim();
+    const password = passwordInput.value.trim();
+    let valid = true;
+
+    if (!phone) {
+      phoneError.textContent = '请输入手机号';
+      phoneError.classList.add('visible');
+      phoneInput.classList.add('error');
+      valid = false;
+    }
+
+    if (!password) {
+      passwordError.textContent = '请输入密码';
+      passwordError.classList.add('visible');
+      passwordInput.classList.add('error');
+      valid = false;
+    }
+
+    if (!valid) return;
+
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<span class="spinner"></span> 登录中...';
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || '登录失败');
+      }
+
+      if (!data.token) {
+        throw new Error('服务器未返回令牌');
+      }
+
+      localStorage.setItem('access_token', data.token);
+      localStorage.setItem('user_name', data.name || '教师');
+      localStorage.setItem('user_role', data.role || 'teacher');
+
+      // Redirect to the referring page or default to exam workbench
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get('redirect') || 'exam-v2.html';
+      window.location.href = redirect;
+
+    } catch (err) {
+      loginError.textContent = err.message || '网络错误，请重试';
+      loginError.classList.add('visible');
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.innerHTML = '登录';
+    }
+  });
+
+  // Focus phone on load
+  phoneInput.focus();
+</script>
+
+</body>
+</html>

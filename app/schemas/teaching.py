@@ -28,11 +28,13 @@ class ExamRead(ORMBase):
     id: int
     class_id: int
     exam_type: ExamType
+    status: str = "pending"
     exam_date: datetime
     participant_count: int
     avg_score: float | None
     error_stats: dict | None
     name: str | None
+    question_count: int = 0
     created_at: datetime
 
 
@@ -72,12 +74,13 @@ class QuestionRead(ORMBase):
 
 
 class QuestionGenerateRequest(BaseModel):
-    """AI 出题请求 (35号 §三: POST /api/question/generate)"""
+    """AI 出题请求 (25号 §三: POST /api/v1/questions/generate)"""
     knowledge_points: list[str] = Field(..., min_length=1)
-    difficulty: Difficulty = Difficulty.medium
-    count: int = Field(default=3, ge=1, le=20)
-    question_type: str = "选择题"
-    teacher_id: int
+    difficulty: str = "medium"
+    quantity: int = Field(default=3, ge=1, le=20)
+    question_types: list[str] | None = None
+    exam_type: str = ""
+    variant_qid: str = ""
 
 
 class QuestionGenerateResponse(BaseModel):
@@ -115,6 +118,69 @@ class PracticeSubmitRequest(BaseModel):
     question_id: int
     practice_session_id: str | None = None
     answer_content: str
+
+
+# ── 考试管理 ────────────────────────────────────────────────
+
+class ExamQuestionAssociateResponse(BaseModel):
+    """考试-题目关联响应 (25号 §六.2)"""
+    success: bool = True
+    added: int
+    from_existing: int
+    from_historical: int
+
+
+class ExamPublishResponse(BaseModel):
+    """考试发布响应 (25号 §六.3)"""
+    success: bool = True
+    exam_id: int
+    status: str
+    question_count: int
+    total_students: int
+    published_at: str
+
+
+class ExamFinalizeResponse(BaseModel):
+    """考试完成响应 (25号 §六.2)"""
+    success: bool = True
+    exam_id: int
+    status: str
+    participant_count: int
+
+
+class ExamQuestionItem(BaseModel):
+    """考试题目摘要"""
+    id: int
+    content: str
+    question_type: str
+    difficulty: str
+    sort_order: int
+    answer: str | None = None
+    analysis: str | None = None
+    options: list | None = None
+    knowledge_point_tags: list | None = None
+
+
+class ExamQuestionsResponse(BaseModel):
+    """考试题目列表响应"""
+    success: bool = True
+    questions: list[ExamQuestionItem]
+
+
+class QuestionImportResponse(BaseModel):
+    """题目导入响应 (25号 §三 Mode2)"""
+    success: bool = True
+    imported_count: int
+    questions: list["QuestionRead"]
+
+
+class QuestionGenerateResponse(BaseModel):
+    """AI 出题响应 (25号 §三.1.1)"""
+    success: bool
+    questions: list["QuestionRead"]
+    generated_count: int
+    total_available: int
+    warning: str | None = None
 
 
 # ── Grading ────────────────────────────────────────────────

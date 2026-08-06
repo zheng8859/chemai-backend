@@ -110,3 +110,44 @@ class PracticeAssignResponse(BaseModel):
     practice_session_id: str
     questions: list[int]  # question ids
     estimated_time_minutes: int
+
+
+# ── LLM Diagnosis Run ────────────────────────────────────────
+
+class DiagnosisRunResponse(BaseModel):
+    """POST /diagnosis/run-llm/{exam_id} 响应。
+
+    remaining_count 供前端自动循环判断终止条件。
+    """
+    success: bool = True
+    analyzed_count: int = 0
+    failed_count: int = 0
+    remaining_count: int = 0
+
+
+# ── Teacher Override ──────────────────────────────────────────
+
+class DiagnosisOverrideRequest(BaseModel):
+    """PUT /diagnosis/override/{student_answer_id} 请求体。
+
+    barrier_type 必填（concept/reading/expression），
+    misconception_category 可选（六类 或 null）。
+    """
+    barrier_type: str = Field(
+        ..., min_length=1,
+        description="障碍类型：concept / reading / expression",
+    )
+    misconception_category: str | None = Field(
+        None,
+        description="迷思概念类别：六选一 或 null",
+    )
+
+
+class DiagnosisOverrideResponse(BaseModel):
+    """PUT /diagnosis/override/{student_answer_id} 响应体。
+
+    返回覆盖前后的值，供前端展示变更。
+    """
+    success: bool = True
+    old: dict
+    new: dict

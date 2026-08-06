@@ -1,0 +1,104 @@
+{
+  "_description": "四维审核引擎 — 维度2：反应条件审核规则库（26号文档 §三）",
+
+  "conditions": [
+    { "id": 1,  "name": "点燃",       "keywords": ["点燃"],               "severity": "failed" },
+    { "id": 2,  "name": "加热",       "keywords": ["加热", "△"],          "severity": "failed" },
+    { "id": 3,  "name": "高温",       "keywords": ["高温"],               "severity": "failed" },
+    { "id": 4,  "name": "催化剂",     "keywords": ["催化剂", "MnO2", "Cu催化", "Fe催化"], "severity": "warning" },
+    { "id": 5,  "name": "通电",       "keywords": ["通电", "电解"],       "severity": "failed" },
+    { "id": 6,  "name": "光照",       "keywords": ["光照", "光"],         "severity": "failed" },
+    { "id": 7,  "name": "加压",       "keywords": ["加压", "高压"],       "severity": "failed" },
+    { "id": 8,  "name": "一定条件",   "keywords": ["一定条件"],           "severity": "warning" },
+    { "id": 9,  "name": "浓",         "keywords": ["浓", "浓硫酸", "浓硝酸", "浓盐酸"], "severity": "failed" },
+    { "id": 10, "name": "稀",         "keywords": ["稀", "稀硫酸", "稀硝酸", "稀盐酸"], "severity": "warning" },
+    { "id": 11, "name": "过量",       "keywords": ["过量"],               "severity": "warning" },
+    { "id": 12, "name": "足量",       "keywords": ["足量"],               "severity": "warning" },
+    { "id": 13, "name": "适量",       "keywords": ["适量"],               "severity": "warning" },
+    { "id": 14, "name": "高温高压",   "keywords": ["高温高压"],           "severity": "failed" }
+  ],
+
+  "combustion_species": [
+    "CH4", "C2H5OH", "C2H6O", "C6H12O6", "S", "P", "Fe", "Mg", "Al", "CO", "H2S", "C2H2", "C3H8", "C4H10", "C"
+  ],
+
+  "catalyst_indicators": [
+    "H2O2", "KClO3"
+  ],
+
+  "reaction_rules": [
+    {
+      "type": "燃烧反应",
+      "patterns": [],
+      "required": ["点燃"],
+      "severity": "failed",
+      "_note": "已迁移到 _check_combustion() 专项处理，此处禁用（该函数同时检查燃料+O2，减少误触发）"
+    },
+    {
+      "type": "催化分解",
+      "patterns": ["H2O2", "KClO3", "KMnO4"],
+      "required": ["催化剂"],
+      "severity": "warning"
+    },
+    {
+      "type": "电解反应",
+      "patterns": ["电解"],
+      "required": ["通电"],
+      "severity": "failed"
+    },
+    {
+      "type": "工业合成氨",
+      "patterns": ["N2", "H2", "NH3"],
+      "required": ["高温高压", "催化剂"],
+      "severity": "failed",
+      "_match_all": ["N2", "H2"],
+      "_note": "需同时含N2和H2才匹配，避免N2+O2→NO误触发"
+    },
+    {
+      "type": "浓硫酸反应",
+      "patterns": ["浓H2SO4", "浓硫酸"],
+      "required": ["浓", "加热"],
+      "severity": "failed"
+    },
+    {
+      "type": "稀酸反应",
+      "patterns": ["稀H2SO4", "稀HCl", "稀硫酸", "稀盐酸"],
+      "required": ["稀"],
+      "severity": "warning"
+    },
+    {
+      "type": "热分解",
+      "patterns": ["NaHCO3", "MgCO3", "Cu(OH)2"],
+      "required": ["加热"],
+      "severity": "failed",
+      "_note": "CaCO3可能是产物（CO2+Ca(OH)2→CaCO3），不在此规则中。NaHCO3/MgCO3/Cu(OH)2几乎只作为热分解反应物出现。"
+    },
+    {
+      "type": "酯化反应",
+      "patterns": ["CH3COOH", "C2H5OH", "酯化"],
+      "required": ["浓", "加热"],
+      "severity": "failed"
+    },
+    {
+      "type": "光化学反应",
+      "patterns": ["HClO", "光合作用", "见光"],
+      "required": ["光照"],
+      "severity": "failed",
+      "_note": "AgX可能作为沉淀产物出现，不做模式匹配，由LLM补充审核"
+    },
+    {
+      "type": "电解水",
+      "patterns": ["电解水"],
+      "required": ["通电"],
+      "severity": "warning",
+      "_note": "仅当明确标注'电解水'时匹配，避免普通 H2O 反应误触发"
+    }
+  ],
+
+  "contradictions": [
+    { "pair": ["浓", "稀"],     "severity": "failed" },
+    { "pair": ["过量", "适量"], "severity": "failed" },
+    { "pair": ["点燃", "通电"], "severity": "warning" },
+    { "pair": ["高温", "催化剂"], "severity": "warning" }
+  ]
+}

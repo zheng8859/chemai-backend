@@ -158,7 +158,7 @@ AUTH_WHITELIST_PREFIXES: tuple[str, ...] = (
     "/redoc",
     "/openapi.json",
     "/health",
-    "/api/auth/",
+    "/api/v1/auth/",
 )
 
 
@@ -264,3 +264,32 @@ async def get_teacher_class_ids(
         )
     )
     return result.scalars().all()
+
+
+# ═══════════════════════════════════════════════════════════
+# Pagination helper (通用分页参数依赖)
+# ═══════════════════════════════════════════════════════════
+
+async def get_pagination_params(
+    limit: int = 20,
+    offset: int = 0,
+    sort_by: str = "created_at",
+    order: str = "desc",
+) -> dict[str, int | str]:
+    """FastAPI 依赖：解析并校验分页/排序参数。
+
+    返回 dict 供 service 层直接使用。
+    - limit: 1-100，默认 20
+    - offset: >= 0，默认 0
+    - sort_by: 排序字段名（service 层负责白名单校验）
+    - order: "asc" 或 "desc"，默认 "desc"
+    """
+    if limit < 1:
+        limit = 1
+    elif limit > 100:
+        limit = 100
+    if offset < 0:
+        offset = 0
+    if order not in ("asc", "desc"):
+        order = "desc"
+    return {"limit": limit, "offset": offset, "sort_by": sort_by, "order": order}

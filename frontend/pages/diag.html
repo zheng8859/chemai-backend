@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Diagnostic</title>
+</head>
+<body>
+  <h1>CDN Test</h1>
+  <div id="status">Loading...</div>
+  <div id="app"><p v-if="true">Vue works!</p></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/mhchem.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+
+  <script>
+    document.getElementById('status').textContent = 'CDNs loaded, Vue=' + (typeof Vue !== 'undefined' ? 'OK' : 'FAIL') + ', katex=' + (typeof katex !== 'undefined' ? 'OK' : 'FAIL');
+    try {
+      const app = Vue.createApp({});
+      app.mount('#app');
+      document.getElementById('status').textContent += ' | Mount: OK';
+    } catch(e) {
+      document.getElementById('status').textContent += ' | Mount: ' + e.message;
+    }
+  </script>
+</body>
+</html>
