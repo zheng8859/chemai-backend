@@ -248,6 +248,9 @@ async def _rag_search(
 ) -> str:
     """从历史真题库检索相似题目作为 RAG 上下文。
 
+    两层检索：关键词匹配 → ChromaDB 向量精筛。
+    ChromaDB 不可用时降级为关键词匹配。
+
     Returns:
         格式化的真题参考文本，若无结果则返回空字符串
     """
@@ -260,19 +263,11 @@ async def _rag_search(
         if exam:
             return _format_rag_results([exam])
 
-    # 按知识点 + 难度检索
-    conditions = []
-    if difficulty:
-        conditions.append(HistoricalExam.difficulty == difficulty)
-
-    query = select(HistoricalExam)
-    if conditions:
-        for c in conditions:
-            query = query.where(c)
-    query = query.order_by(HistoricalExam.year.desc()).limit(5)
-
-    result = await db.execute(query)
-    exams = result.scalars().all()
+    # 使用向量检索服务
+    from .vector_search_service import VectorSearchService
+    exams = await VectorSearchService.search_similar(
+        db, knowledge_points, difficulty, limit=5,
+    )
     return _format_rag_results(exams)
 
 

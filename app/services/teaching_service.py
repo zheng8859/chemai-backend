@@ -52,6 +52,7 @@ class TeachingService:
         db: AsyncSession, class_id: int | None = None,
         limit: int = 20, offset: int = 0,
     ) -> tuple[list[ExamRead], int]:
+        from ..models.exam_paper import ExamPaperQuestion
         query = select(ExamRecord)
         count_query = select(func.count(ExamRecord.id))
         if class_id:
@@ -61,7 +62,30 @@ class TeachingService:
         result = await db.execute(
             query.order_by(ExamRecord.exam_date.desc()).offset(offset).limit(limit)
         )
-        exams = [ExamRead.model_validate(e) for e in result.scalars().all()]
+        records = result.scalars().all()
+
+        # Count questions per exam
+        exam_ids = [e.id for e in records]
+        counts = {}
+        if exam_ids:
+            # Collect exam_paper_ids
+            paper_ids = [e.exam_paper_id for e in records if e.exam_paper_id]
+            if paper_ids:
+                count_result = await db.execute(
+                    select(ExamPaperQuestion.exam_paper_id, func.count(ExamPaperQuestion.id))
+                    .where(ExamPaperQuestion.exam_paper_id.in_(paper_ids))
+                    .group_by(ExamPaperQuestion.exam_paper_id)
+                )
+                paper_counts = {row[0]: row[1] for row in count_result.all()}
+                for e in records:
+                    if e.exam_paper_id:
+                        counts[e.id] = paper_counts.get(e.exam_paper_id, 0)
+
+        exams = []
+        for e in records:
+            r = ExamRead.model_validate(e)
+            r.question_count = counts.get(e.id, 0)
+            exams.append(r)
         return exams, total
 
     @staticmethod
@@ -84,6 +108,10 @@ class TeachingService:
         exam = result.scalar_one_or_none()
         if exam is None:
             raise TeachingError(f"考试不存在: id={exam_id}")
+        if exam.status in ("in_progress", "grading"):
+            raise TeachingError(
+                "进行中或批改中的考试不可删除", error_code="FORBIDDEN"
+            )
         await db.delete(exam)
         await db.commit()
 

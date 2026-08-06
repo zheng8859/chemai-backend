@@ -816,14 +816,22 @@
               <div class="bank-grid-area" ref="bankGridRef">
                 <h2 class="section-title">{{ selectedFolder ? selectedFolder.name + ' · 全部题目' : '全部题目' }}</h2>
                 <div class="bank-grid">
-                  <div v-for="item in bankItems" :key="item.id" class="bank-card" @click="previewQuestion(item)">
-                    <div class="bank-card-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                  <div v-for="item in bankItems" :key="item.id" class="bank-card" :class="{ selected: bankChecked[item.id] }">
+                    <input type="checkbox" class="chk-row-check" style="position:absolute;top:6px;left:6px" :checked="!!bankChecked[item.id]" @click.stop="bankChecked[item.id] = !bankChecked[item.id]">
+                    <div @click="previewQuestion(item)">
+                      <div class="bank-card-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                      </div>
+                      <div class="bank-card-title">{{ item.content?.substring(0, 24) || '题目' }}...</div>
+                      <div class="bank-card-meta">{{ typeLabel(item.question_type) }} · {{ diffLabel(item.difficulty) }}</div>
                     </div>
-                    <div class="bank-card-title">{{ item.content?.substring(0, 24) || '题目' }}...</div>
-                    <div class="bank-card-meta">{{ typeLabel(item.question_type) }} · {{ diffLabel(item.difficulty) }}</div>
                     <button class="btn-danger" style="position:absolute;top:6px;right:6px;padding:2px 6px;font-size:10px" @click.stop="removeFromFolder(item)" title="从文件夹移除">✕</button>
                   </div>
+                </div>
+                <!-- Batch bar -->
+                <div v-if="bankCheckedCount > 0" style="position:sticky;bottom:0;background:var(--oxford-blue);color:var(--white);padding:10px 16px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;margin-top:12px">
+                  <span style="font-size:13px">已选 {{ bankCheckedCount }} 项</span>
+                  <button class="btn-danger" style="background:rgba(255,255,255,0.2);color:var(--white);border-color:rgba(255,255,255,0.3)" @click="batchRemove">批量删除</button>
                 </div>
                 <div ref="bankSentinel" style="height:1px"></div>
                 <div v-if="bankLoadingMore" style="text-align:center;padding:16px;color:var(--text-muted)">加载中...</div>
@@ -871,7 +879,7 @@
               <div class="empty-state"><div class="empty-state-icon">📚</div><div class="empty-state-text">暂无真题数据</div></div>
             </template>
             <template v-else>
-              <div class="history-card" v-for="he in historicalExams" :key="he.id">
+              <div class="history-card" v-for="he in historicalExams" :key="he.id" @click="previewHistory(he)">
                 <div class="history-card-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                 </div>
@@ -886,8 +894,10 @@
                   <span class="year-tag" v-if="he.year">{{ he.year }}</span>
                   <span class="question-count-tag" v-if="he.difficulty">{{ diffLabel(he.difficulty) }}</span>
                 </div>
-                <div class="history-card-actions">
+                <div class="history-card-actions" @click.stop>
+                  <button class="btn-icon-text" @click="previewHistory(he)">查看详情</button>
                   <button class="btn-icon-text" @click="setAsBlueprint(he)">设为蓝本</button>
+                  <button class="btn-icon-text" @click="addHistoryToExam(he)">加入考试</button>
                 </div>
               </div>
               <div ref="historySentinel" style="height:1px"></div>
@@ -937,6 +947,7 @@
                     <button v-if="exam.status === 'draft' || exam.status === 'pending'" class="btn-icon-text" @click="addQuestionsToExam(exam)">添加题目</button>
                     <button v-if="exam.status === 'draft' || exam.status === 'pending'" class="btn-icon-text" @click="publishExam(exam)">发布</button>
                     <button v-if="exam.status === 'in_progress'" class="btn-icon-text" @click="finalizeExam(exam)">完成</button>
+                    <button v-if="exam.status === 'completed'" class="btn-icon-text" @click="exportExam(exam)">导出</button>
                     <button v-if="exam.status !== 'in_progress'" class="btn-danger" style="padding:4px 8px;font-size:11px" @click="deleteExam(exam)">删除</button>
                   </div>
                 </div>
@@ -1265,6 +1276,8 @@
         const selectedFolderId = ref(null);
         const selectedFolder = computed(() => folders.find(f => f.id === selectedFolderId.value));
         const bankItems = reactive([]);
+        const bankChecked = reactive({});
+        const bankCheckedCount = computed(() => Object.values(bankChecked).filter(Boolean).length);
         const bankLoadingMore = ref(false);
         const bankOffset = ref(0);
         const bankLimit = 20;
@@ -1953,6 +1966,33 @@
           return html;
         }
 
+        function previewHistory(he) {
+          // Parse options from content if not a separate field (HistoricalExam stores options inline)
+          let content = he.content || '';
+          let options = he.options || [];
+          if (!options.length && content) {
+            const lines = content.split('\n');
+            const optLines = lines.filter(l => /^[A-F][.．、]\s*/.test(l.trim()));
+            if (optLines.length >= 2) {
+              options = optLines.map(l => l.trim());
+              content = lines.filter(l => !optLines.includes(l)).join('\n').trim();
+            }
+          }
+          showModal('preview', {
+            title: `${he.source || '真题'} · ${he.year || ''}`,
+            previewData: {
+              content: content,
+              options: options,
+              answer: he.answer || '',
+              analysis: he.analysis || '',
+              question_type: 'choice',
+              difficulty: he.difficulty || 'medium',
+              knowledge_point_tags: he.knowledge_point_tags || [],
+            },
+            wide: true
+          });
+        }
+
         function setAsBlueprint(he) {
           variantBlueprint.value = he;
           genVariant.value = true;
@@ -2078,10 +2118,48 @@
             });
             if (!selectedIds || !selectedIds.length) return;
 
-            await api.post(`/exams/${exam.id}/questions`, null, { question_ids: selectedIds });
-            toast(`已添加 ${selectedIds.length} 道题目`);
-            exam.question_count = (exam.question_count || 0) + selectedIds.length;
+            // Split by source: history IDs use source=historical, bank IDs use default
+            const bankIds = [], histIds = [];
+            for (const id of selectedIds) {
+              const opt = allOpts.find(o => o.id === id);
+              if (opt && opt.source === 'history') histIds.push(id);
+              else bankIds.push(id);
+            }
+
+            let added = 0;
+            if (bankIds.length) {
+              const r = await api.post(`/exams/${exam.id}/questions`, null, { question_ids: bankIds });
+              added += (r.added || r.data?.added || 0);
+            }
+            if (histIds.length) {
+              const r = await api.post(`/exams/${exam.id}/questions`, null, { question_ids: histIds, source: 'historical' });
+              added += (r.added || r.data?.added || 0);
+            }
+            toast(`已添加 ${added} 道题目`);
+            exam.question_count = (exam.question_count || 0) + added;
           } catch (e) { toast('添加失败: ' + e.message, 'error'); }
+        }
+
+        async function exportExam(exam) {
+          try {
+            const url = `${API_BASE}/exams/${exam.id}/export?format=docx&with_answers=false`;
+            const token = localStorage.getItem('access_token');
+            const res = await fetch(url, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.detail || `导出失败 (${res.status})`);
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `试卷${exam.id}_学生版.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+          } catch (e) { toast('导出失败: ' + e.message, 'error'); }
         }
 
         async function finalizeExam(exam) {
@@ -2092,6 +2170,42 @@
             exam.status = 'completed';
             toast('考试已完成');
           } catch (e) { toast('操作失败: ' + e.message, 'error'); }
+        }
+
+        async function batchRemove() {
+          const ids = Object.entries(bankChecked).filter(([,v]) => v).map(([k]) => parseInt(k));
+          if (!ids.length) return;
+          const ok = await showModal('confirm', { title: '批量删除', message: `确定要从文件夹移除 ${ids.length} 道题目吗？`, danger: true });
+          if (!ok) return;
+          let removed = 0, failed = 0;
+          for (const id of ids) {
+            try {
+              await api.del(`/question-sets/items/${id}`);
+              removed++;
+              delete bankChecked[id];
+              const idx = bankItems.findIndex(i => i.id === id);
+              if (idx >= 0) bankItems.splice(idx, 1);
+            } catch (e) { failed++; }
+          }
+          const f = folders.find(x => x.id === selectedFolderId.value);
+          if (f) f.question_count = Math.max(0, (f.question_count || 0) - removed);
+          toast(failed ? `已移除 ${removed} 道，${failed} 道失败` : `已移除 ${removed} 道题目`);
+        }
+
+        async function addHistoryToExam(he) {
+          try {
+            const res = await api.get('/exams', { limit: 100 });
+            const exams = res.data || res.items || [];
+            if (!exams.length) {
+              toast('暂无可用考试，请先创建考试', 'warning');
+              return;
+            }
+            const opts = exams.map(e => ({ id: e.id, name: e.name || `考试 #${e.id}` }));
+            const examId = await showModal('select', { title: '选择目标考试', options: opts });
+            if (!examId) return;
+            await api.post(`/exams/${examId}/questions`, null, { question_ids: [he.id], source: 'historical' });
+            toast('已加入考试');
+          } catch (e) { toast('加入失败: ' + e.message, 'error'); }
         }
 
         // ═══════════════════════════════════════════════
@@ -2164,10 +2278,10 @@
           generateQuestions, openVariantBrowser, saveToBank, addToExam, editQuestion,
           onManualKpSearch, onManualKpBlur, addManualKp, submitManual,
           onOcrClick, onOcrDrop, onOcrFileChange, batchSaveOcr,
-          loadFolders, selectFolder, newFolder, deleteFolder, removeFromFolder, previewQuestion,
-          loadHistoricalExams, onHistorySearch, setAsBlueprint,
+          loadFolders, selectFolder, newFolder, deleteFolder, removeFromFolder, previewQuestion, bankChecked, bankCheckedCount, batchRemove,
+          loadHistoricalExams, onHistorySearch, previewHistory, setAsBlueprint,
           checklistCheckedCount, toggleItemCheck, onChecklistSearch, checklistSelectAll, checklistInvert, openChecklistDetail, closeChecklistDetail, showChecklistTooltip, hideChecklistTooltip,
-          loadExams, createExam, publishExam, deleteExam, viewExamQuestions, addQuestionsToExam, finalizeExam,
+          loadExams, createExam, publishExam, deleteExam, viewExamQuestions, addQuestionsToExam, finalizeExam, exportExam, addHistoryToExam,
           confirmModal, cancelModal,
           showModal, checklistTooltip, renderLatex,
         };

@@ -67,7 +67,8 @@ async def delete_question_set(
     try:
         await QuestionBankService.delete_question_set(db, set_id)
     except QuestionBankError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.detail)
+        code = status.HTTP_403_FORBIDDEN if getattr(e, 'error_code', '') == 'FORBIDDEN' else status.HTTP_404_NOT_FOUND
+        raise HTTPException(status_code=code, detail=e.detail)
 
 
 @router.post("/question-sets/{set_id}/items", status_code=status.HTTP_201_CREATED)

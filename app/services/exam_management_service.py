@@ -35,6 +35,7 @@ class ExamManagementService:
         db: AsyncSession,
         exam_record_id: int,
         question_ids: list[int],
+        source_hint: str = "",
     ) -> dict:
         """将题目关联到考试（双渠道）。
 
@@ -74,37 +75,67 @@ class ExamManagementService:
         from_existing = 0
         from_historical = 0
 
-        for qid in question_ids:
-            # 渠道一：查 Question 表
-            result = await db.execute(
-                select(Question).where(Question.id == qid)
-            )
-            question = result.scalar_one_or_none()
+        # When source_hint="historical", try HistoricalExam first to avoid ID collision with Question table
+        historical_first = (source_hint == "historical")
 
-            if question is None:
-                # 渠道二：从 HistoricalExam 复制
+        for qid in question_ids:
+            question = None
+            hist = None
+
+            if historical_first:
+                # 渠道一：查 HistoricalExam
                 result = await db.execute(
                     select(HistoricalExam).where(HistoricalExam.id == qid)
                 )
                 hist = result.scalar_one_or_none()
-                if hist is None:
-                    continue  # 两处都找不到，跳过
 
+            if hist is not None:
+                # Copy from HistoricalExam
                 question = Question(
                     content=hist.content,
-                    question_type="choice" if hist.options else "fill_blank",
-                    options=hist.options,
+                    question_type="choice" if (hasattr(hist, 'options') and hist.options) else "fill_blank",
+                    options=hist.options if hasattr(hist, 'options') else [],
                     answer=hist.answer,
                     analysis=hist.analysis,
                     knowledge_point_tags=hist.knowledge_point_tags,
                     difficulty=hist.difficulty,
-                    source="historical",
+                    source="manual",  # 历史真题复制视为手动录入
                 )
                 db.add(question)
                 await db.flush()
                 from_historical += 1
             else:
-                from_existing += 1
+                # 渠道二/默认：查 Question 表
+                result = await db.execute(
+                    select(Question).where(Question.id == qid)
+                )
+                question = result.scalar_one_or_none()
+
+                if question is None and not historical_first:
+                    # Fallback: 从 HistoricalExam 复制
+                    result = await db.execute(
+                        select(HistoricalExam).where(HistoricalExam.id == qid)
+                    )
+                    hist = result.scalar_one_or_none()
+                    if hist is None:
+                        continue
+                    question = Question(
+                        content=hist.content,
+                        question_type="choice" if (hasattr(hist, 'options') and hist.options) else "fill_blank",
+                        options=hist.options if hasattr(hist, 'options') else [],
+                        answer=hist.answer,
+                        analysis=hist.analysis,
+                        knowledge_point_tags=hist.knowledge_point_tags,
+                        difficulty=hist.difficulty,
+                        source="manual",  # 历史真题复制视为手动录入
+                    )
+                    db.add(question)
+                    await db.flush()
+                    from_historical += 1
+                elif question is None:
+                    continue
+                else:
+                    from_existing += 1
 
             # 创建 ExamPaperQuestion 关联（防重复）
             result = await db.execute(

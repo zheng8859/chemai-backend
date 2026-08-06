@@ -8,7 +8,7 @@
 
 from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import String, Integer, Float, ForeignKey, JSON, Text, UniqueConstraint
+from sqlalchemy import String, Integer, Float, ForeignKey, JSON, Text, Boolean, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.enums import Difficulty
@@ -30,6 +30,10 @@ class QuestionSet(Base, TimestampMixin):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False, comment="文件夹名称")
     description: Mapped[Optional[str]] = mapped_column(Text, comment="描述")
+    is_system: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False,
+        comment="是否为系统预设（预设文件夹不可删除）"
+    )
 
     # ── 关系 ──
     teacher: Mapped["Teacher"] = relationship(back_populates="question_sets")

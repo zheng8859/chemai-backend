@@ -87,6 +87,10 @@ class QuestionBankService:
         qs = result.scalar_one_or_none()
         if qs is None:
             raise QuestionBankError(f"题库不存在: id={set_id}")
+        if qs.is_system:
+            raise QuestionBankError(
+                "系统预设文件夹不可删除", error_code="FORBIDDEN"
+            )
         await db.delete(qs)
         await db.commit()
 

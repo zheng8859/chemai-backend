@@ -80,7 +80,51 @@ async def delete_exam(
     try:
         await TeachingService.delete_exam(db, exam_id)
     except TeachingError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.detail)
+        code = status.HTTP_403_FORBIDDEN if getattr(e, 'error_code', '') == 'FORBIDDEN' else status.HTTP_404_NOT_FOUND
+        raise HTTPException(status_code=code, detail=e.detail)
+
+
+# ═══════════════════════════════════════════════════
+# 试卷导出（25号 §十）
+# ═══════════════════════════════════════════════════
+
+from fastapi.responses import StreamingResponse
+from ...services.exam_export_service import ExamExportService, ExamExportError
+
+
+@router.get("/exams/{exam_id}/export")
+async def export_exam(
+    exam_id: int,
+    format: str = Query("docx"),
+    with_answers: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
+    user: UserContext = Depends(get_current_user),
+):
+    """导出试卷为 Word 文档。
+
+    Query params:
+      - format: 导出格式，仅支持 "docx"
+      - with_answers: true=教师版（含答案+解析），false=学生版
+    """
+    if format != "docx":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="仅支持 docx 格式"
+        )
+    try:
+        buf = await ExamExportService.export_to_docx(db, exam_id, with_answers)
+    except ExamExportError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.detail)
+
+    from urllib.parse import quote
+    suffix = "_教师版" if with_answers else "_学生版"
+    filename = f"试卷{exam_id}{suffix}.docx"
+    encoded = quote(filename)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=utf-8''{encoded}"},
+    )
 
 
 # ═══════════════════════════════════════════════════
@@ -94,13 +138,19 @@ from ...services.exam_management_service import ExamManagementService, ExamManag
 async def add_questions_to_exam(
     exam_id: int,
     question_ids: list[int] = Query(...),
+    source: str = Query(""),
     db: AsyncSession = Depends(get_db),
     user: UserContext = Depends(require_permission("exam", "create")),
 ):
-    """添加题目到考试（双渠道：已有题目 + 历史真题复制）。"""
+    """添加题目到考试（双渠道：已有题目 + 历史真题复制）。
+
+    Query params:
+      - question_ids: 题目 ID 列表
+      - source: 来源，"historical" 时跳过 Question 表直接查历史真题
+    """
     try:
         result = await ExamManagementService.add_questions_to_exam(
-            db, exam_id, question_ids,
+            db, exam_id, question_ids, source_hint=source,
         )
         return {"success": True, **result}
     except ExamManagementError as e:
