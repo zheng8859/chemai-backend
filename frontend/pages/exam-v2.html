@@ -947,7 +947,7 @@
                     <button v-if="exam.status === 'draft' || exam.status === 'pending'" class="btn-icon-text" @click="addQuestionsToExam(exam)">添加题目</button>
                     <button v-if="exam.status === 'draft' || exam.status === 'pending'" class="btn-icon-text" @click="publishExam(exam)">发布</button>
                     <button v-if="exam.status === 'in_progress'" class="btn-icon-text" @click="finalizeExam(exam)">完成</button>
-                    <a v-if="exam.status === 'completed'" class="btn-icon-text" style="text-decoration:none" :href="exportExamUrl(exam)" download>导出</a>
+                    <button v-if="exam.status === 'completed'" class="btn-icon-text" @click="exportExam(exam)">导出</button>
                     <button v-if="exam.status !== 'in_progress'" class="btn-danger" style="padding:4px 8px;font-size:11px" @click="deleteExam(exam)">删除</button>
                   </div>
                 </div>
@@ -2140,8 +2140,26 @@
           } catch (e) { toast('添加失败: ' + e.message, 'error'); }
         }
 
-        function exportExamUrl(exam) {
-          return `${API_BASE}/exams/${exam.id}/export?format=docx&with_answers=false`;
+        async function exportExam(exam) {
+          try {
+            const url = `${API_BASE}/exams/${exam.id}/export?format=docx&with_answers=false`;
+            const token = localStorage.getItem('access_token');
+            const res = await fetch(url, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.detail || `导出失败 (${res.status})`);
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `试卷${exam.id}_学生版.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+          } catch (e) { toast('导出失败: ' + e.message, 'error'); }
         }
 
         async function finalizeExam(exam) {
@@ -2263,7 +2281,7 @@
           loadFolders, selectFolder, newFolder, deleteFolder, removeFromFolder, previewQuestion, bankChecked, bankCheckedCount, batchRemove,
           loadHistoricalExams, onHistorySearch, previewHistory, setAsBlueprint,
           checklistCheckedCount, toggleItemCheck, onChecklistSearch, checklistSelectAll, checklistInvert, openChecklistDetail, closeChecklistDetail, showChecklistTooltip, hideChecklistTooltip,
-          loadExams, createExam, publishExam, deleteExam, viewExamQuestions, addQuestionsToExam, finalizeExam, exportExamUrl, addHistoryToExam,
+          loadExams, createExam, publishExam, deleteExam, viewExamQuestions, addQuestionsToExam, finalizeExam, exportExam, addHistoryToExam,
           confirmModal, cancelModal,
           showModal, checklistTooltip, renderLatex,
         };

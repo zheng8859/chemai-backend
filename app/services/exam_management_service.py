@@ -99,7 +99,7 @@ class ExamManagementService:
                     analysis=hist.analysis,
                     knowledge_point_tags=hist.knowledge_point_tags,
                     difficulty=hist.difficulty,
-                    source="historical",
+                    source="manual",  # 历史真题复制视为手动录入
                 )
                 db.add(question)
                 await db.flush()
@@ -127,7 +127,7 @@ class ExamManagementService:
                         analysis=hist.analysis,
                         knowledge_point_tags=hist.knowledge_point_tags,
                         difficulty=hist.difficulty,
-                        source="historical",
+                        source="manual",  # 历史真题复制视为手动录入
                     )
                     db.add(question)
                     await db.flush()
