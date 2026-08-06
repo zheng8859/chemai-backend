@@ -32,7 +32,7 @@
 | 知识点 | Knowledge Point | 化学知识的基本单元（如"盐类水解""氧化还原反应"），带有分类、难度和考试频率标签 |
 | 知识图谱 | Knowledge Graph | 知识点及其先修/后修/相关关系的网络结构，支撑出题推荐和诊断归因 |
 | 薄弱知识点 | Weak Knowledge Points | 学生频繁出错的知识点集合，由诊断引擎从错误作答中聚合提取 |
-| 诊断 | Diagnosis | 对学生的错误作答进行障碍类型判定，规则引擎初筛（置信度 0.5-0.7）+ LLM 深度诊断（教育心理学视角）|
+| 诊断 | Diagnosis | 对学生的错误作答进行障碍类型判定，通过 LLM 从教育心理学视角分析，输出障碍类型 + 迷思概念类别（3×6 矩阵），支持教师逐题覆盖 |
 | 自适应练习 | Adaptive Practice | 根据学生障碍类型和最近发展区（ZPD）动态生成个性化练习题，采用 barrier→question 策略矩阵 |
 | 练习会话 | PracticeSession | 一次自适应练习的完整记录，追踪针对的障碍类型、覆盖知识点、推送/正确题目数和状态（进行中/已/已弃） |
 | 最近发展区 | ZPD (Zone of Proximal Development) | 在学生当前水平和潜在水平之间选题的学习理论，是自适应练习引擎的核心依据 |
@@ -88,14 +88,14 @@
 
 | 术语 | 英文 | 定义 |
 |------|------|------|
-| 规则引擎初筛 | Rule Engine Pre-Classification | 基于关键词匹配的快速障碍初判（置信度 0.5-0.7），作为 LLM 诊断的前置环节 |
-| LLM 深度诊断 | LLM Deep Diagnosis | 以教育心理学视角分析错误作答，输出障碍类型、迷思概念、置信度、推理和干预建议 |
-| 置信度分级 | Confidence Tiering | ≥0.8 自动采纳 / 0.7-0.8 采纳但标记 / <0.7 建议人工复核 |
-| 教师覆盖 | Teacher Override | 教师手动推翻 AI 诊断结果（教师指定类型占 90%，其余各 5%），记录操作日志 |
-| 诊断来源 | Diagnosed By | 标记每道作答的障碍类型来自 ai_rule（规则引擎）/ ai_llm（LLM 深度诊断）/ teacher（教师覆盖） |
+| LLM 深度诊断 | LLM Deep Diagnosis | 以教育心理学视角分析错误作答，输出障碍类型、迷思概念类别、推理和干预建议。asyncio.Semaphore(5) 并发控制，单次批量上限 10 条 |
+| 教师覆盖 | Teacher Override | 教师对单条作答的 AI 诊断结果进行手动修正，覆盖后 diagnosed_by 变为 teacher，diagnosis_overridden_at 记录时间。覆盖记录与 LLM 诊断等权计入聚合 |
+| 诊断来源 | Diagnosed By | 标记每道作答的障碍类型来自 ai_llm（LLM 诊断）或 teacher（教师覆盖） |
 | 覆盖时间 | Diagnosis Overridden At | 教师手动覆盖诊断的时间戳，为空表示未被覆盖 |
 | 障碍诊断配置 | BarrierConfig | 教师自定义的诊断阈值（概念/审题/表述各自连续错误触发次数、掌握标准）|
 | 班级障碍分布 | Class Barrier Distribution | 全班学生按主导障碍类型的统计分布（concept/reading/expression 各多少人）|
+| 障碍画像 | Barrier Profile | 学生维度 JSON，格式为 {"concept": 0.40, "reading": 0.30, "expression": 0.30}，由 aggregator 对所有已诊断作答计数归一化得出 |
+| 学生障碍画像 | Student Barrier Profile | 存储在 Student.barrier_profile 字段，诊断聚合完成后自动更新 |
 
 ---
 

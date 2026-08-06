@@ -949,6 +949,18 @@
                     <button v-if="exam.status === 'in_progress'" class="btn-icon-text" @click="finalizeExam(exam)">完成</button>
                     <button v-if="exam.status === 'completed'" class="btn-icon-text" @click="exportExam(exam)">导出</button>
                     <button v-if="exam.status !== 'in_progress'" class="btn-danger" style="padding:4px 8px;font-size:11px" @click="deleteExam(exam)">删除</button>
+                    <button
+                      v-if="exam.status === 'in_progress' || exam.status === 'grading' || exam.status === 'completed'"
+                      class="btn-icon-text"
+                      :disabled="diagnosingExamId === exam.id"
+                      @click="runDiagnosis(exam)"
+                    >{{ diagnosingExamId === exam.id ? '诊断中…' : '诊断' }}</button>
+                  </div>
+                  <div v-if="diagnosingExamId === exam.id" style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                    <div style="flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+                      <div :style="{ width: diagnosisProgress + '%', height:'100%', background:'var(--primary)', transition:'width .3s' }"></div>
+                    </div>
+                    <span style="font-size:11px;color:var(--text-secondary);white-space:nowrap">{{ diagnosisProgress }}% ({{ diagnosisRemaining }} 条待诊断)</span>
                   </div>
                 </div>
               </div>
@@ -1305,6 +1317,12 @@
         const examsError = ref('');
         const examPage = ref(1);
         const examLimit = 10;
+        // Diagnosis state
+        const diagnosingExamId = ref(null);
+        const diagnosisProgress = ref(0);
+        const diagnosisRemaining = ref(0);
+        const diagnosisAnalyzed = ref(0);
+        const diagnosisFailed = ref(0);
         const examTotalPages = computed(() => Math.max(1, Math.ceil(exams.length / examLimit)));
         const pagedExams = computed(() => {
           const start = (examPage.value - 1) * examLimit;
@@ -2172,6 +2190,43 @@
           } catch (e) { toast('操作失败: ' + e.message, 'error'); }
         }
 
+        async function runDiagnosis(exam) {
+          // 防止重复触发
+          if (diagnosingExamId.value) return;
+          diagnosingExamId.value = exam.id;
+          diagnosisProgress.value = 0;
+          diagnosisRemaining.value = 0;
+          diagnosisAnalyzed.value = 0;
+          diagnosisFailed.value = 0;
+
+          try {
+            let keepGoing = true;
+            while (keepGoing) {
+              const res = await api.post(`/diagnosis/run-llm/${exam.id}`);
+              diagnosisAnalyzed.value += res.analyzed_count || 0;
+              diagnosisFailed.value += res.failed_count || 0;
+              diagnosisRemaining.value = res.remaining_count || 0;
+
+              const total = diagnosisAnalyzed.value + diagnosisRemaining.value;
+              diagnosisProgress.value = total > 0
+                ? Math.round((diagnosisAnalyzed.value / total) * 100)
+                : 100;
+
+              if (res.remaining_count <= 0) {
+                keepGoing = false;
+              }
+            }
+            toast(
+              `诊断完成：成功 ${diagnosisAnalyzed.value} 条` +
+              (diagnosisFailed.value ? `，失败 ${diagnosisFailed.value} 条` : '')
+            );
+          } catch (e) {
+            toast('诊断失败: ' + e.message, 'error');
+          } finally {
+            diagnosingExamId.value = null;
+          }
+        }
+
         async function batchRemove() {
           const ids = Object.entries(bankChecked).filter(([,v]) => v).map(([k]) => parseInt(k));
           if (!ids.length) return;
@@ -2281,7 +2336,8 @@
           loadFolders, selectFolder, newFolder, deleteFolder, removeFromFolder, previewQuestion, bankChecked, bankCheckedCount, batchRemove,
           loadHistoricalExams, onHistorySearch, previewHistory, setAsBlueprint,
           checklistCheckedCount, toggleItemCheck, onChecklistSearch, checklistSelectAll, checklistInvert, openChecklistDetail, closeChecklistDetail, showChecklistTooltip, hideChecklistTooltip,
-          loadExams, createExam, publishExam, deleteExam, viewExamQuestions, addQuestionsToExam, finalizeExam, exportExam, addHistoryToExam,
+          loadExams, createExam, publishExam, deleteExam, viewExamQuestions, addQuestionsToExam, finalizeExam, exportExam, addHistoryToExam, runDiagnosis,
+          diagnosingExamId, diagnosisProgress, diagnosisRemaining,
           confirmModal, cancelModal,
           showModal, checklistTooltip, renderLatex,
         };
