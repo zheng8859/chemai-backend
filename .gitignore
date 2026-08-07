@@ -40,3 +40,5 @@ Thumbs.db
 
 # Node
 node_modules/
+.coverage
+coverage.xml
