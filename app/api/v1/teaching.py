@@ -381,11 +381,11 @@ async def generate_questions(
 
 
 # ═══════════════════════════════════════════════════
-# Practice Submit
+# Single Answer Submit (legacy, migrated from /practice/submit)
 # ═══════════════════════════════════════════════════
 
-@router.post("/practice/submit")
-async def submit_practice(
+@router.post("/practice/answer")
+async def submit_answer(
     request: PracticeSubmitRequest,
     db: AsyncSession = Depends(get_db),
     user: UserContext = Depends(get_current_user),

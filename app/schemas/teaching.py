@@ -120,6 +120,52 @@ class PracticeSubmitRequest(BaseModel):
     answer_content: str
 
 
+# ── 自适应练习（Phase 4）──────────────────────────────────────
+
+class PracticeAnswerItem(BaseModel):
+    """单条作答。"""
+    question_id: int
+    answer: str
+
+
+class PracticeBatchSubmitRequest(BaseModel):
+    """批量提交练习答案 (POST /api/v1/practice/submit)。"""
+    practice_id: str
+    answers: list[PracticeAnswerItem] = []
+
+
+# ── 间隔复习（Phase 4）────────────────────────────────────────
+
+class ReviewSubmitRequest(BaseModel):
+    """提交复习结果 (POST /api/v1/review/submit)。"""
+    review_task_id: int
+    is_correct: bool
+
+
+class MarkMasteredRequest(BaseModel):
+    """标记题目已掌握 (POST /api/v1/review/wrong/{question_id}/master)。"""
+    student_id: int
+
+
+class VariantGenerateRequest(BaseModel):
+    """生成变式题 (POST /api/v1/review/wrong-topic/variant/generate)。"""
+    question_id: int
+    count: int = 3
+
+
+class TrainingCreateRequest(BaseModel):
+    """创建错题强化训练 (POST /api/v1/review/wrong-topic/training/create)。"""
+    student_id: int
+    question_ids: list[int] = []
+
+
+class TrainingSubmitRequest(BaseModel):
+    """提交强化训练结果 (POST /api/v1/review/wrong-topic/training/submit)。"""
+    session_id: str
+    student_id: int
+    answers: list[PracticeAnswerItem] = []
+
+
 # ── 考试管理 ────────────────────────────────────────────────
 
 class ExamQuestionAssociateResponse(BaseModel):

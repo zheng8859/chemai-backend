@@ -9,8 +9,6 @@ from ...services.diagnosis_service import DiagnosisService, DiagnosisError
 from ...llm.router import LLMError
 from ...schemas.diagnosis import (
     BarrierConfigUpdate,
-    ReviewCompleteRequest,
-    PracticeAssignRequest,
     DiagnosisRunResponse,
     DiagnosisOverrideRequest,
     DiagnosisOverrideResponse,
@@ -135,38 +133,6 @@ async def override_diagnosis(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.detail)
 
 
-# ── Reviews ──────────────────────────────────────────────────
-
-@router.get("/reviews/pending")
-async def list_pending_reviews(
-    student_id: int = Query(...),
-    db: AsyncSession = Depends(get_db),
-    pagination: dict = Depends(get_pagination_params),
-    user: UserContext = Depends(get_current_user),
-):
-    items, total = await DiagnosisService.list_pending_reviews(
-        db, student_id,
-        limit=pagination["limit"], offset=pagination["offset"],
-    )
-    return PaginatedResponse(items=items, total=total,
-                             limit=pagination["limit"], offset=pagination["offset"])
-
-
-@router.post("/reviews/complete")
-async def complete_review(
-    request: ReviewCompleteRequest,
-    db: AsyncSession = Depends(get_db),
-    user: UserContext = Depends(get_current_user),
-):
-    try:
-        result = await DiagnosisService.complete_review(
-            db, request.review_task_id, request.result,
-        )
-        return {"success": True, "data": result}
-    except DiagnosisError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.detail)
-
-
 # ── Warnings ─────────────────────────────────────────────────
 
 @router.get("/warnings")
@@ -198,15 +164,3 @@ async def resolve_warning(
     except DiagnosisError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.detail)
 
-
-# ── Practice Assign (stub) ───────────────────────────────────
-
-@router.post("/practice/assign")
-async def assign_practice(
-    request: PracticeAssignRequest,
-    db: AsyncSession = Depends(get_db),
-    user: UserContext = Depends(require_permission("student", "update")),
-):
-    return await DiagnosisService.assign_practice_stub(
-        request.student_id, request.question_count,
-    )
