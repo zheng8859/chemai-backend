@@ -293,3 +293,24 @@ async def get_pagination_params(
     if order not in ("asc", "desc"):
         order = "desc"
     return {"limit": limit, "offset": offset, "sort_by": sort_by, "order": order}
+
+
+# ═══════════════════════════════════════════════════════════
+# Account → Student 映射（学生端 API 专用）
+# ═══════════════════════════════════════════════════════════
+
+async def resolve_student_id(db: AsyncSession, account_id: int) -> int | None:
+    """由 Account.id 反查 Student.id。
+
+    学生端前端使用 JWT user_id (Account.id) 作为路径/查询参数，
+    但 service 层查询的是 Student.id。本函数完成映射。
+
+    Returns None 当 Account 未关联 Student（调用方自行决定处理方式）。
+    """
+    from ..models.user import Student
+    from sqlalchemy import select
+    result = await db.execute(
+        select(Student).where(Student.account_id == account_id)
+    )
+    student = result.scalar_one_or_none()
+    return student.id if student else None
