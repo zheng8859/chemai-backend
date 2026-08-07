@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- prompt: prompts/2026-07-31-m-review.md -->
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -8,19 +7,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css">
   <style>
     :root {
       --oxford-blue: #002045;
       --teal: #13696a;
+      --teal-light: #e0f2f1;
       --warm-paper: #faf8f5;
       --white: #ffffff;
       --border-color: #d4d0c8;
       --text-primary: #1f1f1f;
       --text-secondary: #666666;
       --text-muted: #888888;
-      --level2: #FF6B35;
-      --level1: #3B5BA5;
-      --level0: #2c6e49;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -48,16 +46,21 @@
       background: var(--oxford-blue); padding: 0 12px;
       color: var(--white);
     }
-    .back-btn {
+    .top-bar .back-btn {
       width: 28px; height: 28px;
       display: flex; align-items: center; justify-content: center;
-      background: none; border: none; cursor: pointer; color: var(--white);
+      background: none; border: none; cursor: pointer;
+      color: var(--white); flex-shrink: 0;
     }
     .top-bar .title { font-size: 16px; font-weight: 600; flex: 1; }
 
+    /* ── Views ── */
+    .view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .view.active { display: flex; }
+
     /* ── Stats Row ── */
     .stats-row {
-      display: flex; gap: 8px; padding: 16px;
+      display: flex; gap: 8px; padding: 16px; flex-shrink: 0;
     }
     .stat-card {
       flex: 1;
@@ -70,10 +73,13 @@
     .stat-value {
       font-family: 'Cormorant Garamond', serif;
       font-size: 28px; font-weight: 700; line-height: 1;
+      transition: opacity 0.3s;
     }
-    .stat-value.orange { color: var(--level2); }
-    .stat-value.blue   { color: var(--level1); }
-    .stat-value.green  { color: var(--level0); }
+    .stat-value.loading { opacity: 0.3; animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+    .stat-value.orange { color: #FF6B35; }
+    .stat-value.blue   { color: #3B5BA5; }
+    .stat-value.green  { color: #2c6e49; }
 
     /* ── Scroll ── */
     .main-scroll {
@@ -90,10 +96,10 @@
     }
     .section-header.done {
       font-size: 14px; font-weight: 700;
-      color: var(--level0);
+      color: #2c6e49;
     }
 
-    /* ── Review Card ── */
+    /* ── Review List ── */
     .review-list {
       padding: 0 16px;
       display: flex; flex-direction: column; gap: 8px;
@@ -103,10 +109,18 @@
       background: var(--white);
       border: 1px solid var(--border-color);
       border-radius: 8px; padding: 12px;
+      transition: opacity 0.5s, max-height 0.5s, margin 0.5s, padding 0.5s;
+    }
+    .review-card.removing {
+      opacity: 0; max-height: 0; margin: 0; padding: 0 12px; overflow: hidden;
+      border-width: 0;
+    }
+    .review-card.mastered-card {
+      opacity: 0.55;
     }
 
     .review-card-top {
-      display: flex; align-items: center; gap: 12px;
+      display: flex; align-items: center; gap: 10px;
       margin-bottom: 8px;
     }
 
@@ -122,16 +136,26 @@
     .review-summary {
       flex: 1; font-size: 14px; color: var(--text-primary);
       min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    .review-level {
-      padding: 2px 8px; border-radius: 4px;
+    .review-badge {
+      padding: 3px 8px; border-radius: 4px;
       font-size: 11px; font-weight: 500; color: var(--white);
       white-space: nowrap; flex-shrink: 0;
     }
-    .review-level.l2 { background: var(--level2); }
-    .review-level.l1 { background: var(--level1); }
-    .review-level.l0 { background: var(--level0); }
+    .review-badge.level-0 { background: #2c6e49; }
+    .review-badge.level-1 { background: #3B5BA5; }
+    .review-badge.level-2 { background: #FF6B35; }
+    .review-badge.level-3 { background: #C62828; }
+    .review-badge.level-4 { background: #7B2D8E; }
+    .review-badge.level-5 { background: #F9A825; color: #333; }
+
+    .review-date {
+      font-size: 11px; color: var(--text-muted);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .review-date.overdue { color: #C62828; font-weight: 600; }
 
     .btn-review {
       width: 100%; height: 36px;
@@ -143,46 +167,107 @@
     }
     .btn-review:active { background: #003366; }
 
-    .btn-review.disabled {
-      background: #ccc; color: #999; cursor: not-allowed; pointer-events: none;
-    }
-
-    /* ── Done Card ── */
-    .done-list {
-      padding: 0 16px 16px;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-
-    .done-card {
-      background: var(--white); opacity: 0.6;
-      border: 1px solid var(--border-color);
-      border-radius: 8px; padding: 12px;
-    }
-
-    .done-card-top {
-      display: flex; align-items: center; gap: 12px;
-    }
-
-    .done-check {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      background: var(--level0);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .done-info { flex: 1; min-width: 0; }
-
-    .done-title { font-size: 14px; font-weight: 500; color: var(--text-primary); }
-
-    .done-status {
-      font-size: 12px; color: var(--level0); font-weight: 500; margin-top: 2px;
-    }
-
     /* ── Divider ── */
     .section-divider {
       height: 1px; background: #eee; margin: 8px 16px;
     }
+
+    /* ── Quiz View ── */
+    .quiz-content {
+      flex: 1; overflow-y: auto;
+      padding: 20px 16px;
+      display: flex; flex-direction: column; gap: 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .quiz-question {
+      font-size: 16px; line-height: 1.7; font-weight: 500;
+    }
+    .quiz-answer-reveal {
+      padding: 14px 16px; border-radius: 8px;
+      font-size: 14px; line-height: 1.6;
+      display: none;
+    }
+    .quiz-answer-reveal.show { display: block; }
+    .quiz-answer-reveal.correct { background: #e0f2f1; color: #2c6e49; }
+    .quiz-answer-reveal.wrong   { background: #fff0f0; color: #c0392b; }
+
+    .quiz-actions {
+      display: flex; gap: 12px;
+      padding: 12px 16px;
+      background: var(--white);
+      border-top: 1px solid #eee; flex-shrink: 0;
+    }
+    .btn-quiz {
+      flex: 1; height: 48px;
+      border: none; border-radius: 10px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 16px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-quiz:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-correct {
+      background: #2c6e49; color: var(--white);
+    }
+    .btn-correct:active:not(:disabled) { background: #1e4d33; }
+    .btn-wrong {
+      background: #c0392b; color: var(--white);
+    }
+    .btn-wrong:active:not(:disabled) { background: #a93226; }
+
+    /* ── Result Feedback ── */
+    .feedback-toast {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      padding: 16px 28px; border-radius: 12px;
+      font-size: 15px; font-weight: 600; z-index: 200;
+      pointer-events: none; opacity: 0; transition: opacity 0.3s;
+    }
+    .feedback-toast.show { opacity: 1; }
+    .feedback-toast.upgrade   { background: #2c6e49; color: var(--white); }
+    .feedback-toast.downgrade { background: #c0392b; color: var(--white); }
+    .feedback-toast.same      { background: var(--oxford-blue); color: var(--white); }
+    .feedback-toast.mastered  { background: #F9A825; color: #333; }
+
+    .btn-back-list {
+      width: 100%; height: 44px;
+      background: var(--oxford-blue); color: var(--white);
+      border: none; border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      margin: 12px 0;
+    }
+
+    /* ── States ── */
+    .state-msg {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; padding: 60px 16px;
+      color: var(--text-muted); text-align: center;
+    }
+    .state-msg .icon-check {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: #2c6e49;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .skeleton-card {
+      height: 80px; border-radius: 8px; margin-bottom: 8px;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      background: var(--oxford-blue); color: var(--white);
+      padding: 10px 24px; border-radius: 20px;
+      font-size: 13px; z-index: 200; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
 
     /* ── Bottom Tab Bar ── */
     .tab-bar {
@@ -204,140 +289,368 @@
 </head>
 <body>
   <div class="mobile-shell">
+    <div class="toast" id="toast"></div>
+    <div class="feedback-toast" id="feedback"></div>
 
-    <!-- Top Bar -->
-    <header class="top-bar">
-      <button class="back-btn" onclick="history.back()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-      </button>
-      <span class="title">复习中心</span>
-    </header>
+    <!-- ═══════════ View 1: Task List ═══════════ -->
+    <div class="view active" id="viewList">
+      <header class="top-bar">
+        <button class="back-btn" onclick="history.back()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <span class="title">复习中心</span>
+      </header>
 
-    <!-- Stats -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <span class="stat-label">待复习</span>
-        <span class="stat-value orange">8</span>
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-label">待复习</span>
+          <span class="stat-value orange" id="statPending">-</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">今日已复习</span>
+          <span class="stat-value blue" id="statToday">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">已掌握</span>
+          <span class="stat-value green" id="statMastered">0</span>
+        </div>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">今日已复习</span>
-        <span class="stat-value blue">3</span>
+
+      <!-- Scroll -->
+      <div class="main-scroll" id="listScroll">
+        <!-- Pending section -->
+        <h2 class="section-header" id="pendingHeader">今日待复习</h2>
+        <div class="review-list" id="pendingList"></div>
+        <!-- Divider -->
+        <div class="section-divider" id="divider" style="display:none"></div>
+        <!-- Completed today section -->
+        <div id="completedSection" style="display:none">
+          <h2 class="section-header done">今日已完成</h2>
+          <div class="review-list" id="completedList"></div>
+        </div>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">已掌握</span>
-        <span class="stat-value green">15</span>
-      </div>
+
+      <!-- Tab Bar -->
+      <nav class="tab-bar">
+        <button class="tab-item" onclick="location.href='index.html'">
+          <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 5.4 1.8"></path><path d="M12 6v4l3 2"></path></svg></span>
+          <span class="tab-label">AI助教</span>
+        </button>
+        <button class="tab-item" onclick="location.href='practice.html'">
+          <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span>
+          <span class="tab-label">练习</span>
+        </button>
+        <button class="tab-item active" onclick="location.href='wrong.html'">
+          <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span>
+          <span class="tab-label">错题</span>
+        </button>
+        <button class="tab-item" onclick="location.href='profile.html'">
+          <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+          <span class="tab-label">我的</span>
+        </button>
+      </nav>
     </div>
 
-    <!-- Scroll -->
-    <div class="main-scroll">
-
-      <!-- Today Pending -->
-      <h2 class="section-header">今日待复习（8题）</h2>
-      <div class="review-list">
-
-        <!-- Card 1: Level 2 -->
-        <div class="review-card">
-          <div class="review-card-top">
-            <div class="review-num">1</div>
-            <div class="review-summary">氧化还原反应电子转移计算...</div>
-            <span class="review-level l2">Level 2 · 7天后</span>
-          </div>
-          <button class="btn-review">开始复习</button>
-        </div>
-
-        <!-- Card 2: Level 1 -->
-        <div class="review-card">
-          <div class="review-card-top">
-            <div class="review-num">2</div>
-            <div class="review-summary">离子方程式配平练习...</div>
-            <span class="review-level l1">Level 1 · 3天后</span>
-          </div>
-          <button class="btn-review">开始复习</button>
-        </div>
-
-        <!-- Card 3: Level 0 -->
-        <div class="review-card">
-          <div class="review-card-top">
-            <div class="review-num">3</div>
-            <div class="review-summary">化学键类型判断基础...</div>
-            <span class="review-level l0">Level 0 · 首次学习</span>
-          </div>
-          <button class="btn-review">开始复习</button>
-        </div>
-
+    <!-- ═══════════ View 2: Quiz ═══════════ -->
+    <div class="view" id="viewQuiz">
+      <header class="top-bar">
+        <button class="back-btn" onclick="backToList()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <span class="title">复习答题</span>
+        <span class="review-badge" id="quizLevelBadge"></span>
+      </header>
+      <div class="quiz-content" id="quizContent"></div>
+      <div class="quiz-actions" id="quizActions">
+        <button class="btn-quiz btn-correct" id="btnCorrect" onclick="submitAnswer(true)">✓ 答对了</button>
+        <button class="btn-quiz btn-wrong"  id="btnWrong"  onclick="submitAnswer(false)">✗ 答错了</button>
       </div>
-
-      <!-- Divider -->
-      <div class="section-divider"></div>
-
-      <!-- Today Done -->
-      <h2 class="section-header done">今日已完成</h2>
-      <div class="done-list">
-
-        <div class="done-card">
-          <div class="done-card-top">
-            <div class="done-check">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--white)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
-            <div class="done-info">
-              <div class="done-title">氧化还原基础练习</div>
-              <div class="done-status">✓ 已掌握</div>
-            </div>
-          </div>
-          <button class="btn-review disabled" style="margin-top:8px">已完成</button>
-        </div>
-
-        <div class="done-card">
-          <div class="done-card-top">
-            <div class="done-check">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
-            <div class="done-info">
-              <div class="done-title">离子反应专项练习</div>
-              <div class="done-status">✓ 已掌握</div>
-            </div>
-          </div>
-          <button class="btn-review disabled" style="margin-top:8px">已完成</button>
-        </div>
-
-        <div class="done-card">
-          <div class="done-card-top">
-            <div class="done-check">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
-            <div class="done-info">
-              <div class="done-title">化学键与分子结构</div>
-              <div class="done-status">✓ 已掌握</div>
-            </div>
-          </div>
-          <button class="btn-review disabled" style="margin-top:8px">已完成</button>
-        </div>
-
-      </div>
-
+      <button class="btn-back-list" id="btnBackToList" onclick="backToList()" style="display:none">返回列表</button>
     </div>
-
-    <!-- Bottom Tab Bar -->
-    <nav class="tab-bar">
-      <button class="tab-item" onclick="location.href='index.html'">
-        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 5.4 1.8"></path><path d="M12 6v4l3 2"></path></svg></span>
-        <span class="tab-label">AI助教</span>
-      </button>
-      <button class="tab-item">
-        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span>
-        <span class="tab-label">练习</span>
-      </button>
-      <button class="tab-item active">
-        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span>
-        <span class="tab-label">错题</span>
-      </button>
-      <button class="tab-item">
-        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
-        <span class="tab-label">我的</span>
-      </button>
-    </nav>
-
   </div>
+
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/api-client.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/mhchem.min.js"></script>
+
+  <script>
+    var $ = function(id) { return document.getElementById(id); };
+
+    var state = {
+      tasks: [],              // All pending review tasks
+      total: 0,
+      todaysReviewed: [],     // Tasks reviewed in this session
+      masteredCount: 0,       // Tasks that reached level 5 this session
+      activeTask: null,       // Current review task being answered
+      isSubmitting: false,
+    };
+
+    // Level metadata
+    var LEVEL_LABELS = ['首次学习', '1天后', '3天后', '7天后', '14天后', '已掌握'];
+    var LEVEL_CLASSES = ['level-0', 'level-1', 'level-2', 'level-3', 'level-4', 'level-5'];
+
+    // ══════════════════════════════════════════════════════════
+    // Init
+    // ══════════════════════════════════════════════════════════
+    (function init() {
+      if (!ChemAuth.isAuthenticated()) { ChemAuth.redirectToLogin(); return; }
+      loadReviewList();
+    })();
+
+    // ══════════════════════════════════════════════════════════
+    // Load review list (5.2)
+    // ══════════════════════════════════════════════════════════
+    function loadReviewList() {
+      showSkeletons();
+      var uid = ChemAuth.getUserId();
+
+      ChemAPI.apiGet('/review/student/' + uid + '/due', { limit: 50, offset: 0 })
+        .then(function(res) {
+          state.tasks = res.data || [];
+          state.total = res.total || state.tasks.length;
+          renderReviewList();
+        })
+        .catch(function(err) {
+          $('pendingList').innerHTML = '<div class="state-msg"><span>加载失败: ' + err.message + '</span><button class="btn-review" style="width:auto;padding:10px 24px" onclick="loadReviewList()">重试</button></div>';
+        });
+    }
+
+    function showSkeletons() {
+      $('pendingList').innerHTML = '<div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>';
+      $('statPending').textContent = '...';
+      $('statPending').classList.add('loading');
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // Render review list (5.3)
+    // ══════════════════════════════════════════════════════════
+    function renderReviewList() {
+      $('statPending').classList.remove('loading');
+
+      // Stats
+      var pendingCount = state.tasks.length;
+      $('statPending').textContent = pendingCount;
+      $('statToday').textContent = state.todaysReviewed.length;
+      $('statMastered').textContent = state.masteredCount;
+
+      $('pendingHeader').textContent = '今日待复习（' + pendingCount + '题）';
+
+      if (pendingCount === 0) {
+        $('pendingList').innerHTML = '<div class="state-msg"><div class="icon-check"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div><span>暂无待复习题目，继续保持！</span></div>';
+        $('divider').style.display = 'none';
+      } else {
+        var html = '';
+        state.tasks.forEach(function(task, idx) {
+          var q = task.question || {};
+          var summary = q.content ? q.content.replace(/<[^>]*>/g, '').replace(/\$[^$]+\$/g, '').substring(0, 60) : '题目 #' + task.question_id;
+          var level = task.level || 0;
+          var levelLabel = LEVEL_LABELS[Math.min(level, 5)] || '未知';
+          var isOverdue = task.status === 'overdue';
+          var dateStr = '';
+          if (task.next_review_date) {
+            var d = new Date(task.next_review_date);
+            dateStr = (d.getMonth() + 1) + '/' + d.getDate();
+            if (isOverdue) dateStr += ' 已逾期';
+          } else {
+            dateStr = '今天';
+          }
+
+          html += '<div class="review-card" id="card-' + task.id + '">'
+            + '<div class="review-card-top">'
+            + '<div class="review-num">' + (idx + 1) + '</div>'
+            + '<div class="review-summary">' + escapeHtml(summary) + '</div>'
+            + '<span class="review-badge ' + LEVEL_CLASSES[Math.min(level, 5)] + '">Lv.' + level + ' ' + levelLabel + '</span>'
+            + '</div>'
+            + '<div class="review-card-top" style="margin-bottom:6px">'
+            + '<span class="review-date' + (isOverdue ? ' overdue' : '') + '">' + dateStr + '</span>'
+            + '</div>'
+            + '<button class="btn-review" onclick="startReview(' + task.id + ')">开始复习</button>'
+            + '</div>';
+        });
+        $('pendingList').innerHTML = html;
+        ChemAPI.renderLatex($('pendingList'));
+        $('divider').style.display = 'block';
+      }
+
+      // Completed today section
+      if (state.todaysReviewed.length > 0) {
+        $('completedSection').style.display = 'block';
+        var doneHtml = '';
+        state.todaysReviewed.forEach(function(task) {
+          var q = task.question || {};
+          var summary = q.content ? q.content.replace(/<[^>]*>/g, '').replace(/\$[^$]+\$/g, '').substring(0, 50) : '题目 #' + task.question_id;
+          var newLevel = task.newLevel;
+          doneHtml += '<div class="review-card mastered-card">'
+            + '<div class="review-card-top">'
+            + '<div class="review-num" style="background:#2c6e49"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>'
+            + '<div class="review-summary">' + escapeHtml(summary) + '</div>'
+            + '<span class="review-badge ' + LEVEL_CLASSES[Math.min(newLevel, 5)] + '">Lv.' + newLevel + '</span>'
+            + '</div>'
+            + (newLevel >= 5 ? '<div style="font-size:12px;color:#2c6e49;font-weight:500">✓ 已掌握</div>' : '')
+            + '</div>';
+        });
+        $('completedList').innerHTML = doneHtml;
+      } else {
+        $('completedSection').style.display = 'none';
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // Start review quiz (5.4)
+    // ══════════════════════════════════════════════════════════
+    function startReview(taskId) {
+      var task = state.tasks.find(function(t) { return t.id === taskId; });
+      if (!task) return;
+      state.activeTask = task;
+
+      $('quizLevelBadge').textContent = 'Lv.' + (task.level || 0);
+      $('quizLevelBadge').className = 'review-badge ' + LEVEL_CLASSES[Math.min(task.level || 0, 5)];
+
+      var q = task.question || {};
+      var html = '<div class="quiz-question">' + (q.content || '暂无题目内容') + '</div>';
+
+      // Show options if multiple choice
+      var options = q.options;
+      var hasOptions = false;
+      if (options) {
+        if (Array.isArray(options) && options.length > 0) hasOptions = true;
+        else if (typeof options === 'object' && Object.keys(options).length > 0) hasOptions = true;
+      }
+
+      if (hasOptions) {
+        if (Array.isArray(options)) {
+          var letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+          html += '<div style="display:flex;flex-direction:column;gap:8px">';
+          options.forEach(function(opt, idx) {
+            html += '<div style="padding:12px 16px;background:var(--white);border:1px solid #ddd;border-radius:8px;font-size:14px">'
+              + '<b>' + letters[idx] + '.</b> ' + (typeof opt === 'string' ? opt : (opt.label || opt.text || ''))
+              + '</div>';
+          });
+          html += '</div>';
+        } else {
+          html += '<div style="display:flex;flex-direction:column;gap:8px">';
+          Object.keys(options).forEach(function(letter) {
+            html += '<div style="padding:12px 16px;background:var(--white);border:1px solid #ddd;border-radius:8px;font-size:14px">'
+              + '<b>' + letter + '.</b> ' + options[letter]
+              + '</div>';
+          });
+          html += '</div>';
+        }
+      }
+
+      // Answer reveal area (hidden initially)
+      html += '<div class="quiz-answer-reveal" id="answerReveal"></div>';
+
+      $('quizContent').innerHTML = html;
+      $('quizActions').style.display = 'flex';
+      $('btnBackToList').style.display = 'none';
+      $('btnCorrect').disabled = false;
+      $('btnWrong').disabled = false;
+      ChemAPI.renderLatex($('quizContent'));
+      $('quizContent').scrollTop = 0;
+
+      switchView('quiz');
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // Submit answer (5.5)
+    // ══════════════════════════════════════════════════════════
+    function submitAnswer(isCorrect) {
+      if (state.isSubmitting || !state.activeTask) return;
+      state.isSubmitting = true;
+      $('btnCorrect').disabled = true;
+      $('btnWrong').disabled = true;
+
+      ChemAPI.apiPost('/review/submit', {
+        review_task_id: state.activeTask.id,
+        is_correct: isCorrect,
+      })
+        .then(function(res) {
+          state.isSubmitting = false;
+          var result = res.data;
+
+          // Show answer + analysis
+          var q = state.activeTask.question || {};
+          var reveal = $('answerReveal');
+          reveal.className = 'quiz-answer-reveal show ' + (isCorrect ? 'correct' : 'wrong');
+          var revealHtml = '<b>' + (isCorrect ? '✓ 回答正确！' : '✗ 回答错误') + '</b>';
+          if (q.answer) revealHtml += '<div style="margin-top:4px">正确答案: ' + q.answer + '</div>';
+          if (q.analysis) revealHtml += '<div style="margin-top:6px;font-size:13px;opacity:0.85">' + q.analysis + '</div>';
+          reveal.innerHTML = revealHtml;
+          ChemAPI.renderLatex(reveal);
+
+          // Show feedback
+          if (result.level >= 5) {
+            showFeedback('🎉 恭喜！已掌握', 'mastered');
+            state.masteredCount++;
+          } else if (result.upgraded) {
+            showFeedback('⬆ 升级至 Lv.' + result.level, 'upgrade');
+          } else if (result.downgraded) {
+            showFeedback('⬇ 降级至 Lv.' + result.level, 'downgrade');
+          } else {
+            showFeedback('Lv.' + result.level + ' 不变', 'same');
+          }
+
+          // Remove from pending, add to today's reviewed
+          state.tasks = state.tasks.filter(function(t) { return t.id !== state.activeTask.id; });
+          state.activeTask.newLevel = result.level;
+          state.todaysReviewed.unshift(state.activeTask);
+
+          // Switch buttons
+          $('quizActions').style.display = 'none';
+          $('btnBackToList').style.display = 'block';
+
+          renderReviewList();
+        })
+        .catch(function(err) {
+          state.isSubmitting = false;
+          $('btnCorrect').disabled = false;
+          $('btnWrong').disabled = false;
+          showToast('提交失败: ' + err.message);
+        });
+    }
+
+    function backToList() {
+      state.activeTask = null;
+      switchView('list');
+      renderReviewList();
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // View switching
+    // ══════════════════════════════════════════════════════════
+    function switchView(view) {
+      $('viewList').classList.toggle('active', view === 'list');
+      $('viewQuiz').classList.toggle('active', view === 'quiz');
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // Utilities
+    // ══════════════════════════════════════════════════════════
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.appendChild(document.createTextNode(str));
+      return div.innerHTML;
+    }
+
+    var _toastTimer;
+    function showToast(msg) {
+      $('toast').textContent = msg;
+      $('toast').classList.add('show');
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(function() { $('toast').classList.remove('show'); }, 2500);
+    }
+
+    var _feedbackTimer;
+    function showFeedback(msg, type) {
+      var el = $('feedback');
+      el.textContent = msg;
+      el.className = 'feedback-toast ' + type + ' show';
+      clearTimeout(_feedbackTimer);
+      _feedbackTimer = setTimeout(function() { el.classList.remove('show'); }, 2000);
+    }
+  </script>
 </body>
 </html>
