@@ -196,9 +196,59 @@
 | 术语 | 英文 | 定义 |
 |------|------|------|
 | 亲子绑定 | Student-Parent Binding | 通过 6 位绑定码建立学生与家长的关联，支持一个家长绑定多个子女 |
-| 学情预警 | Warning Log | 四类自动监控：连续未登录、成绩下滑、高错误率（知识点级）、新障碍出现 |
+| 学情预警 | Warning Log | 学生异常状态的自动检测与记录，四类检测规则 + 三级严重度 + 完整生命周期管理 |
 | 三端通知状态 | Tri-Notification State | 每条预警追踪：是否已通知教师/是否已通知家长/是否已通知学生 |
 | 家长通知 | ParentNotification | 推送给家长的消息：学习报告/预警提醒/教师消息，含已读状态 |
+
+### 8.1 预警类型（Warning Types）
+
+| 类型 | 英文 | 枚举值 | 检测规则 |
+|------|------|------|------|
+| 连续未登录 | Consecutive Absence | `consecutive_absence` | `Student.last_practice_time` 距今 ≥ 3 天，严重度 = info |
+| 成绩下滑 | Score Drop | `score_drop` | 最近一次考试个人正确率 < 前一次考试个人正确率，且降幅 ≥ 10%，严重度 = warning |
+| 高错误率 | High Error Rate | `high_error_rate` | 某知识点级错误率 E(kp) ≥ 50%（E = errors / total），严重度 = warning（≥50%）/ severe（≥70%） |
+| 新障碍出现 | New Barrier | `new_barrier` | 主导障碍类型归一化得分变化 ≥ 30%（与 `BarrierProfileHistory` 中上一次快照对比），严重度 = severe |
+
+> **数据源约定**：`score_drop` 仅使用 `ExamRecord`（考试成绩），不纳入 `PracticeSession`（练习数据）。个别无考试记录的学生不在预警检测范围内。
+
+### 8.2 预警严重度（Warning Severity）
+
+| 级别 | 枚举值 | 含义 |
+|------|------|------|
+| 信息 | `info` | 提醒关注，无需立即处理 |
+| 警告 | `warning` | 需要教师介入 |
+| 严重 | `severe` | 需立即处理，严重度最高 |
+
+### 8.3 预警生命周期（Warning Lifecycle）
+
+```
+pending ──→ processing ──→ resolved
+  │                          │
+  └──────── dismissed ──────┘
+```
+
+| 状态 | 含义 |
+|------|------|
+| `pending` | 新生成，等待教师查看 |
+| `processing` | 教师已查看，正在处理中 |
+| `resolved` | 已处理完成（教师确认或自动恢复） |
+| `dismissed` | 教师判定为误报，手动忽略 |
+
+### 8.4 预警调度（Warning Scheduler）
+
+| 配置项 | 值 |
+|--------|-----|
+| 调度框架 | APScheduler `AsyncIOScheduler` |
+| 时区 | `Asia/Shanghai` |
+| 触发时间 | 每天 00:00 |
+| 执行方式 | 遍历所有活跃学生，运行四类检测规则，写入 `WarningLog` |
+
+### 8.5 预警相关模型
+
+| 模型 | 用途 |
+|------|------|
+| `WarningLog` | 预警记录：类型、严重度、关联学生、标题、数据快照（JSON）、状态、处理人、处理时间、备注 |
+| `BarrierProfileHistory` | 障碍画像快照历史：学生 ID、快照时间、三维分布 JSON、主导障碍类型，用于 `new_barrier` 检测的基线对比 |
 
 ---
 
@@ -282,6 +332,70 @@
 | 教务管理员 | academic_admin | 排课、考试安排、成绩管理 |
 | 学科组长 | subject_lead | 题库审核、教研资源管理 |
 | 普通教师 | teacher | 班级教学、出题、诊断 |
+
+---
+
+## 十二、学情面板（Learning Dashboard）
+
+### 12.1 核心概念
+
+| 术语 | 英文 | 定义 |
+|------|------|------|
+| 学情面板 | Learning Dashboard | 教师端班级学情的聚合视图，以知识点×学生×时间三维分析模型为核心，支持从班级概览下钻到学生详情 |
+| 三维分析模型 | 3D Analysis Model | 三个正交聚合维度：知识点（错误率排行）、学生（个人正确率趋势）、时间（历次考试变化） |
+| 班级聚合视图 | Class Learning Panel | 按需实时聚合的班级学情快照，含均分、知识点错误率 Top 5、障碍类型分布、进步/退步 Top 3、重点关注学生列表 |
+| 教师 Dashboard | Teacher Dashboard | 跨班级列表入口页，每班一行简要指标（人数、最近均分、重点关注数、最近考试日期），点击进入班级聚合视图 |
+
+### 12.2 聚合公式
+
+| 公式 | 表达式 | 说明 |
+|------|------|------|
+| 班级加权均分 | `w_i = exp(-λ × (t_now - t_i) / T_week)`，λ = ln(2) ≈ 0.693 | 近期考试权重高，远期衰减，最后归一化加权平均 |
+| 知识点错误率 | `E(kp, c) = errors(kp, c) / total(kp, c)` | 班级 c 在知识点 kp 上的总错误次数 / 总作答次数 |
+| 障碍归一化得分 | `S_normalized = S_raw / max(S_raw_barriers_in_class)` | 主导障碍转移幅度超过 30% 触发 `new_barrier` 预警 |
+
+### 12.3 数据来源
+
+| 聚合维度 | 考试数据（ExamRecord） | 练习数据（PracticeSession） |
+|:--|:--:|:--:|
+| 班级加权均分 | ✓ | — |
+| 知识点错误率 | ✓ | ✓ |
+| 障碍类型分布 | ✓ | ✓ |
+| 学生个人趋势 | ✓ | ✓ |
+| 进步/退步 Top 3 | ✓（最近两次考试） | — |
+
+### 12.4 API 端点结构（Phase 1）
+
+| 端点 | 用途 |
+|------|------|
+| `GET /api/v1/panel/classes` | 教师 Dashboard：所教班级列表 + 每班简要指标 |
+| `GET /api/v1/panel/class/{class_id}` | 班级聚合视图：均分、知识点错误率 Top 5、障碍分布、进步/退步 Top 3、关注学生列表 |
+| `GET /api/v1/panel/class/{class_id}/student/{student_id}` | 学生详情抽屉：个人正确率趋势、薄弱知识点、障碍画像变化历史 |
+| `GET /api/v1/panel/class/{class_id}/knowledge-points` | 知识点维度展开：全量知识点错误率排行（分页） |
+| `GET /api/v1/panel/class/{class_id}/barriers` | 障碍类型维度展开：各障碍类型人数 + 百分比 |
+| `GET /api/v1/panel/class/{class_id}/concern-students` | 重点关注学生列表（预警未处理的学生） |
+| `GET /api/v1/panel/class/{class_id}/exam-trend` | 班级历次考试均分趋势数据 |
+
+### 12.5 预警相关 API（Phase 1）
+
+| 端点 | 用途 |
+|------|------|
+| `GET /api/v1/warning/list` | 教师端预警列表（按班级筛选、按严重度筛选、分页） |
+| `GET /api/v1/warning/{id}` | 预警详情 |
+| `PATCH /api/v1/warning/{id}/status` | 更新预警状态（processing / resolved / dismissed） |
+| `GET /api/v1/warning/stats` | 预警统计摘要（各类型数量、各严重度数量） |
+| `POST /api/v1/warning/check` | 手动触发预警检测（异步执行，返回任务 ID） |
+
+### 12.6 关键设计决策
+
+| 决策 | 结论 |
+|------|------|
+| 数据加载策略 | 按需实时聚合（不建预计算快照表） |
+| 知识点项结构（班级级） | `{name, error_rate}` 精简版 |
+| 知识点项结构（学生级） | 额外含 `trend` 方向标记（`up` / `down` / `stable`） |
+| 障碍类型分布结构 | `{barrier_type, count, percentage}` |
+| 进步/退步度量 | 最近两次考试个人正确率差值，取 Top 3 |
+| 预警检测数据源 | `score_drop` 仅取 `ExamRecord`，不取练习数据 |
 
 ---
 
