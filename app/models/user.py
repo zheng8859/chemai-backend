@@ -138,6 +138,9 @@ class Student(Base, TimestampMixin):
     barrier_profile_updated_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), comment="障碍画像最后更新时间"
     )
+    weak_knowledge_points: Mapped[Optional[list]] = mapped_column(
+        JSON, comment="薄弱知识点列表，如 ['氧化还原反应', '离子反应']"
+    )
     practice_count: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", comment="累计完成练习数"
     )

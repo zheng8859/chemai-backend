@@ -8,7 +8,7 @@
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, Boolean, JSON, Text
+from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, Boolean, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.enums import (
@@ -31,17 +31,24 @@ if TYPE_CHECKING:
 
 
 class PracticeSession(Base, TimestampMixin):
-    """自适应练习会话 — 一次针对特定障碍类型的练习。
+    """自适应练习会话 — 一次针对特定障碍类型的个性化练习。
 
     barrier_type 决定本次练习的策略（barrier→question 矩阵），
     knowledge_point_tags 记录覆盖的知识点范围。
+    practice_id 是业务标识符（格式：adaptive_{student_id}_{timestamp}）。
     """
 
     __tablename__ = "practice_session"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    practice_id: Mapped[str] = mapped_column(
+        String(100), unique=True, nullable=False, comment="业务标识符"
+    )
     student_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("student.id", ondelete="CASCADE"), nullable=False, comment="学生"
+    )
+    title: Mapped[str] = mapped_column(
+        String(200), nullable=False, comment="练习标题"
     )
     barrier_type: Mapped[BarrierType] = mapped_column(
         String(20), nullable=False, comment="本次练习针对的障碍类型"
@@ -49,11 +56,17 @@ class PracticeSession(Base, TimestampMixin):
     knowledge_point_tags: Mapped[Optional[list]] = mapped_column(
         JSON, comment="覆盖的知识点标签数组"
     )
+    question_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", comment="题目总数"
+    )
     questions_served: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", comment="推送题目数"
     )
     questions_correct: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", comment="答对题目数"
+    )
+    deadline: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), comment="截止日期"
     )
     status: Mapped[PracticeSessionStatus] = mapped_column(
         String(20), default=PracticeSessionStatus.in_progress,
@@ -63,9 +76,43 @@ class PracticeSession(Base, TimestampMixin):
 
     # ── 关系 ──
     student: Mapped["Student"] = relationship()
+    session_questions: Mapped[List["PracticeSessionQuestion"]] = relationship(back_populates="practice_session")
 
     def __repr__(self) -> str:
-        return f"<PracticeSession id={self.id} student_id={self.student_id}>"
+        return f"<PracticeSession id={self.id} practice_id='{self.practice_id}' student_id={self.student_id}>"
+
+
+class PracticeSessionQuestion(Base, TimestampMixin):
+    """练习会话与题目的多对多关联 — 含排序字段。
+
+    记录某次练习包含哪些题目及其排序。
+    """
+
+    __tablename__ = "practice_session_question"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    practice_session_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("practice_session.id", ondelete="CASCADE"), nullable=False,
+        comment="练习会话",
+    )
+    question_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("question.id", ondelete="CASCADE"), nullable=False,
+        comment="题目",
+    )
+    sort_order: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", comment="排序序号"
+    )
+
+    # ── 关系 ──
+    practice_session: Mapped["PracticeSession"] = relationship(back_populates="session_questions")
+    question: Mapped["Question"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("practice_session_id", "question_id", name="uq_psq_session_question"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<PracticeSessionQuestion session_id={self.practice_session_id} q_id={self.question_id}>"
 
 
 class ExamRecord(Base, TimestampMixin):

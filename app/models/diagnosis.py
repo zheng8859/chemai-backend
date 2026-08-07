@@ -1,16 +1,17 @@
-"""诊断与学习模型：BarrierConfig, KnowledgePoint, ReviewTask, ReviewHistory, WarningLog。
+"""诊断与学习模型：BarrierConfig, KnowledgePoint, ReviewTask, ReviewHistory, VariantQuestion, WarningLog。
 
 支撑功能（34号 §三）：
 - 教师自定义诊断阈值 → BarrierConfig
 - 知识图谱节点 → KnowledgePoint
 - 艾宾浩斯间隔复习 → ReviewTask + ReviewHistory
+- 变式题隔离存储 → VariantQuestion
 - 四类学情预警 → WarningLog
 """
 
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.enums import (
@@ -97,10 +98,16 @@ class KnowledgePoint(Base, TimestampMixin):
 
 
 class ReviewTask(Base, TimestampMixin):
-    """间隔复习任务 — 每道错题自动创建，5 级递进（34号 §三.3）。
+    """间隔复习任务 — 每道错题自动创建，6 级螺旋递进。
 
-    艾宾浩斯复习节奏：1天 → 3天 → 7天 → 14天 → 30天 → 已掌握（6级）。
-    status: pending → overdue（到期未完成）→ 完成升级 / 答错降级。
+    艾宾浩斯复习节奏（0-5 级）：
+    Level 0: 初次学习 → 当天（趁热打铁）
+    Level 1: 第 1 次复习 → 1 天后
+    Level 2: 第 2 次复习 → 3 天后
+    Level 3: 第 3 次复习 → 7 天后
+    Level 4: 第 4 次复习 → 14 天后
+    Level 5: 已掌握 → 不再安排复习
+    status: pending → overdue（到期未完成）→ completed（已掌握）。
     """
 
     __tablename__ = "review_task"
@@ -113,8 +120,16 @@ class ReviewTask(Base, TimestampMixin):
         Integer, ForeignKey("question.id", ondelete="CASCADE"), nullable=False, comment="错题"
     )
     level: Mapped[int] = mapped_column(
-        Integer, default=1, server_default="1", nullable=False,
-        comment="当前复习级别：1~5 递进，6=已掌握",
+        Integer, default=0, server_default="0", nullable=False,
+        comment="当前复习级别：0~4 递进，5=已掌握",
+    )
+    consecutive_correct: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False,
+        comment="连续答对次数",
+    )
+    consecutive_wrong: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False,
+        comment="连续答错次数",
     )
     status: Mapped[ReviewTaskStatus] = mapped_column(
         String(20), default=ReviewTaskStatus.pending,
@@ -154,6 +169,58 @@ class ReviewHistory(Base, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<ReviewHistory id={self.id} task_id={self.review_task_id} result={self.result}>"
+
+
+class VariantQuestion(Base, TimestampMixin):
+    """变式题 — LLM 生成的错题变体，隔离存储不污染 Question 主表。
+
+    设计要点：
+    - 与原题同知识点、同难度，不同题面/数据/情境
+    - 90 天过期后不再复用，需重新生成
+    - 跨学生共享：同一原题的变式题可被不同学生复用
+    - 不参与任何统计分析（错误率、难度校准、学情报表）
+    """
+
+    __tablename__ = "variant_question"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    original_question_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("question.id", ondelete="CASCADE"), nullable=False,
+        comment="原题 ID",
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False, comment="题目正文")
+    question_type: Mapped[str] = mapped_column(
+        String(30), default="choice", server_default="'choice'", nullable=False,
+        comment="题型",
+    )
+    options: Mapped[Optional[list]] = mapped_column(
+        JSON, comment="选项列表 JSON，非选择题为 null"
+    )
+    answer: Mapped[str] = mapped_column(Text, nullable=False, comment="正确答案")
+    analysis: Mapped[Optional[str]] = mapped_column(Text, comment="题目解析")
+    knowledge_point_tags: Mapped[Optional[list]] = mapped_column(
+        JSON, comment="知识点标签数组"
+    )
+    difficulty: Mapped[str] = mapped_column(
+        String(20), default="medium", server_default="'medium'", nullable=False,
+        comment="难度等级",
+    )
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=datetime.utcnow, comment="生成时间",
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        comment="过期时间（默认 90 天后）",
+    )
+
+    # ── 关系 ──
+    original_question: Mapped["Question"] = relationship(
+        foreign_keys=[original_question_id],
+    )
+
+    def __repr__(self) -> str:
+        return f"<VariantQuestion id={self.id} orig_q={self.original_question_id}>"
 
 
 class WarningLog(Base, TimestampMixin):

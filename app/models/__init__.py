@@ -29,7 +29,7 @@ from .user import (
 )
 
 # 教学链
-from .teaching import ExamRecord, Question, StudentAnswer, PracticeSession
+from .teaching import ExamRecord, Question, StudentAnswer, PracticeSession, PracticeSessionQuestion
 
 # 试卷模板
 from .exam_paper import ExamPaper, ExamPaperQuestion
@@ -40,6 +40,7 @@ from .diagnosis import (
     KnowledgePoint,
     ReviewTask,
     ReviewHistory,
+    VariantQuestion,
     WarningLog,
 )
 
@@ -75,6 +76,7 @@ __all__ = [
     "Question",
     "StudentAnswer",
     "PracticeSession",
+    "PracticeSessionQuestion",
     # exam paper
     "ExamPaper",
     "ExamPaperQuestion",
@@ -83,6 +85,7 @@ __all__ = [
     "KnowledgePoint",
     "ReviewTask",
     "ReviewHistory",
+    "VariantQuestion",
     "WarningLog",
     # homework
     "StudentParentBinding",
