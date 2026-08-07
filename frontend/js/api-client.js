@@ -1,4 +1,4 @@
-/** ChemAI 前端 API 客户端 — fetch 封装 + KaTeX 渲染
+/** ChemAI 前端 API 客户端 — fetch 封装 + KaTeX 渲染 + 共享 UI 工具
  *
  * 依赖: auth.js (ChemAuth.getToken, ChemAuth.redirectToLogin)
  *        KaTeX CDN (katex.min.js + mhchem extension)
@@ -7,13 +7,13 @@
  *       <script src="../../js/api-client.js"></script>
  */
 
+// 全局快捷函数（所有页面自动可用）
+var $ = function(id) { return document.getElementById(id); };
+
 var ChemAPI = (function () {
   'use strict';
 
   var BASE_URL = '/api/v1';
-  // 默认每页条数
-  var DEFAULT_LIMIT = 20;
-
   // ══════════════════════════════════════════════════════════════
   // HTTP 封装
   // ══════════════════════════════════════════════════════════════
@@ -132,12 +132,133 @@ var ChemAPI = (function () {
   }
 
   // ══════════════════════════════════════════════════════════════
+  // 共享 UI 工具
+  // ══════════════════════════════════════════════════════════════
+
+  var _toastTimer;
+
+  /** 显示 Toast 提示
+   * @param {string} msg — 提示文字
+   * @param {number} duration — 显示时长 ms（默认 2500）
+   */
+  function showToast(msg, duration) {
+    var toast = document.getElementById('toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'toast';
+      toast.className = 'toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function() {
+      toast.classList.remove('show');
+    }, duration || 2500);
+  }
+
+  /** HTML 转义
+   * @param {string} str
+   * @returns {string}
+   */
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
+  /** 渲染选择题选项 HTML（供页面拼接用）
+   * @param {Array|Object} options — 选项列表或 {A:..., B:...} 映射
+   * @param {number} questionId — 题目 ID
+   * @param {string} selectedAnswer — 当前选中答案字母
+   * @param {string} selectFnName — 点击回调的全局函数名
+   * @returns {string} HTML
+   */
+  function renderOptionsHtml(options, questionId, selectedAnswer, selectFnName) {
+    var html = '';
+    var letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+    if (Array.isArray(options)) {
+      options.forEach(function(opt, idx) {
+        var letter = letters[idx] || '';
+        var isSelected = selectedAnswer === letter;
+        html += '<button class="option-btn' + (isSelected ? ' selected' : '') + '" onclick="' + selectFnName + '(' + questionId + ', \'' + letter + '\')">'
+          + '<span class="opt-letter">' + letter + '</span>'
+          + '<span>' + (typeof opt === 'string' ? opt : (opt.label || opt.text || '')) + '</span>'
+          + '</button>';
+      });
+    } else if (typeof options === 'object') {
+      Object.keys(options).forEach(function(letter) {
+        var isSelected = selectedAnswer === letter;
+        html += '<button class="option-btn' + (isSelected ? ' selected' : '') + '" onclick="' + selectFnName + '(' + questionId + ', \'' + letter + '\')">'
+          + '<span class="opt-letter">' + letter + '</span>'
+          + '<span>' + options[letter] + '</span>'
+          + '</button>';
+      });
+    }
+    return html;
+  }
+
+  /** 创建逐题导航器（goPrev / goNext）
+   * @param {object} state — { currentQIndex, ... }
+   * @param {function} renderFn — 重渲染回调
+   * @param {string} arrayProp — 题目数组在 state 中的属性名（默认 "questions"）
+   * @returns {{ goPrev: function, goNext: function }}
+   */
+  function createQuizNavigator(state, renderFn, arrayProp) {
+    var prop = arrayProp || 'questions';
+    return {
+      goPrev: function() {
+        if (state.currentQIndex > 0) {
+          state.currentQIndex--;
+          renderFn();
+        }
+      },
+      goNext: function() {
+        if (state.currentQIndex < state[prop].length - 1) {
+          state.currentQIndex++;
+          renderFn();
+        }
+      },
+    };
+  }
+
+  /** 更新底部导航按钮状态
+   * @param {string} btnPrevId — "上一题" 按钮 ID
+   * @param {string} btnNextId — "下一题/提交" 按钮 ID
+   * @param {number} currentIndex — 当前题索引
+   * @param {number} totalCount — 总题数
+   * @param {function} onSubmit — 提交回调
+   * @param {function} onNext — 下一题回调
+   */
+  function updateQuizNav(btnPrevId, btnNextId, currentIndex, totalCount, onSubmit, onNext) {
+    var prev = document.getElementById(btnPrevId);
+    var next = document.getElementById(btnNextId);
+    if (prev) prev.disabled = currentIndex === 0;
+    if (!next) return;
+    var isLast = currentIndex >= totalCount - 1;
+    if (isLast) {
+      next.textContent = '提交';
+      next.className = 'btn-nav submit';
+      next.onclick = onSubmit;
+    } else {
+      next.textContent = '下一题 →';
+      next.className = 'btn-nav next';
+      next.onclick = onNext;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════
 
   return {
     apiGet: apiGet,
     apiPost: apiPost,
     renderLatex: renderLatex,
+    showToast: showToast,
+    escapeHtml: escapeHtml,
+    renderOptionsHtml: renderOptionsHtml,
+    createQuizNavigator: createQuizNavigator,
+    updateQuizNav: updateQuizNav,
     BASE_URL: BASE_URL,
-    DEFAULT_LIMIT: DEFAULT_LIMIT,
   };
 })();

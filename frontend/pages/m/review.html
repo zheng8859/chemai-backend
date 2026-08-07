@@ -341,7 +341,7 @@
           <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span>
           <span class="tab-label">练习</span>
         </button>
-        <button class="tab-item active" onclick="location.href='wrong.html'">
+        <button class="tab-item" onclick="location.href='wrong.html'">
           <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span>
           <span class="tab-label">错题</span>
         </button>
@@ -376,8 +376,6 @@
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/mhchem.min.js"></script>
 
   <script>
-    var $ = function(id) { return document.getElementById(id); };
-
     var state = {
       tasks: [],              // All pending review tasks
       total: 0,
@@ -403,16 +401,18 @@
     // Load review list (5.2)
     // ══════════════════════════════════════════════════════════
     function loadReviewList() {
-      showSkeletons();
+      var skeletonTimer = setTimeout(function() { showSkeletons(); }, 300);
       var uid = ChemAuth.getUserId();
 
       ChemAPI.apiGet('/review/student/' + uid + '/due', { limit: 50, offset: 0 })
         .then(function(res) {
+          clearTimeout(skeletonTimer);
           state.tasks = res.data || [];
           state.total = res.total || state.tasks.length;
           renderReviewList();
         })
         .catch(function(err) {
+          clearTimeout(skeletonTimer);
           $('pendingList').innerHTML = '<div class="state-msg"><span>加载失败: ' + err.message + '</span><button class="btn-review" style="width:auto;padding:10px 24px" onclick="loadReviewList()">重试</button></div>';
         });
     }
@@ -460,7 +460,7 @@
           html += '<div class="review-card" id="card-' + task.id + '">'
             + '<div class="review-card-top">'
             + '<div class="review-num">' + (idx + 1) + '</div>'
-            + '<div class="review-summary">' + escapeHtml(summary) + '</div>'
+            + '<div class="review-summary">' + ChemAPI.escapeHtml(summary) + '</div>'
             + '<span class="review-badge ' + LEVEL_CLASSES[Math.min(level, 5)] + '">Lv.' + level + ' ' + levelLabel + '</span>'
             + '</div>'
             + '<div class="review-card-top" style="margin-bottom:6px">'
@@ -485,7 +485,7 @@
           doneHtml += '<div class="review-card mastered-card">'
             + '<div class="review-card-top">'
             + '<div class="review-num" style="background:#2c6e49"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>'
-            + '<div class="review-summary">' + escapeHtml(summary) + '</div>'
+            + '<div class="review-summary">' + ChemAPI.escapeHtml(summary) + '</div>'
             + '<span class="review-badge ' + LEVEL_CLASSES[Math.min(newLevel, 5)] + '">Lv.' + newLevel + '</span>'
             + '</div>'
             + (newLevel >= 5 ? '<div style="font-size:12px;color:#2c6e49;font-weight:500">✓ 已掌握</div>' : '')
@@ -578,6 +578,18 @@
           var revealHtml = '<b>' + (isCorrect ? '✓ 回答正确！' : '✗ 回答错误') + '</b>';
           if (q.answer) revealHtml += '<div style="margin-top:4px">正确答案: ' + q.answer + '</div>';
           if (q.analysis) revealHtml += '<div style="margin-top:6px;font-size:13px;opacity:0.85">' + q.analysis + '</div>';
+
+          // Show next_review_date
+          var nextReviewDate = result.next_review_date;
+          if (nextReviewDate) {
+            var nextD = new Date(nextReviewDate);
+            if (result.level >= 5) {
+              revealHtml += '<div style="margin-top:8px;font-weight:600;color:#2c6e49">已掌握！</div>';
+            } else {
+              revealHtml += '<div style="margin-top:8px;font-weight:500">下次复习：' + (nextD.getMonth() + 1) + '月' + nextD.getDate() + '日</div>';
+            }
+          }
+
           reveal.innerHTML = revealHtml;
           ChemAPI.renderLatex(reveal);
 
@@ -608,7 +620,7 @@
           state.isSubmitting = false;
           $('btnCorrect').disabled = false;
           $('btnWrong').disabled = false;
-          showToast('提交失败: ' + err.message);
+          ChemAPI.showToast('提交失败: ' + err.message);
         });
     }
 
@@ -624,23 +636,6 @@
     function switchView(view) {
       $('viewList').classList.toggle('active', view === 'list');
       $('viewQuiz').classList.toggle('active', view === 'quiz');
-    }
-
-    // ══════════════════════════════════════════════════════════
-    // Utilities
-    // ══════════════════════════════════════════════════════════
-    function escapeHtml(str) {
-      var div = document.createElement('div');
-      div.appendChild(document.createTextNode(str));
-      return div.innerHTML;
-    }
-
-    var _toastTimer;
-    function showToast(msg) {
-      $('toast').textContent = msg;
-      $('toast').classList.add('show');
-      clearTimeout(_toastTimer);
-      _toastTimer = setTimeout(function() { $('toast').classList.remove('show'); }, 2500);
     }
 
     var _feedbackTimer;

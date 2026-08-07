@@ -366,15 +366,15 @@
       <div class="quiz-scroll" id="quizContent"></div>
 
       <div class="quiz-nav">
-        <button class="btn-nav prev" id="btnPrev" onclick="goToPrev()" disabled>← 上一题</button>
-        <button class="btn-nav next" id="btnNext" onclick="goToNext()">下一题 →</button>
+        <button class="btn-nav prev" id="btnPrev" onclick="nav.goPrev()" disabled>← 上一题</button>
+        <button class="btn-nav next" id="btnNext" onclick="nav.goNext()">下一题 →</button>
       </div>
     </div>
 
     <!-- ═══════════ View 3: Result ═══════════ -->
     <div class="view" id="viewResult">
       <header class="top-bar">
-        <button class="back-btn" onclick="backToQuiz()">
+        <button class="back-btn" onclick="backToList()">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
         <span class="title">练习结果</span>
@@ -430,8 +430,9 @@
       isSubmitting: false,
     };
 
+    var nav;
+
     // DOM refs
-    var $ = function(id) { return document.getElementById(id); };
     var viewList = $('viewList');
     var viewQuiz = $('viewQuiz');
     var viewResult = $('viewResult');
@@ -443,7 +444,6 @@
     var listMeta = $('listMeta');
     var btnPrev = $('btnPrev');
     var btnNext = $('btnNext');
-    var toast = $('toast');
 
     // ═══════════════════════════════════════════════════
     // Init
@@ -457,16 +457,20 @@
     // Task List
     // ═══════════════════════════════════════════════════
     function loadTaskList() {
-      taskScroll.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      var skeletonTimer = setTimeout(function() {
+        taskScroll.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      }, 300);
       var uid = ChemAuth.getUserId();
       ChemAPI.apiGet('/practice/student/' + uid + '/tasks')
         .then(function(res) {
+          clearTimeout(skeletonTimer);
           var data = res.data || {};
           state.pendingTasks = data.pending || [];
           state.completedTasks = data.completed || [];
           renderTaskList();
         })
         .catch(function(err) {
+          clearTimeout(skeletonTimer);
           taskScroll.innerHTML = '<div class="state-msg"><div class="error-msg" onclick="loadTaskList()">加载失败: ' + err.message + '<br>点击重试</div></div>';
         });
     }
@@ -543,10 +547,11 @@
       state.currentQIndex = 0;
       state.isSubmitting = false;
 
+      nav = ChemAPI.createQuizNavigator(state, renderCurrentQuestion);
+
       quizTitle.textContent = session.title || '练习';
       switchView('quiz');
       renderCurrentQuestion();
-      updateQuizNav();
     }
 
     function renderCurrentQuestion() {
@@ -559,30 +564,8 @@
       var questionHtml = '<div class="question-text">' + (q.content || '') + '</div>';
 
       if (hasOptions) {
-        // 选择题
-        var options = Array.isArray(q.options) ? q.options : q.options;
-        var letters = ['A', 'B', 'C', 'D', 'E', 'F'];
         var selectedAnswer = state.answers[q.id];
-
-        if (Array.isArray(options)) {
-          options.forEach(function(opt, idx) {
-            var letter = letters[idx] || '';
-            var isSelected = selectedAnswer === letter;
-            questionHtml += '<button class="option-btn' + (isSelected ? ' selected' : '') + '" onclick="selectAnswer(' + q.id + ', \'' + letter + '\')">'
-              + '<span class="opt-letter">' + letter + '</span>'
-              + '<span>' + (typeof opt === 'string' ? opt : (opt.label || opt.text || '')) + '</span>'
-              + '</button>';
-          });
-        } else if (typeof options === 'object') {
-          // { "A": "...", "B": "..." }
-          Object.keys(options).forEach(function(letter) {
-            var isSelected = selectedAnswer === letter;
-            questionHtml += '<button class="option-btn' + (isSelected ? ' selected' : '') + '" onclick="selectAnswer(' + q.id + ', \'' + letter + '\')">'
-              + '<span class="opt-letter">' + letter + '</span>'
-              + '<span>' + options[letter] + '</span>'
-              + '</button>';
-          });
-        }
+        questionHtml += ChemAPI.renderOptionsHtml(q.options, q.id, selectedAnswer, 'selectAnswer');
       } else {
         // 填空题
         var existingAnswer = state.answers[q.id] || '';
@@ -592,47 +575,19 @@
       quizContent.innerHTML = questionHtml;
       ChemAPI.renderLatex(quizContent);
       quizContent.scrollTop = 0;
+
+      ChemAPI.updateQuizNav('btnPrev', 'btnNext', state.currentQIndex, state.questions.length, submitAnswers, nav.goNext);
     }
 
     function selectAnswer(questionId, letter) {
       state.answers[questionId] = letter;
       renderCurrentQuestion();
-      updateQuizNav();
+      ChemAPI.updateQuizNav('btnPrev', 'btnNext', state.currentQIndex, state.questions.length, submitAnswers, nav.goNext);
     }
 
     function saveFillAnswer(questionId, value) {
       state.answers[questionId] = value.trim();
-      updateQuizNav();
-    }
-
-    function goToPrev() {
-      if (state.currentQIndex > 0) {
-        state.currentQIndex--;
-        renderCurrentQuestion();
-        updateQuizNav();
-      }
-    }
-
-    function goToNext() {
-      if (state.currentQIndex < state.questions.length - 1) {
-        state.currentQIndex++;
-        renderCurrentQuestion();
-        updateQuizNav();
-      }
-    }
-
-    function updateQuizNav() {
-      btnPrev.disabled = state.currentQIndex === 0;
-      var isLast = state.currentQIndex >= state.questions.length - 1;
-      if (isLast) {
-        btnNext.textContent = '提交';
-        btnNext.className = 'btn-nav submit';
-        btnNext.onclick = submitAnswers;
-      } else {
-        btnNext.textContent = '下一题 →';
-        btnNext.className = 'btn-nav next';
-        btnNext.onclick = goToNext;
-      }
+      ChemAPI.updateQuizNav('btnPrev', 'btnNext', state.currentQIndex, state.questions.length, submitAnswers, nav.goNext);
     }
 
     // ═══════════════════════════════════════════════════
@@ -659,10 +614,10 @@
           state.isSubmitting = false;
           btnNext.disabled = false;
           if (err.errorCode === 'DUPLICATE_SUBMIT') {
-            showToast('该练习已提交');
+            ChemAPI.showToast('该练习已提交');
             backToList();
           } else {
-            showToast('提交失败: ' + err.message + '，请重试');
+            ChemAPI.showToast('提交失败: ' + err.message + '，请重试');
           }
         });
     }
@@ -708,25 +663,6 @@
     function backToList() {
       switchView('list');
       loadTaskList();
-    }
-
-    function backToQuiz() {
-      // 从结果页返回答题页（保留答题状态）
-      if (state.isSubmitting) return;
-      switchView('quiz');
-      renderCurrentQuestion();
-      updateQuizNav();
-    }
-
-    // ═══════════════════════════════════════════════════
-    // Toast
-    // ═══════════════════════════════════════════════════
-    var _toastTimer;
-    function showToast(msg) {
-      toast.textContent = msg;
-      toast.classList.add('show');
-      clearTimeout(_toastTimer);
-      _toastTimer = setTimeout(function() { toast.classList.remove('show'); }, 2500);
     }
   </script>
 </body>

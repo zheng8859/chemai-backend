@@ -333,7 +333,6 @@
       hasMore: true,
     };
 
-    var $ = function(id) { return document.getElementById(id); };
     var mainScroll = $('mainScroll');
     var kpFilterBar = $('kpFilterBar');
     var toast = $('toast');
@@ -465,7 +464,8 @@
         var yourAnswer = q.your_answer || q.user_answer || '';
         var correctAnswer = q.correct_answer || q.answer || '';
         var questionId = q.question_id || q.id;
-        var summary = (q.content || '').substring(0, 50).replace(/\$.*?\$/g, '') + '...';
+        var rawSummary = (q.content || '').substring(0, 50).replace(/\$.*?\$/g, '') + '...';
+        var summary = ChemAPI.escapeHtml(rawSummary);
         var kpTags = (q.knowledge_point_tags || []).slice(0, 3).map(function(kp) {
           return '<span class="task-tag" style="padding:2px 8px;border-radius:12px;font-size:11px;background:#dbeafe;color:#2563eb;margin-right:4px;">' + kp + '</span>';
         }).join('');
@@ -497,13 +497,9 @@
       });
 
       if (state.offset > 0) {
-        // Append
-        var prevHtml = mainScroll.innerHTML;
-        // Remove loading-more
         var loadingEl = mainScroll.querySelector('.loading-more');
         if (loadingEl) loadingEl.remove();
-        // Remove last skeleton/error
-        mainScroll.innerHTML = prevHtml;
+        mainScroll.insertAdjacentHTML('beforeend', html);
       } else {
         mainScroll.innerHTML = html;
       }
@@ -561,12 +557,12 @@
             state.total = Math.max(0, state.total - 1);
             updateStats();
           }
-          showToast('已标记为掌握');
+          ChemAPI.showToast('已标记为掌握');
         })
         .catch(function(err) {
           btn.disabled = false;
           btn.textContent = '已掌握';
-          showToast('操作失败: ' + err.message);
+          ChemAPI.showToast('操作失败: ' + err.message);
         });
     }
 
@@ -583,17 +579,6 @@
         loadWrongList(false);
       }
     });
-
-    // ═══════════════════════════════════════════════════
-    // Toast
-    // ═══════════════════════════════════════════════════
-    var _toastTimer;
-    function showToast(msg) {
-      toast.textContent = msg;
-      toast.classList.add('show');
-      clearTimeout(_toastTimer);
-      _toastTimer = setTimeout(function() { toast.classList.remove('show'); }, 2500);
-    }
   </script>
 </body>
 </html>
