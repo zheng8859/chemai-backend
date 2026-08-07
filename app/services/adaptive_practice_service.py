@@ -195,7 +195,7 @@ class AdaptivePracticeService:
         )
         completed = completed_result.scalars().all()
 
-        def _format_session(s):
+        def _format_session(s: PracticeSession) -> dict:
             return {
                 "practice_id": s.practice_id,
                 "title": s.title,
@@ -219,6 +219,7 @@ class AdaptivePracticeService:
         db: AsyncSession,
         practice_id: str,
         answers: list[dict],
+        current_user_id: int | None = None,
     ) -> dict:
         """提交练习答案。
 
@@ -229,6 +230,7 @@ class AdaptivePracticeService:
                 {"question_id": int, "answer": str},
                 ...
             ]
+            current_user_id: 当前认证用户的 Account.id，用于校验练习归属
 
         Returns:
             {
@@ -239,7 +241,7 @@ class AdaptivePracticeService:
             }
 
         Raises:
-            AdaptivePracticeError: 练习不存在或已提交
+            AdaptivePracticeError: 练习不存在、已提交、或不属于该学生
         """
         session = (await db.execute(
             select(PracticeSession).where(
@@ -250,6 +252,18 @@ class AdaptivePracticeService:
             raise AdaptivePracticeError(f"练习不存在: {practice_id}")
         if session.status == PracticeSessionStatus.completed.value:
             raise AdaptivePracticeError("该练习已提交，不能重复提交", "DUPLICATE_SUBMIT")
+
+        # 校验练习归属：session.student_id 必须匹配当前认证用户
+        if current_user_id is not None:
+            from ..models.user import Student
+            student_result = await db.execute(
+                select(Student).where(Student.account_id == current_user_id)
+            )
+            student = student_result.scalar_one_or_none()
+            if student is None or student.id != session.student_id:
+                raise AdaptivePracticeError(
+                    "该练习不属于当前用户", "PRACTICE_NOT_OWNED"
+                )
 
         # 取关联题目
         psq_result = await db.execute(
@@ -543,27 +557,13 @@ class AdaptivePracticeService:
             difficulty, "中等"
         )
 
-        # 从策略中推导题型分布偏好
-        type_hint = ""
-        if strategy and "question_type_weights" in strategy:
-            weights = strategy["question_type_weights"]
-            dominant = sorted(weights.items(), key=lambda x: -x[1])
-            type_names = {
-                "choice": "选择题", "fill_blank": "填空题",
-                "calculation": "计算题", "experiment": "实验题",
-                "inference": "推断题",
-            }
-            parts = [
-                f"{type_names.get(t, t)}{int(w * 100)}%"
-                for t, w in dominant if w > 0
-            ]
-            type_hint = f"\n- **题型分布**：{'、'.join(parts)}"
-
-        prompt = f"""你是一位经验丰富的中学化学教师，请生成 {count} 道化学题目。
+        # v1.0 仅选择题型，后续版本按策略矩阵启用多题型
+        prompt = f"""你是一位经验丰富的中学化学教师，请生成 {count} 道化学选择题。
 
 **要求：**
 - 知识点：{kp_str}
-- 难度：{difficulty_cn}（{difficulty}）{type_hint}
+- 难度：{difficulty_cn}（{difficulty}）
+- 题型：选择题（4 个选项 A/B/C/D）
 - 每道题必须包含完整题面、4 个选项（A/B/C/D）、正确答案、简要解析（1-2 句）
 - 题面使用 LaTeX（$...$）书写化学式和方程式
 - 确保题目科学准确，知识点明确
@@ -607,11 +607,34 @@ class AdaptivePracticeService:
         if not isinstance(parsed, list):
             parsed = [parsed]
 
-        # 写入 Question 表
+        # 四维审核引擎校验（科学性 / 方程式配平 / 物质稳定性 / 反应条件）
+        from chem_skills.chemistry_parser.engine import audit_equation, extract_equations
+
+        # 写入 Question 表（跳过审核不通过的题目）
         generated = []
+        skipped = 0
         for item in parsed[:count]:
+            content = item.get("content", "")
+
+            # 提取并审核化学方程式
+            equations = extract_equations(content)
+            audit_failed = False
+            for eq in equations:
+                report = audit_equation(eq)
+                if report.has_errors:
+                    logger.warning(
+                        "LLM 生成题目审核不通过，跳过: equation=%s, errors=%s",
+                        eq, [e.message for e in report.errors],
+                    )
+                    audit_failed = True
+                    break
+
+            if audit_failed:
+                skipped += 1
+                continue
+
             q = Question(
-                content=item.get("content", ""),
+                content=content,
                 question_type=item.get("question_type", "choice"),
                 options=item.get("options", []),
                 answer=item.get("answer", ""),
@@ -633,5 +656,8 @@ class AdaptivePracticeService:
                 "knowledge_point_tags": q.knowledge_point_tags,
             })
 
-        logger.info(f"LLM 成功生成 {len(generated)} 道题目")
+        if skipped > 0:
+            logger.info(f"LLM 生成题目：{len(generated)} 道通过审核，{skipped} 道被跳过")
+        else:
+            logger.info(f"LLM 成功生成 {len(generated)} 道题目")
         return generated

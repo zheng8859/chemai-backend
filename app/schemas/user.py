@@ -22,7 +22,7 @@ class AccountRead(ORMBase):
     id: int
     username: str
     role: AccountRole
-    created_at: datetime
+    created_at: datetime | None = None
 
 
 # ── Teacher ────────────────────────────────────────────────
@@ -31,10 +31,10 @@ class TeacherRead(ORMBase):
     account_id: int
     school_id: int
     name: str
-    phone: str | None
+    phone: str | None = None
     status: TeacherAccountStatus
     role: TeacherRole
-    created_at: datetime
+    created_at: datetime | None = None
 
 
 class TeacherUpdate(BaseModel):
@@ -49,14 +49,14 @@ class StudentRead(ORMBase):
     account_id: int
     class_id: int
     name: str
-    phone: str | None
+    phone: str | None = None
     status: StudentStatus
-    barrier_profile: dict | None
-    barrier_profile_updated_at: datetime | None
-    practice_count: int
-    last_practice_time: datetime | None
-    bind_code: str | None
-    created_at: datetime
+    barrier_profile: dict | None = None
+    barrier_profile_updated_at: datetime | None = None
+    practice_count: int = 0
+    last_practice_time: datetime | None = None
+    bind_code: str | None = None
+    created_at: datetime | None = None
 
 
 class StudentUpdate(BaseModel):
@@ -70,9 +70,9 @@ class ParentRead(ORMBase):
     id: int
     account_id: int
     name: str
-    phone: str | None
-    email: str | None
-    created_at: datetime
+    phone: str | None = None
+    email: str | None = None
+    created_at: datetime | None = None
 
 
 class ParentUpdate(BaseModel):
@@ -112,9 +112,9 @@ class TeacherApplicationRead(ORMBase):
     school_name: str
     subject: str
     status: ApplicationStatus
-    reviewer_id: int | None
-    reviewed_at: datetime | None
-    created_at: datetime
+    reviewer_id: int | None = None
+    reviewed_at: datetime | None = None
+    created_at: datetime | None = None
 
 
 class TeacherApplicationApprove(BaseModel):

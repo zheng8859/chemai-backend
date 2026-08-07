@@ -6,8 +6,10 @@
     - expression（表述障碍）：保持难度，侧重方程式知识点，增加计算题+实验题
 """
 
+from app.core.enums import BarrierType
 
-def apply_strategy(barrier: str, zpd_difficulty: str) -> dict:
+
+def apply_strategy(barrier: BarrierType, zpd_difficulty: str) -> dict:
     """根据主导障碍类型和 ZPD 难度计算最终出题策略。
 
     Args:
@@ -22,12 +24,16 @@ def apply_strategy(barrier: str, zpd_difficulty: str) -> dict:
                                    "experiment": 0.x, "inference": 0.x}
     """
     strategies = {
-        "concept": _concept_strategy,
-        "reading": _reading_strategy,
-        "expression": _expression_strategy,
+        BarrierType.concept: _concept_strategy,
+        BarrierType.reading: _reading_strategy,
+        BarrierType.expression: _expression_strategy,
     }
 
-    handler = strategies.get(barrier, _concept_strategy)
+    try:
+        barrier_enum = BarrierType(barrier)
+    except ValueError:
+        barrier_enum = BarrierType.concept
+    handler = strategies.get(barrier_enum, _concept_strategy)
     return handler(zpd_difficulty)
 
 
@@ -42,41 +48,23 @@ def _concept_strategy(zpd_difficulty: str) -> dict:
     return {
         "difficulty": _lower_difficulty(zpd_difficulty),
         "kp_preference": "foundational",
-        "question_type_weights": {
-            "choice": 0.5,
-            "fill_blank": 0.3,
-            "calculation": 0.1,
-            "experiment": 0.05,
-            "inference": 0.05,
-        },
+        "question_type_weights": {"choice": 1.0},
     }
 
 
 def _reading_strategy(zpd_difficulty: str) -> dict:
-    """审题障碍策略：保持难度，混合知识点，推断+陷阱选择为主。"""
+    """审题障碍策略：保持难度，混合知识点，选择题为主。"""
     return {
         "difficulty": zpd_difficulty,
         "kp_preference": "mixed",
-        "question_type_weights": {
-            "choice": 0.4,
-            "fill_blank": 0.1,
-            "calculation": 0.1,
-            "experiment": 0.15,
-            "inference": 0.25,
-        },
+        "question_type_weights": {"choice": 1.0},
     }
 
 
 def _expression_strategy(zpd_difficulty: str) -> dict:
-    """表述障碍策略：保持难度，侧重方程式，计算+实验为主。"""
+    """表述障碍策略：保持难度，侧重方程式，选择题为主。"""
     return {
         "difficulty": zpd_difficulty,
         "kp_preference": "equation",
-        "question_type_weights": {
-            "choice": 0.2,
-            "fill_blank": 0.15,
-            "calculation": 0.35,
-            "experiment": 0.2,
-            "inference": 0.1,
-        },
+        "question_type_weights": {"choice": 1.0},
     }

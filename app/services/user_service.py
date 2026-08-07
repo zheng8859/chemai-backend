@@ -73,7 +73,7 @@ class UserService:
         accounts = [{
             "id": a.id,
             "phone": a.phone,
-            "role": str(a.role),
+            "role": str(a.role.value) if hasattr(a.role, "value") else str(a.role),
             "created_at": a.created_at.isoformat(),
         } for a in result.scalars().all()]
         return accounts, total
