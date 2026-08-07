@@ -20,11 +20,12 @@ from .api.v1 import v1_router
 # ── Lifespan (startup / shutdown) ──────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: engines are lazily created on first request.
-    Shutdown: dispose all engines.
-    """
+    """Startup: 启动调度器。Shutdown: 关闭调度器 + dispose engines。"""
+    from .infrastructure.scheduler import start_scheduler, shutdown_scheduler
+    start_scheduler()
     yield
-    # Dispose engines on shutdown
+    # 关闭资源
+    shutdown_scheduler()
     from .infrastructure.database import main_engine, checkpoint_engine, memory_engine
     await main_engine.dispose()
     await checkpoint_engine.dispose()
@@ -94,6 +95,8 @@ from .api.v1.homework import router as homework_router
 from .api.v1.ocr import router as ocr_router
 from .api.v1.question_bank import router as question_bank_router
 from .api.v1.audit import router as audit_router
+from .api.v1.practice import router as practice_router
+from .api.v1.review import router as review_router
 
 v1_router.include_router(auth_router)
 v1_router.include_router(student_router)
@@ -105,6 +108,8 @@ v1_router.include_router(homework_router)
 v1_router.include_router(ocr_router)
 v1_router.include_router(question_bank_router)
 v1_router.include_router(audit_router)
+v1_router.include_router(practice_router)
+v1_router.include_router(review_router)
 
 app.include_router(v1_router)
 
