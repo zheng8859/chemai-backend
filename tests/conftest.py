@@ -121,6 +121,96 @@ async def async_client(db_session, test_engine):
 
 
 # ═══════════════════════════════════════════════════════════════
+# 测试数据工厂 fixtures — 直接 DB 创建（绕过 API）
+# ═══════════════════════════════════════════════════════════════
+
+@pytest.fixture
+async def make_student(db_session):
+    """Factory fixture：创建一个已审批的测试学生（直接 DB）。
+
+    返回一个 async factory 函数，可多次调用创建多个学生。
+    """
+    from app.models.user import Account, Student
+    from app.models.org import School, Grade, Class as ClassModel
+    from app.core.enums import AccountRole, StudentStatus
+
+    created = []
+
+    async def _make(**kwargs) -> Student:
+        account_id = kwargs.pop("account_id", None)
+        account = Account(
+            id=account_id,
+            phone=f"138{uuid.uuid4().hex[:6]}",
+            password_hash="test_hash",
+            role=AccountRole.student,
+        )
+        db_session.add(account)
+        await db_session.flush()
+        school = School(name=kwargs.pop("school_name", "测试学校"), region="测试区")
+        db_session.add(school)
+        await db_session.flush()
+        grade = Grade(name="高一", school_id=school.id)
+        db_session.add(grade)
+        await db_session.flush()
+        class_ = ClassModel(name=kwargs.pop("class_name", "测试班"), grade_id=grade.id)
+        db_session.add(class_)
+        await db_session.flush()
+
+        defaults = dict(
+            name="测试学生",
+            account_id=account.id,
+            class_id=class_.id,
+            school_id=school.id,
+            student_id=f"S{uuid.uuid4().hex[:6].upper()}",
+            status=StudentStatus.approved.value,
+            barrier_profile={"concept": 0.5, "reading": 0.3, "expression": 0.2},
+            weak_knowledge_points=["氧化还原反应", "离子反应"],
+        )
+        defaults.update(kwargs)
+        student = Student(**defaults)
+        db_session.add(student)
+        await db_session.flush()
+        created.append(student)
+        return student
+
+    yield _make
+
+
+@pytest.fixture
+async def make_question(db_session):
+    """Factory fixture：创建一个测试题目（直接 DB）。
+
+    返回一个 async factory 函数，可多次调用创建多个题目。
+    """
+    from app.models.teaching import Question
+    from app.core.enums import QuestionType, Difficulty, QuestionSource
+
+    async def _make(
+        content: str = "测试题目",
+        answer: str = "A",
+        difficulty: str = "medium",
+        knowledge_point_tags: list | None = None,
+        **kwargs,
+    ) -> Question:
+        defaults = dict(
+            content=content,
+            question_type=QuestionType.choice,
+            options=["A. 选项A", "B. 选项B", "C. 选项C", "D. 选项D"],
+            answer=answer,
+            difficulty=Difficulty(difficulty),
+            knowledge_point_tags=knowledge_point_tags or ["化学"],
+            source=QuestionSource.ai_generated,
+        )
+        defaults.update(kwargs)
+        q = Question(**defaults)
+        db_session.add(q)
+        await db_session.flush()
+        return q
+
+    yield _make
+
+
+# ═══════════════════════════════════════════════════════════════
 # Auth Header fixtures
 # ═══════════════════════════════════════════════════════════════
 

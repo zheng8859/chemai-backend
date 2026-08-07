@@ -68,12 +68,10 @@ class TestDailySchedulerIntegration:
         assert result["assigned_count"] == 0
 
     @pytest.mark.anyio
-    async def test_scheduler_creates_exam_record(self, db_session):
-        """已审批学生 → 创建 ExamRecord(type=daily_practice)。"""
-        from app.models.teaching import ExamRecord
-
-        from app.models.teaching import Question
-        from app.core.enums import QuestionType, Difficulty, QuestionSource
+    async def test_scheduler_creates_practice_session(self, db_session):
+        """已审批学生 → 创建 PracticeSession（每日练习）。"""
+        from app.models.teaching import PracticeSession, PracticeSessionQuestion, Question
+        from app.core.enums import QuestionType, Difficulty, QuestionSource, PracticeSessionStatus
 
         student = await _create_approved_student(db_session)
         # 种子题目，确保题库非空
@@ -95,13 +93,25 @@ class TestDailySchedulerIntegration:
         assert result["total_students"] >= 1
         assert result["assigned_count"] >= 1
 
-        # 验证 ExamRecord 已创建（ExamRecord.class_id，非 student_id）
-        exam_records = (await db_session.execute(
-            select(ExamRecord).where(
-                ExamRecord.class_id == student.class_id,
+        # 验证返回 practice_id
+        assert "practice_id" in result["details"][0]
+
+        # 验证 PracticeSession 已创建
+        sessions = (await db_session.execute(
+            select(PracticeSession).where(
+                PracticeSession.student_id == student.id,
+                PracticeSession.status == PracticeSessionStatus.in_progress.value,
             )
         )).scalars().all()
-        assert len(exam_records) >= 1
+        assert len(sessions) >= 1
+
+        # 验证 PracticeSessionQuestion 已关联
+        psqs = (await db_session.execute(
+            select(PracticeSessionQuestion).where(
+                PracticeSessionQuestion.practice_session_id == sessions[0].id,
+            )
+        )).scalars().all()
+        assert len(psqs) >= 1
 
     @pytest.mark.anyio
     async def test_scheduler_skips_non_approved(self, db_session):
