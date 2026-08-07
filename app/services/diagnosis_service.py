@@ -11,13 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from ..models.diagnosis import (
-    BarrierConfig, KnowledgePoint, ReviewTask, ReviewHistory, WarningLog,
+    BarrierConfig, KnowledgePoint, WarningLog,
 )
 from ..models.teaching import StudentAnswer, Question, ExamRecord
 from ..models.user import Student
 from ..schemas.diagnosis import (
     BarrierConfigRead, BarrierConfigUpdate,
-    KnowledgePointRead, ReviewTaskRead, WarningLogRead,
+    KnowledgePointRead, WarningLogRead,
 )
 from ..core.enums import BarrierType, MisconceptionCategory, DiagnosisSource
 from ..llm.router import llm_chat, LLMError
@@ -496,63 +496,17 @@ class DiagnosisService:
         return {"old": old_values, "new": new_values}
 
     # ═══════════════════════════════════════════════════════════
-    # Review Tasks
+    # Review Tasks（已迁至 ReviewService）
     # ═══════════════════════════════════════════════════════════
-
-    @staticmethod
-    async def list_pending_reviews(
-        db: AsyncSession, student_id: int,
-        limit: int = 20, offset: int = 0,
-    ) -> tuple[list[ReviewTaskRead], int]:
-        total = (await db.execute(
-            select(func.count(ReviewTask.id)).where(
-                ReviewTask.student_id == student_id,
-                ReviewTask.status.in_(["pending", "overdue"]),
-            )
-        )).scalar() or 0
-        result = await db.execute(
-            select(ReviewTask)
-            .where(ReviewTask.student_id == student_id,
-                   ReviewTask.status.in_(["pending", "overdue"]))
-            .order_by(ReviewTask.next_review_date.asc().nulls_last())
-            .offset(offset).limit(limit)
-        )
-        return [ReviewTaskRead.model_validate(t) for t in result.scalars().all()], total
-
-    @staticmethod
-    async def complete_review(
-        db: AsyncSession, review_task_id: int, result: bool,
-    ) -> ReviewTaskRead:
-        r = await db.execute(select(ReviewTask).where(ReviewTask.id == review_task_id))
-        task = r.scalar_one_or_none()
-        if task is None:
-            raise DiagnosisError(f"复习任务不存在: id={review_task_id}")
-
-        # Record history
-        history = ReviewHistory(
-            review_task_id=task.id,
-            level=task.level,
-            review_date=datetime.now(timezone.utc),
-            result=result,
-        )
-        db.add(history)
-
-        if result:
-            task.level = min(task.level + 1, 6)
-            if task.level >= 6:
-                task.status = "completed"
-            else:
-                from datetime import timedelta
-                intervals = {1: 1, 2: 3, 3: 7, 4: 14, 5: 30}
-                days = intervals.get(task.level, 30)
-                task.next_review_date = datetime.now(timezone.utc) + timedelta(days=days)
-        else:
-            task.level = max(task.level - 1, 1)
-            task.next_review_date = datetime.now(timezone.utc) + timedelta(days=1)
-
-        await db.commit()
-        await db.refresh(task)
-        return ReviewTaskRead.model_validate(task)
+    #
+    # list_pending_reviews() 和 complete_review() 已迁移到
+    # app/services/review_service.py::ReviewService。
+    # 旧方法使用固定的 1-6 级模型，新版使用 engine 的 0-5 螺旋模型。
+    #
+    # 如需向后兼容，请直接调用：
+    #   from .review_service import ReviewService
+    #   tasks, total = await ReviewService.list_pending_reviews(db, ...)
+    #   result = await ReviewService.complete_review(db, ...)
 
     # ═══════════════════════════════════════════════════════════
     # Warnings
