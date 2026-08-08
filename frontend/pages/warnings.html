@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1.0">
+  <title>ChemAI 智辅化学 - 预警中心</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --oxford-blue: #002045;
+      --oxford-blue-hover: #003366;
+      --teal: #13696a;
+      --teal-hover: #1a8182;
+      --teal-light: #e0f2f1;
+      --warm-paper: #faf8f5;
+      --white: #ffffff;
+      --border-color: #d4d0c8;
+      --text-primary: #1f1f1f;
+      --text-secondary: #666666;
+      --text-muted: #888888;
+      --radius-card: 8px;
+      --radius-chip: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--warm-paper);
+    }
+
+    .app-shell {
+      display: flex; flex-direction: column;
+      width: 100vw; height: 100vh; overflow: hidden;
+    }
+
+    /* ── Top Header ── */
+    .top-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 56px; min-height: 56px;
+      background: var(--white); border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px; font-weight: 700; color: var(--oxford-blue); text-decoration: none;
+    }
+    .brand-icon { width: 28px; height: 28px; flex-shrink: 0; }
+    .breadcrumb {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--text-muted);
+    }
+    .breadcrumb a { color: var(--text-secondary); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--teal); }
+    .breadcrumb .sep { color: var(--border-color); }
+    .breadcrumb .current { color: var(--text-primary); font-weight: 500; }
+
+    .header-nav { display: flex; gap: 4px; }
+    .header-nav a {
+      color: var(--text-secondary); text-decoration: none;
+      padding: 6px 14px; border-radius: var(--radius-card);
+      font-size: 13px; transition: all 0.2s ease;
+    }
+    .header-nav a:hover, .header-nav a.active {
+      color: var(--oxford-blue); background: var(--teal-light);
+    }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--oxford-blue); color: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600;
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex; gap: 16px; padding: 16px 32px;
+      background: var(--white); border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+    }
+    .stat-item {
+      flex: 1; text-align: center; padding: 8px 12px;
+      border-right: 1px solid var(--border-color);
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px; font-weight: 700; line-height: 1.2;
+    }
+    .stat-label { font-size: 13px; color: var(--text-secondary); }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 32px; background: var(--white);
+      border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .toolbar-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); flex-shrink: 0; }
+    .form-select {
+      padding: 8px 36px 8px 14px;
+      border: 1px solid var(--border-color); border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: var(--text-primary);
+      background: var(--white); outline: none; cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+    }
+    .form-select:focus { border-color: var(--teal); }
+
+    .toolbar-spacer { flex: 1; }
+    .btn {
+      padding: 8px 20px; border-radius: var(--radius-card);
+      font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--border-color); background: var(--white);
+      color: var(--text-primary); transition: all 0.2s ease;
+    }
+    .btn:hover { border-color: var(--teal); color: var(--teal); }
+    .btn-primary {
+      background: var(--oxford-blue); color: var(--white); border-color: var(--oxford-blue);
+    }
+    .btn-primary:hover { background: var(--oxford-blue-hover); border-color: var(--oxford-blue-hover); color: var(--white); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Table ── */
+    .main-scroll {
+      flex: 1; overflow-y: auto; padding: 0 32px 32px;
+    }
+    .table-wrap { background: var(--white); border-radius: var(--radius-card); overflow: hidden; margin-top: 0; }
+    .data-table {
+      width: 100%; border-collapse: collapse;
+    }
+    .data-table th {
+      text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+      background: var(--warm-paper); border-bottom: 1px solid var(--border-color);
+    }
+    .data-table td {
+      padding: 14px 16px; border-bottom: 1px solid var(--border-color);
+      font-size: 13px; vertical-align: middle;
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr.clickable { cursor: pointer; }
+    .data-table tr.clickable:hover { background: var(--teal-light); }
+
+    .severity-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      margin-right: 6px; vertical-align: middle;
+    }
+    .tag {
+      display: inline-block; padding: 2px 10px; border-radius: var(--radius-chip);
+      font-size: 12px; font-weight: 500;
+    }
+    .tag-status {
+      display: inline-block; padding: 2px 10px; border-radius: var(--radius-chip);
+      font-size: 12px; font-weight: 500;
+      background: #f3f4f6; color: var(--text-secondary);
+    }
+
+    /* ── Pagination ── */
+    .pagination {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 16px;
+    }
+    .page-btn {
+      padding: 6px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-card);
+      background: var(--white); color: var(--text-secondary); cursor: pointer;
+      font-size: 13px; font-family: 'IBM Plex Sans', sans-serif;
+    }
+    .page-btn:hover { border-color: var(--teal); color: var(--teal); }
+    .page-btn:disabled { opacity: 0.4; cursor: default; }
+    .page-btn.active { background: var(--oxford-blue); color: var(--white); border-color: var(--oxford-blue); }
+    .page-info { font-size: 13px; color: var(--text-muted); padding: 0 8px; }
+
+    /* ── Drawer ── */
+    .drawer-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 100;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+    .drawer {
+      position: fixed; top: 0; right: -480px; width: 480px; height: 100vh;
+      background: var(--white); z-index: 101;
+      box-shadow: -4px 0 16px rgba(0,0,0,0.12);
+      transition: right 0.3s ease; display: flex; flex-direction: column;
+    }
+    .drawer.open { right: 0; }
+    .drawer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px; border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+    }
+    .drawer-title { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 700; }
+    .drawer-close {
+      width: 32px; height: 32px; border: none; background: none; cursor: pointer;
+      font-size: 20px; color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+    }
+    .drawer-close:hover { color: var(--text-primary); }
+    .drawer-body {
+      flex: 1; overflow-y: auto; padding: 24px;
+    }
+    .drawer-body .info-row {
+      display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px;
+      font-size: 14px;
+    }
+    .drawer-body .info-label { color: var(--text-muted); min-width: 70px; flex-shrink: 0; }
+    .drawer-body .info-value { color: var(--text-primary); font-weight: 500; }
+    .drawer-body pre {
+      background: #f5f5f5; border-radius: var(--radius-card); padding: 16px;
+      font-size: 12px; line-height: 1.5; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto;
+    }
+    .drawer-body .section-label {
+      font-size: 13px; font-weight: 600; color: var(--text-secondary);
+      margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-color);
+    }
+    .drawer-actions {
+      padding: 16px 24px; border-top: 1px solid var(--border-color);
+      display: flex; gap: 12px; flex-shrink: 0;
+    }
+    .btn-resolve { background: var(--teal); color: var(--white); border-color: var(--teal); }
+    .btn-resolve:hover { background: var(--teal-hover); border-color: var(--teal-hover); color: var(--white); }
+    .btn-dismiss { color: var(--text-muted); }
+
+    /* ── Empty / Error states ── */
+    .state-msg {
+      display: flex; align-items: center; justify-content: center;
+      height: 200px; color: var(--text-muted); font-size: 14px; gap: 12px;
+    }
+    .retry-btn {
+      padding: 4px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-card);
+      background: var(--white); color: var(--text-secondary); cursor: pointer; font-size: 12px;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+    .retry-btn:hover { border-color: var(--teal); color: var(--teal); }
+    .hidden { display: none !important; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Header -->
+    <header class="top-header">
+      <div class="header-left">
+        <a href="index.html" class="brand">
+          <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 2L27.5 8.5V21.5L16 28L4.5 21.5V8.5L16 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+            <circle cx="16" cy="15" r="4" fill="currentColor"/>
+            <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+          </svg>
+          <span>ChemAI 智辅化学</span>
+        </a>
+        <div class="breadcrumb">
+          <span class="sep">/</span><a href="index.html">对话</a>
+          <span class="sep">/</span><span class="current">预警中心</span>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <a href="index.html">对话</a>
+        <a href="teacher.html">班级学情</a>
+        <a href="students.html">学生管理</a>
+        <a href="warnings.html" class="active">预警中心</a>
+      </nav>
+      <div class="header-right">
+        <span id="headerUserName" style="font-size:13px;color:var(--text-secondary)"></span>
+        <div class="user-avatar" id="headerAvatar"></div>
+      </div>
+    </header>
+
+    <!-- Stats bar -->
+    <div class="stats-bar" id="statsBar">
+      <div class="stat-item"><div class="stat-value" style="color:#ef4444">--</div><div class="stat-label">严重预警</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:#f59e0b">--</div><div class="stat-label">警告</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:#3b82f6">--</div><div class="stat-label">提示</div></div>
+      <div class="stat-item"><div class="stat-value">--</div><div class="stat-label">总计</div></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <span class="toolbar-label">🏷️ 班级</span>
+      <select class="form-select" id="filterClass" onchange="applyFilters()">
+        <option value="">全部班级</option>
+      </select>
+      <span class="toolbar-label">类型</span>
+      <select class="form-select" id="filterType" onchange="applyFilters()">
+        <option value="">全部类型</option>
+        <option value="consecutive_absence">未登录</option>
+        <option value="score_drop">成绩下滑</option>
+        <option value="high_error_rate">高错误率</option>
+        <option value="new_barrier">障碍迁移</option>
+      </select>
+      <span class="toolbar-label">严重度</span>
+      <select class="form-select" id="filterSeverity" onchange="applyFilters()">
+        <option value="">全部</option>
+        <option value="info">提示</option>
+        <option value="warning">警告</option>
+        <option value="severe">严重</option>
+      </select>
+      <span class="toolbar-label">状态</span>
+      <select class="form-select" id="filterStatus" onchange="applyFilters()">
+        <option value="">全部</option>
+        <option value="pending">待处理</option>
+        <option value="processing">处理中</option>
+        <option value="resolved">已解决</option>
+        <option value="dismissed">已忽略</option>
+      </select>
+      <span class="toolbar-spacer"></span>
+      <button class="btn btn-primary" id="btnCheck" onclick="manualCheck()">🔍 手动检测</button>
+    </div>
+
+    <!-- Table -->
+    <div class="main-scroll">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:50px"></th>
+              <th style="width:80px">学生</th>
+              <th style="width:100px">班级</th>
+              <th style="width:100px">类型</th>
+              <th>预警标题</th>
+              <th style="width:120px">时间</th>
+              <th style="width:80px">状态</th>
+            </tr>
+          </thead>
+          <tbody id="warningTableBody">
+          </tbody>
+        </table>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drawer -->
+  <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <span class="drawer-title">预警详情</span>
+      <button class="drawer-close" onclick="closeDrawer()">&times;</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+    <div class="drawer-actions hidden" id="drawerActions">
+      <button class="btn btn-resolve" onclick="resolveWarning()">✓ 标记已解决</button>
+      <button class="btn btn-dismiss" onclick="dismissWarning()">标记误报</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="../js/auth.js"></script>
+  <script src="../js/api-client.js"></script>
+  <script src="../js/constants.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    // ── Auth ──
+    if (!ChemAuth.isAuthenticated()) { ChemAuth.redirectToLogin(); return; }
+    var user = ChemAuth.getCurrentUser();
+    if (user && (user.role === 'student' || user.role === 'parent')) {
+      window.location.href = 'index.html'; return;
+    }
+    document.getElementById('headerUserName').textContent = user ? ('教师' + user.userId) : '教师';
+    document.getElementById('headerAvatar').textContent = '教';
+
+    // ── State ──
+    var currentPage = 1;
+    var pageSize = 15;
+    var totalItems = 0;
+    var currentWarningId = null;
+    var checking = false;
+
+    // ── URL params ──
+    var urlParams = new URLSearchParams(window.location.search);
+    var initClassId = urlParams.get('class_id');
+
+    // ── Init ──
+    loadStats();
+    loadClassList();
+    fetchWarnings();
+
+    // ═══════════════════════════════════════════════════════
+    // Stats
+    // ═══════════════════════════════════════════════════════
+    function loadStats() {
+      ChemAPI.apiGet('/warning/stats')
+        .then(function (res) {
+          var d = res.data || {};
+          document.getElementById('statsBar').innerHTML =
+            '<div class="stat-item"><div class="stat-value" style="color:#ef4444">' + (d.severe_count || 0) + '</div><div class="stat-label">严重预警</div></div>' +
+            '<div class="stat-item"><div class="stat-value" style="color:#f59e0b">' + (d.warning_count || 0) + '</div><div class="stat-label">警告</div></div>' +
+            '<div class="stat-item"><div class="stat-value" style="color:#3b82f6">' + (d.info_count || 0) + '</div><div class="stat-label">提示</div></div>' +
+            '<div class="stat-item"><div class="stat-value">' + (d.total_count || 0) + '</div><div class="stat-label">总计</div></div>';
+        })
+        .catch(function () {
+          document.getElementById('statsBar').innerHTML =
+            '<div class="stat-item"><div class="stat-value" style="color:#ef4444">--</div><div class="stat-label">严重预警</div></div>' +
+            '<div class="stat-item"><div class="stat-value" style="color:#f59e0b">--</div><div class="stat-label">警告</div></div>' +
+            '<div class="stat-item"><div class="stat-value" style="color:#3b82f6">--</div><div class="stat-label">提示</div></div>' +
+            '<div class="stat-item"><div class="stat-value">--</div><div class="stat-label">总计</div></div>';
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Class list for filter
+    // ═══════════════════════════════════════════════════════
+    function loadClassList() {
+      ChemAPI.apiGet('/panel/classes')
+        .then(function (res) {
+          var list = res.data || [];
+          var sel = document.getElementById('filterClass');
+          var html = '<option value="">全部班级</option>';
+          for (var i = 0; i < list.length; i++) {
+            html += '<option value="' + list[i].class_id + '">' + ChemAPI.escapeHtml(list[i].class_name) + '</option>';
+          }
+          sel.innerHTML = html;
+          if (initClassId) sel.value = initClassId;
+        })
+        .catch(function () {});
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Fetch warnings
+    // ═══════════════════════════════════════════════════════
+    function fetchWarnings() {
+      var params = { page: currentPage, page_size: pageSize };
+      var cls = document.getElementById('filterClass').value;
+      var type = document.getElementById('filterType').value;
+      var sev = document.getElementById('filterSeverity').value;
+      var stat = document.getElementById('filterStatus').value;
+      if (cls) params.class_id = parseInt(cls);
+      if (type) params.warning_type = type;
+      if (sev) params.severity = sev;
+      if (stat) params.status = stat;
+
+      ChemAPI.apiGet('/warning/list', params)
+        .then(function (res) {
+          var data = res.data || {};
+          totalItems = data.total || 0;
+          renderTable(data.items || []);
+          renderPagination();
+        })
+        .catch(function () {
+          document.getElementById('warningTableBody').innerHTML =
+            '<tr><td colspan="7"><div class="state-msg">加载失败，<button class="retry-btn" onclick="fetchWarnings()">重试</button></div></td></tr>';
+          document.getElementById('pagination').innerHTML = '';
+        });
+    }
+
+    function applyFilters() {
+      currentPage = 1;
+      fetchWarnings();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Table
+    // ═══════════════════════════════════════════════════════
+    function renderTable(items) {
+      var tbody = document.getElementById('warningTableBody');
+
+      // Empty state
+      if (!items || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="state-msg">暂无预警记录</div></td></tr>';
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < items.length; i++) {
+        var w = items[i];
+        var sevColor = ChemConst.warningSeverityColor(w.severity);
+        var typeLabel = ChemConst.warningTypeLabel(w.warning_type);
+        var typeColor = ChemConst.warningTypeColor(w.warning_type);
+        var statusLabel = ChemConst.warningStatusLabel(w.status);
+        var timeStr = w.created_at ? w.created_at.slice(0, 16).replace('T', ' ') : '--';
+
+        html += '<tr class="clickable" onclick="openDetail(' + w.id + ')">' +
+          '<td><span class="severity-dot" style="background:' + sevColor + '"></span></td>' +
+          '<td>' + ChemAPI.escapeHtml(w.student_name || '--') + '</td>' +
+          '<td style="font-size:12px;color:var(--text-muted)">' + ChemAPI.escapeHtml(w.class_name || '') + '</td>' +
+          '<td><span class="tag" style="background:' + typeColor + '20;color:' + typeColor + '">' + typeLabel + '</span></td>' +
+          '<td>' + ChemAPI.escapeHtml(w.title || '') + '</td>' +
+          '<td style="font-size:12px;color:var(--text-muted)">' + timeStr + '</td>' +
+          '<td><span class="tag-status">' + statusLabel + '</span></td>' +
+          '</tr>';
+      }
+      tbody.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Pagination
+    // ═══════════════════════════════════════════════════════
+    function renderPagination() {
+      var totalPages = Math.ceil(totalItems / pageSize);
+      if (totalPages <= 1) {
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      var html = '';
+      html += '<button class="page-btn" ' + (currentPage <= 1 ? 'disabled' : 'onclick="goPage(' + (currentPage - 1) + ')"') + '>上一页</button>';
+
+      var startPage = Math.max(1, currentPage - 2);
+      var endPage = Math.min(totalPages, currentPage + 2);
+      for (var p = startPage; p <= endPage; p++) {
+        html += '<button class="page-btn' + (p === currentPage ? ' active' : '') + '" onclick="goPage(' + p + ')">' + p + '</button>';
+      }
+
+      html += '<button class="page-btn" ' + (currentPage >= totalPages ? 'disabled' : 'onclick="goPage(' + (currentPage + 1) + ')"') + '>下一页</button>';
+      html += '<span class="page-info">共 ' + totalItems + ' 条</span>';
+      document.getElementById('pagination').innerHTML = html;
+    }
+
+    window.goPage = function (p) {
+      currentPage = p;
+      fetchWarnings();
+      document.querySelector('.main-scroll').scrollTop = 0;
+    };
+
+    // ═══════════════════════════════════════════════════════
+    // Detail drawer
+    // ═══════════════════════════════════════════════════════
+    function openDetail(id) {
+      currentWarningId = id;
+      ChemAPI.apiGet('/warning/' + id)
+        .then(function (res) {
+          var d = res.data || {};
+          renderDetail(d);
+          document.getElementById('drawerOverlay').classList.add('open');
+          document.getElementById('drawer').classList.add('open');
+        })
+        .catch(function () {
+          ChemAPI.showToast('加载详情失败');
+        });
+    }
+
+    function renderDetail(d) {
+      var body = document.getElementById('drawerBody');
+      var sevColor = ChemConst.warningSeverityColor(d.severity);
+      var sevLabel = ChemConst.warningSeverityLabel(d.severity);
+      var typeColor = ChemConst.warningTypeColor(d.warning_type);
+      var typeLabel = ChemConst.warningTypeLabel(d.warning_type);
+      var statusLabel = ChemConst.warningStatusLabel(d.status);
+
+      var html = '';
+      html += '<div class="info-row"><span class="info-label">学生</span><span class="info-value">' + ChemAPI.escapeHtml(d.student_name || '--') + '</span></div>';
+      html += '<div class="info-row"><span class="info-label">班级</span><span class="info-value">' + ChemAPI.escapeHtml(d.class_name || '') + '</span></div>';
+      html += '<div class="info-row"><span class="info-label">类型</span><span class="tag" style="background:' + typeColor + '20;color:' + typeColor + '">' + typeLabel + '</span></div>';
+      html += '<div class="info-row"><span class="info-label">严重度</span><span style="color:' + sevColor + ';font-weight:600">' + sevLabel + '</span></div>';
+      html += '<div class="info-row"><span class="info-label">状态</span><span class="tag-status">' + statusLabel + '</span></div>';
+      html += '<div class="info-row"><span class="info-label">标题</span><span class="info-value">' + ChemAPI.escapeHtml(d.title || '') + '</span></div>';
+      if (d.description) {
+        html += '<div class="info-row"><span class="info-label">描述</span><span>' + ChemAPI.escapeHtml(d.description) + '</span></div>';
+      }
+      html += '<div class="info-row"><span class="info-label">时间</span><span style="font-size:12px;color:var(--text-muted)">' +
+        (d.created_at ? d.created_at.slice(0, 16).replace('T', ' ') : '--') + '</span></div>';
+
+      // Data snapshot
+      html += '<div class="section-label">数据快照</div>';
+      var snapshot = d.data_snapshot || {};
+      try {
+        var jsonStr = JSON.stringify(snapshot, null, 2);
+        html += '<pre>' + ChemAPI.escapeHtml(jsonStr) + '</pre>';
+      } catch (e) {
+        html += '<pre>无快照数据</pre>';
+      }
+
+      body.innerHTML = html;
+
+      // Action buttons — only show for pending/processing
+      var actions = document.getElementById('drawerActions');
+      if (d.status === 'pending' || d.status === 'processing') {
+        actions.classList.remove('hidden');
+      } else {
+        actions.classList.add('hidden');
+      }
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawerOverlay').classList.remove('open');
+      document.getElementById('drawer').classList.remove('open');
+      currentWarningId = null;
+    }
+
+    // ── ESC key to close drawer
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeDrawer();
+    });
+
+    // ═══════════════════════════════════════════════════════
+    // Status actions
+    // ═══════════════════════════════════════════════════════
+    function resolveWarning() {
+      if (!currentWarningId) return;
+      ChemAPI.apiPatch('/warning/' + currentWarningId + '/status', { status: 'resolved' })
+        .then(function () {
+          ChemAPI.showToast('已标记为已解决');
+          closeDrawer();
+          fetchWarnings();
+          loadStats();
+        })
+        .catch(function (err) {
+          ChemAPI.showToast(err.message || '操作失败');
+        });
+    }
+
+    function dismissWarning() {
+      if (!currentWarningId) return;
+      ChemAPI.apiPatch('/warning/' + currentWarningId + '/status', { status: 'dismissed' })
+        .then(function () {
+          ChemAPI.showToast('已标记为误报');
+          closeDrawer();
+          fetchWarnings();
+          loadStats();
+        })
+        .catch(function (err) {
+          ChemAPI.showToast(err.message || '操作失败');
+        });
+    }
+
+    window.openDetail = openDetail;
+    window.closeDrawer = closeDrawer;
+    window.resolveWarning = resolveWarning;
+    window.dismissWarning = dismissWarning;
+
+    // ═══════════════════════════════════════════════════════
+    // Manual check
+    // ═══════════════════════════════════════════════════════
+    function manualCheck() {
+      if (checking) return;
+      checking = true;
+      var btn = document.getElementById('btnCheck');
+      btn.disabled = true;
+      btn.textContent = '检测中...';
+
+      ChemAPI.apiPost('/warning/check', {})
+        .then(function () {
+          ChemAPI.showToast('检测完成');
+          fetchWarnings();
+          loadStats();
+        })
+        .catch(function (err) {
+          if (err.status === 429) {
+            ChemAPI.showToast('已有检测任务运行中，请稍后再试');
+          } else {
+            ChemAPI.showToast(err.message || '检测失败');
+          }
+        })
+        .finally(function () {
+          checking = false;
+          btn.disabled = false;
+          btn.textContent = '🔍 手动检测';
+        });
+    }
+
+    window.manualCheck = manualCheck;
+    window.applyFilters = applyFilters;
+    window.fetchWarnings = fetchWarnings;
+  })();
+  </script>
+</body>
+</html>

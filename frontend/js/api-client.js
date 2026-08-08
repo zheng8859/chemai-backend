@@ -48,6 +48,19 @@ var ChemAPI = (function () {
     });
   }
 
+  /** PATCH 请求
+   * @param {string} url — 相对路径
+   * @param {object} body — JSON 请求体
+   * @returns {Promise<object>} — JSON 响应
+   */
+  function apiPatch(url, body) {
+    return _request(BASE_URL + url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
   // ══════════════════════════════════════════════════════════════
   // 内部请求函数
   // ══════════════════════════════════════════════════════════════
@@ -253,6 +266,7 @@ var ChemAPI = (function () {
   return {
     apiGet: apiGet,
     apiPost: apiPost,
+    apiPatch: apiPatch,
     renderLatex: renderLatex,
     showToast: showToast,
     escapeHtml: escapeHtml,
