@@ -247,6 +247,39 @@ def require_permission(resource: str, action: str):
 
 
 # ═══════════════════════════════════════════════════════════
+# Teacher verification helper (panel + warning API 共用)
+# ═══════════════════════════════════════════════════════════
+
+async def verify_teacher(db: AsyncSession, user: UserContext) -> int:
+    """验证教师权限，返回 Teacher.id（数据库主键，非 Account.id）。
+
+    panel API 和 warning API 共用此 helper。
+    如需额外验证班级访问权限，调用方自行追加 TeacherClassSubject 检查。
+
+    Raises:
+        403: 非教师角色或教师档案不存在
+    """
+    if user.role != "teacher":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="仅教师角色可访问此功能",
+        )
+    from ..models.user import Teacher
+    from sqlalchemy import select as sa_select
+
+    teacher_result = await db.execute(
+        sa_select(Teacher).where(Teacher.account_id == user.user_id)
+    )
+    teacher = teacher_result.scalar_one_or_none()
+    if teacher is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="教师档案不存在",
+        )
+    return teacher.id
+
+
+# ═══════════════════════════════════════════════════════════
 # Scope helpers (data-level filtering)
 # ═══════════════════════════════════════════════════════════
 
@@ -314,3 +347,148 @@ async def resolve_student_id(db: AsyncSession, account_id: int) -> int | None:
     )
     student = result.scalar_one_or_none()
     return student.id if student else None
+
+
+# ═══════════════════════════════════════════════════════════
+# Student self-data isolation (学生自我数据隔离)
+# ═══════════════════════════════════════════════════════════
+
+def require_student_self():
+    """学生自我数据隔离依赖（工厂函数）。
+
+    验证条件：
+    1. 当前用户角色为 student
+    2. URL 路径中的 student_id（Account.id）匹配 JWT user_id
+    3. Account.id 能解析到有效的 Student 记录
+
+    Returns 数据库 Student.id，供 service 层直接使用。
+
+    Usage:
+        @router.get("/student/{student_id}/stats")
+        async def get_stats(
+            student_id: int,
+            db: AsyncSession = Depends(get_db),
+            student_db_id: int = Depends(require_student_self()),
+        ):
+            stats = await StatsService.get_student_stats(db, student_db_id)
+    """
+
+    async def _checker(
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+        user: UserContext = Depends(get_current_user),
+    ) -> int:
+        if user.role != "student":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="仅学生角色可访问",
+            )
+
+        # 从 URL 路径参数中提取 student_id（Account.id）
+        student_id_str = request.path_params.get("student_id")
+        if student_id_str is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="路径中缺少 student_id 参数",
+            )
+
+        account_id = int(student_id_str)
+        if user.user_id != account_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问其他学生的数据",
+            )
+
+        # Account.id → Student.id 映射
+        resolved = await resolve_student_id(db, user.user_id)
+        if resolved is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="学生档案不存在",
+            )
+
+        return resolved
+
+    return _checker
+
+
+# ═══════════════════════════════════════════════════════════
+# Parent binding validation (家长绑定关系校验)
+# ═══════════════════════════════════════════════════════════
+
+def require_parent_binding():
+    """家长绑定关系校验依赖（工厂函数）。
+
+    验证条件：
+    1. 当前用户角色为 parent
+    2. Account.id 能解析到有效的 Parent 记录
+    3. URL 路径中的 student_id 与当前家长存在 status=active 的绑定
+
+    Returns tuple (parent_db_id, student_db_id)，供 service 层直接使用。
+
+    Usage:
+        @router.get("/parent/child/{student_id}/report")
+        async def get_child_report(
+            student_id: int,
+            db: AsyncSession = Depends(get_db),
+            binding: tuple[int, int] = Depends(require_parent_binding()),
+        ):
+            parent_db_id, student_db_id = binding
+            ...
+    """
+
+    async def _checker(
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+        user: UserContext = Depends(get_current_user),
+    ) -> tuple[int, int]:
+        if user.role != "parent":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="仅家长角色可访问",
+            )
+
+        # Account.id → Parent.id 映射
+        from ..models.user import Parent
+        from ..models.homework import StudentParentBinding
+        from sqlalchemy import select as sa_select
+
+        parent_result = await db.execute(
+            sa_select(Parent).where(Parent.account_id == user.user_id)
+        )
+        parent = parent_result.scalar_one_or_none()
+        if parent is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="家长档案不存在",
+            )
+
+        # 从 URL 路径参数中提取 student_id
+        student_id_str = request.path_params.get("student_id")
+        if student_id_str is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="路径中缺少 student_id 参数",
+            )
+
+        student_db_id = int(student_id_str)
+
+        # 验证绑定关系
+        from ..core.enums import BindingStatus
+        binding_result = await db.execute(
+            sa_select(StudentParentBinding).where(
+                StudentParentBinding.student_id == student_db_id,
+                StudentParentBinding.parent_id == parent.id,
+                StudentParentBinding.status == BindingStatus.active,
+            )
+        )
+        binding = binding_result.scalar_one_or_none()
+        if binding is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="未绑定该学生",
+            )
+
+        return (parent.id, student_db_id)
+
+    return _checker

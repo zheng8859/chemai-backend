@@ -112,11 +112,18 @@ class WarningSeverity(str, Enum):
     severe = "severe"    # 严重
 
 
-# ── 通知类型 (34号 §四) ────────────────────────────────────
+# ── 通知类型 (34号 §四, 33号 §九) ──────────────────────────
 class NotificationType(str, Enum):
-    learning_report = "learning_report"  # 学习报告
-    warning_alert = "warning_alert"      # 预警提醒
-    teacher_message = "teacher_message"  # 教师消息
+    # 家长端通知类型（33号 §九）
+    weekly_report = "weekly_report"      # 周报生成
+    score_alert = "score_alert"          # 成绩预警
+    learning_plan = "learning_plan"      # 学习计划
+    reminder = "reminder"                # 学习提醒
+    daily_report = "daily_report"        # 每日报告
+    # 保留原有类型
+    learning_report = "learning_report"  # 学习报告（旧）
+    warning_alert = "warning_alert"      # 预警提醒（旧）
+    teacher_message = "teacher_message"  # 教师消息（旧）
 
 
 # ── 教师入驻申请状态 (23号 §五) ────────────────────────────
@@ -137,6 +144,7 @@ class OCRTaskStatus(str, Enum):
 # ── Agent 记忆类型 (34号 §七.2) ────────────────────────────
 class MemoryType(str, Enum):
     student_diagnosis_history = "student_diagnosis_history"
+    student_learning_plan = "student_learning_plan"
     teacher_preference = "teacher_preference"
 
 

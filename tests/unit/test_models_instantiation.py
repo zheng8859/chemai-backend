@@ -386,8 +386,11 @@ class TestParentNotificationModel:
     def test_tablename(self):
         assert ParentNotification.__tablename__ == "parent_notification"
 
-    def test_is_read_default(self):
-        assert _server_default(ParentNotification, "is_read") == "0"
+    def test_read_at_default(self):
+        """read_at 默认为 None（无 server_default）。"""
+        from app.models.homework import ParentNotification
+        col = ParentNotification.__table__.c["read_at"]
+        assert col.nullable is True
 
 
 # ═══════════════════════════════════════════════════════════

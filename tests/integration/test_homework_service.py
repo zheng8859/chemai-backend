@@ -174,7 +174,7 @@ class TestNotificationCreate:
         assert result.parent_id == 1
         assert result.title == "测试通知"
         assert result.body == "这是一条测试通知"
-        assert result.is_read is False
+        assert result.read_at is None
 
 
 class TestNotificationList:
@@ -227,7 +227,7 @@ class TestNotificationMarkRead:
         nid = n.id
 
         result = await HomeworkService.mark_notification_read(db_session, nid)
-        assert result.is_read is True
+        assert result.read_at is not None
 
 
 # ═══════════════════════════════════════════════════════════════

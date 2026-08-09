@@ -53,10 +53,19 @@ class TestParentNotificationRead:
             id=1, parent_id=20,
             notification_type=NotificationType.learning_report,
             title="本周学习报告", body="您的孩子本周完成了...",
-            is_read=False, sent_at=NOW,
+            read_at=None, sent_at=NOW,
         )
         assert r.notification_type == NotificationType.learning_report
-        assert r.is_read is False
+        assert r.read_at is None
+
+    def test_read_at_set(self):
+        r = ParentNotificationRead(
+            id=2, parent_id=20,
+            notification_type=NotificationType.weekly_report,
+            title="周报", body="...",
+            read_at=NOW, sent_at=NOW,
+        )
+        assert r.read_at == NOW
 
 
 class TestParentNotificationListParams:

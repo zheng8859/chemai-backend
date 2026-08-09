@@ -98,6 +98,12 @@ from .api.v1.question_bank import router as question_bank_router
 from .api.v1.audit import router as audit_router
 from .api.v1.practice import router as practice_router
 from .api.v1.review import router as review_router
+from .api.v1.panel import router as panel_router
+from .api.v1.warning import router as warning_router
+from .api.v1.stats import router as stats_router
+from .api.v1.learning_plan import router as learning_plan_router
+from .api.v1.notification import router as notification_router
+from .api.v1.parent import router as parent_router
 
 v1_router.include_router(auth_router)
 v1_router.include_router(student_router)
@@ -111,6 +117,12 @@ v1_router.include_router(question_bank_router)
 v1_router.include_router(audit_router)
 v1_router.include_router(practice_router)
 v1_router.include_router(review_router)
+v1_router.include_router(panel_router)
+v1_router.include_router(warning_router)
+v1_router.include_router(stats_router)
+v1_router.include_router(learning_plan_router)
+v1_router.include_router(notification_router)
+v1_router.include_router(parent_router)
 
 app.include_router(v1_router)
 

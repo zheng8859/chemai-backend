@@ -7,10 +7,12 @@
 - teaching.py   : ExamRecord, Question, StudentAnswer（教学链）
 - exam_paper.py : ExamPaper, ExamPaperQuestion（试卷模板+考试执行）
 - diagnosis.py  : BarrierConfig, KnowledgePoint, ReviewTask, ReviewHistory, WarningLog（诊断与学习）
-- homework.py   : StudentParentBinding, ParentNotification（家校互通）
+- homework.py   : StudentParentBinding, ParentNotification, WeeklyReport（家校互通）
+- notification.py : Notification（学生消息通知）
 - ocr.py        : UploadSession, StudentSubmission, OCRTask（OCR 批改）
 - question_bank.py : QuestionSet, QuestionSetItem, HistoricalExam（题库）
 - agent_memory.py : ConversationCheckpoint, LongTermMemory（Agent 记忆）
+- learning_plan.py : LearningPlan, LearningPlanTask（学习计划）
 """
 
 from .base import Base, TimestampMixin
@@ -46,7 +48,7 @@ from .diagnosis import (
 from .barrier_profile_history import BarrierProfileHistory
 
 # 家校互通
-from .homework import StudentParentBinding, ParentNotification
+from .homework import StudentParentBinding, ParentNotification, WeeklyReport
 
 # OCR 批改
 from .ocr import UploadSession, StudentSubmission, OCRTask
@@ -56,6 +58,12 @@ from .question_bank import QuestionSet, QuestionSetItem, HistoricalExam
 
 # Agent 记忆
 from .agent_memory import ConversationCheckpoint, LongTermMemory, ApprovalRequest
+
+# 学习计划
+from .learning_plan import LearningPlan, LearningPlanTask
+
+# 消息通知
+from .notification import Notification
 
 __all__ = [
     # base
@@ -92,6 +100,7 @@ __all__ = [
     # homework
     "StudentParentBinding",
     "ParentNotification",
+    "WeeklyReport",
     # ocr
     "UploadSession",
     "StudentSubmission",
@@ -104,4 +113,9 @@ __all__ = [
     "ConversationCheckpoint",
     "LongTermMemory",
     "ApprovalRequest",
+    # learning plan
+    "LearningPlan",
+    "LearningPlanTask",
+    # notification
+    "Notification",
 ]

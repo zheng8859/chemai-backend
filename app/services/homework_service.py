@@ -1,4 +1,8 @@
-"""Home-school service — 亲子绑定/通知/报告发送。"""
+"""Home-school service — 亲子绑定/通知/报告发送。
+
+⚠ *Deprecated* — 绑定/通知方法已迁移至 ParentService。
+  教师端报告发送（send_exam_reports）继续保留。
+"""
 
 from datetime import datetime, timezone
 
@@ -23,11 +27,12 @@ class HomeworkError(Exception):
 class HomeworkService:
 
     # ═══════════════════════════════════════════════════════════
-    # Bindings
+    # Bindings (⚠ Deprecated → ParentService)
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
     async def create_binding(db: AsyncSession, data: BindingCreate) -> BindingRead:
+        """⚠ Deprecated: 请使用 ParentService.create_binding()"""
         # Validate bind_code
         result = await db.execute(select(Student).where(Student.id == data.student_id))
         student = result.scalar_one_or_none()
@@ -51,6 +56,7 @@ class HomeworkService:
     async def list_bindings_by_parent(
         db: AsyncSession, parent_id: int,
     ) -> list[BindingRead]:
+        """⚠ Deprecated: 请使用 ParentService.list_bound_children()"""
         result = await db.execute(
             select(StudentParentBinding).where(
                 StudentParentBinding.parent_id == parent_id,
@@ -63,6 +69,7 @@ class HomeworkService:
     async def list_bindings_by_student(
         db: AsyncSession, student_id: int,
     ) -> list[BindingRead]:
+        """⚠ Deprecated: 请使用 ParentService (无直接对应，学生端查询)"""
         result = await db.execute(
             select(StudentParentBinding).where(
                 StudentParentBinding.student_id == student_id,
@@ -72,6 +79,7 @@ class HomeworkService:
 
     @staticmethod
     async def delete_binding(db: AsyncSession, binding_id: int) -> None:
+        """⚠ Deprecated: 请使用 ParentService.delete_binding()"""
         result = await db.execute(
             select(StudentParentBinding).where(StudentParentBinding.id == binding_id)
         )
@@ -82,7 +90,7 @@ class HomeworkService:
         await db.commit()
 
     # ═══════════════════════════════════════════════════════════
-    # Notifications
+    # Notifications (⚠ Deprecated → ParentService)
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
@@ -93,6 +101,7 @@ class HomeworkService:
         title: str,
         body: str,
     ) -> ParentNotificationRead:
+        """⚠ Deprecated: 请使用 ParentService.create_notification()"""
         notif = ParentNotification(
             parent_id=parent_id,
             notification_type=notification_type,
@@ -110,6 +119,7 @@ class HomeworkService:
         db: AsyncSession, parent_id: int,
         limit: int = 20, offset: int = 0,
     ) -> tuple[list[ParentNotificationRead], int]:
+        """⚠ Deprecated: 请使用 ParentService.list_notifications()"""
         total = (await db.execute(
             select(func.count(ParentNotification.id)).where(
                 ParentNotification.parent_id == parent_id,
@@ -127,13 +137,14 @@ class HomeworkService:
     async def mark_notification_read(
         db: AsyncSession, notification_id: int,
     ) -> ParentNotificationRead:
+        """⚠ Deprecated: 请使用 ParentService.mark_notification_read()"""
         result = await db.execute(
             select(ParentNotification).where(ParentNotification.id == notification_id)
         )
         notif = result.scalar_one_or_none()
         if notif is None:
             raise HomeworkError(f"通知不存在: id={notification_id}")
-        notif.is_read = True
+        notif.read_at = datetime.now(timezone.utc)
         await db.commit()
         await db.refresh(notif)
         return ParentNotificationRead.model_validate(notif)

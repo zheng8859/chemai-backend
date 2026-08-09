@@ -71,6 +71,43 @@ async def _run_ocr_processor():
         logger.exception("[scheduler] ocr_processor 执行失败")
 
 
+async def _run_warning_check():
+    """Cron job: 每天 00:00 运行学情预警检测。"""
+    from ..services.early_warning_service import EarlyWarningService
+    from ..infrastructure.database import MainSession
+
+    logger.info("[scheduler] warning_check 开始执行")
+    try:
+        async with MainSession() as db:
+            result = await EarlyWarningService.run_all_checks(db)
+        logger.info(
+            f"[scheduler] warning_check 完成: "
+            f"total={result.get('total_students', 0)} "
+            f"new_warnings={result.get('new_warnings', 0)}"
+        )
+    except Exception:
+        logger.exception("[scheduler] warning_check 执行失败")
+
+
+async def _run_weekly_report():
+    """Cron job: 周一 08:00 为所有绑定学生生成周报并通知家长。"""
+    from ..services.weekly_report_service import WeeklyReportService
+    from ..infrastructure.database import MainSession
+
+    logger.info("[scheduler] weekly_report 开始执行")
+    try:
+        async with MainSession() as db:
+            result = await WeeklyReportService.run_weekly_cron(db)
+        logger.info(
+            f"[scheduler] weekly_report 完成: "
+            f"generated={result.get('generated', 0)} "
+            f"failed={result.get('failed', 0)} "
+            f"notifications={result.get('notifications', 0)}"
+        )
+    except Exception:
+        logger.exception("[scheduler] weekly_report 执行失败")
+
+
 def register_jobs():
     """注册所有定时任务（在 startup 时调用）。"""
     # 5.2: 每日练习调度 — 北京时间 08:00
@@ -81,12 +118,28 @@ def register_jobs():
         name="每日练习调度器",
         replace_existing=True,
     )
+    # 学情预警检测 — 每天 00:00
+    scheduler.add_job(
+        _run_warning_check,
+        trigger=CronTrigger(hour=0, minute=0),
+        id="warning_check",
+        name="学情预警检测",
+        replace_existing=True,
+    )
     # 逾期复习通知 — 北京时间 20:00
     scheduler.add_job(
         _run_notify_parents,
         trigger=CronTrigger(hour=20, minute=0),
         id="notify_parents_overdue",
         name="逾期复习家长通知",
+        replace_existing=True,
+    )
+    # 家长周报 — 周一 08:00
+    scheduler.add_job(
+        _run_weekly_report,
+        trigger=CronTrigger(day_of_week="mon", hour=8, minute=0),
+        id="weekly_report",
+        name="家长周报生成器",
         replace_existing=True,
     )
     # OCR 处理器 — 每 5 秒
@@ -97,7 +150,7 @@ def register_jobs():
         name="OCR 任务处理器",
         replace_existing=True,
     )
-    logger.info("[scheduler] 已注册 3 个 job")
+    logger.info("[scheduler] 已注册 5 个 job")
 
 
 def start_scheduler():
