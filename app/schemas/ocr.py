@@ -189,3 +189,34 @@ class GradingSaveResponse(BaseModel):
     saved_count: int = 0
     skipped_count: int = 0
     diagnosis_triggered: bool = False
+
+
+# ── 通用 API 响应模型 ──────────────────────────────────────
+
+class RetryTaskResponse(BaseModel):
+    """OCR 任务重试响应"""
+    success: bool = True
+    task_id: int
+    status: str
+
+
+class ServicesStatusResponse(BaseModel):
+    """引擎可用性状态响应"""
+    ocr: dict
+    mineru: dict
+    vision: dict
+    queue_pending: int = 0
+
+
+class GradingResultsResponse(BaseModel):
+    """批次批改结果查询响应"""
+    batch_id: str
+    message: str
+
+
+class StatsResponse(BaseModel):
+    """统计与报告响应"""
+    success: bool = True
+    exam_record_id: int
+    statistics: dict
+    report: str

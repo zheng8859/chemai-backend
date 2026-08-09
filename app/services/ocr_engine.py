@@ -32,6 +32,48 @@ BAIDU_DOC_ANALYSIS_URL = "https://aip.baidubce.com/rest/2.0/ocr/v1/doc_analysis"
 
 
 # ═══════════════════════════════════════════════════════════════
+# 共享工具函数
+# ═══════════════════════════════════════════════════════════════
+
+def _resolve_image_path(image_path: str) -> tuple[Path, str | None]:
+    """将相对路径解析为绝对路径，文件不存在时返回错误信息。
+
+    各引擎共用，消除四处分叉的路径解析逻辑。
+    """
+    path = Path(image_path)
+    if not path.is_absolute():
+        path = OCR_UPLOAD_DIR / image_path
+    if not path.exists():
+        return path, f"文件不存在: {image_path}"
+    return path, None
+
+
+# 学生信息提取共用正则 — 引擎差异仅在于回退策略，标签格式完全一致
+STUDENT_ID_LABEL_RE = re.compile(
+    r"(?:学号|考号|考生号|准考证号)\s*[:：]\s*(\d{6,12})"
+)
+STUDENT_NAME_LABEL_RE = re.compile(
+    r"(?:姓名|学生|考生)\s*[:：]\s*([一-龥]{2,4})"
+)
+STUDENT_NAME_FALLBACK_RE = re.compile(r"([一-龥]{2,4})")
+
+
+def _extract_student_id_by_label(raw_text: str) -> str | None:
+    """按标签格式提取学号（各引擎共用）。"""
+    m = STUDENT_ID_LABEL_RE.search(raw_text)
+    return m.group(1) if m else None
+
+
+def _extract_student_name_by_label(raw_text: str) -> str | None:
+    """按标签格式 + 通用回退提取姓名（各引擎共用）。"""
+    m = STUDENT_NAME_LABEL_RE.search(raw_text)
+    if m:
+        return m.group(1)
+    m = STUDENT_NAME_FALLBACK_RE.search(raw_text)
+    return m.group(1) if m else None
+
+
+# ═══════════════════════════════════════════════════════════════
 # 3.3: OCRResult 数据类
 # ═══════════════════════════════════════════════════════════════
 
@@ -154,16 +196,12 @@ class BaiduOCREngine:
         # 3.5: 错误处理 — 网络异常/API 错误统一转为 failed
         try:
             # 读取文件 → base64
-            path = Path(image_path)
-            if not path.is_absolute():
-                from ..config import OCR_UPLOAD_DIR
-                path = OCR_UPLOAD_DIR / image_path
-
-            if not path.exists():
+            path, err = _resolve_image_path(image_path)
+            if err:
                 return OCRResult(
                     is_partial=True,
                     engine="baidu_doc_analysis",
-                    error=f"文件不存在: {image_path}",
+                    error=err,
                 )
 
             with open(path, "rb") as f:
@@ -254,56 +292,21 @@ class BaiduOCREngine:
             )
 
     # ═══════════════════════════════════════════════════════════
-    # 3.4: 学生信息提取
+    # 3.4: 学生信息提取（百度引擎 — 标签格式 + 202[4-9] 回退）
     # ═══════════════════════════════════════════════════════════
 
-    # 学号标签正则（百度引擎专用）
-    STUDENT_ID_LABEL_PATTERN = re.compile(
-        r"(?:学号|考号|考生号|准考证号)\s*[:：]\s*(\d{6,12})"
-    )
-    # 百度引擎回退：2024-2029 开头 6-11 位数字
-    STUDENT_ID_FALLBACK_PATTERN = re.compile(r"(202[4-9]\d{4,9})")
-
-    # 姓名标签正则
-    STUDENT_NAME_LABEL_PATTERN = re.compile(
-        r"(?:姓名|学生|考生)\s*[:：]\s*([一-龥]{2,4})"
-    )
-    # 通用姓名回退：2-4 个连续中文字符
-    STUDENT_NAME_FALLBACK_PATTERN = re.compile(
-        r"([一-龥]{2,4})"
-    )
-
-    @staticmethod
-    def _extract_student_id(raw_text: str) -> Optional[str]:
-        """提取学号：标签格式 → 202[4-9] 回退。"""
-        # 标签格式优先
-        m = BaiduOCREngine.STUDENT_ID_LABEL_PATTERN.search(raw_text)
-        if m:
-            return m.group(1)
-        # 202[4-9] 回退（取第一个匹配）
-        m = BaiduOCREngine.STUDENT_ID_FALLBACK_PATTERN.search(raw_text)
-        if m:
-            return m.group(1)
-        return None
-
-    @staticmethod
-    def _extract_student_name(raw_text: str) -> Optional[str]:
-        """提取姓名：标签格式 → 通用中文字符回退。"""
-        # 标签格式优先
-        m = BaiduOCREngine.STUDENT_NAME_LABEL_PATTERN.search(raw_text)
-        if m:
-            return m.group(1)
-        # 通用回退（取第一个 2-4 个连续中文字符）
-        m = BaiduOCREngine.STUDENT_NAME_FALLBACK_PATTERN.search(raw_text)
-        if m:
-            return m.group(1)
-        return None
+    # 百度引擎专用回退：2024-2029 开头 6-11 位数字
+    STUDENT_ID_FALLBACK_RE = re.compile(r"(202[4-9]\d{4,9})")
 
     @staticmethod
     def _extract_student_info(raw_text: str) -> tuple[Optional[str], Optional[str]]:
-        """同时提取学号和姓名。"""
-        student_id = BaiduOCREngine._extract_student_id(raw_text)
-        student_name = BaiduOCREngine._extract_student_name(raw_text)
+        """提取学号和姓名：标签格式优先，百度专用回退。"""
+        student_id = _extract_student_id_by_label(raw_text)
+        if not student_id:
+            m = BaiduOCREngine.STUDENT_ID_FALLBACK_RE.search(raw_text)
+            if m:
+                student_id = m.group(1)
+        student_name = _extract_student_name_by_label(raw_text)
         return student_id, student_name
 
     # ═══════════════════════════════════════════════════════════
@@ -336,12 +339,9 @@ class BaiduOCREngine:
             }
         """
         try:
-            path = Path(image_path)
-            if not path.is_absolute():
-                path = OCR_UPLOAD_DIR / image_path
-
-            if not path.exists():
-                return {"success": False, "results": [], "total_score": 0, "error": "文件不存在"}
+            path, err = _resolve_image_path(image_path)
+            if err:
+                return {"success": False, "results": [], "total_score": 0, "error": err}
 
             with open(path, "rb") as f:
                 image_data = f.read()
@@ -418,11 +418,13 @@ class BaiduOCREngine:
     def _parse_correct_result(result_data: dict) -> dict:
         """解析 correct_edu 返回的 correctResult。
 
-        correctResult 编码：
+        correctResult 编码（按百度 API 实际返回值）：
         - 0: 正确
         - 1: 错误
         - 2: 无法判断
         - 3: 未作答
+
+        注：spec 曾假设 0=未处理/1=正确/2=错误，但百度 API 实际编码以上述为准。
         """
         items = result_data.get("correctResult", [])
         questions = []
@@ -480,16 +482,9 @@ class MinerUEngine:
     async def parse(image_path: str) -> OCRResult:
         """7.1: 调用 mineru parse 子进程。"""
         try:
-            path = Path(image_path)
-            if not path.is_absolute():
-                path = OCR_UPLOAD_DIR / image_path
-
-            if not path.exists():
-                return OCRResult(
-                    is_partial=True,
-                    engine="mineru",
-                    error=f"文件不存在: {image_path}",
-                )
+            path, err = _resolve_image_path(image_path)
+            if err:
+                return OCRResult(is_partial=True, engine="mineru", error=err)
 
             # 创建临时输出目录
             with tempfile.TemporaryDirectory(prefix="mineru_") as tmpdir:
@@ -558,42 +553,21 @@ class MinerUEngine:
             )
 
     # ═══════════════════════════════════════════════════════════
-    # 7.2: MinerU 专用学生信息提取
+    # 7.2: MinerU 专用学生信息提取（标签共用 + MinerU 专用数字回退）
     # ═══════════════════════════════════════════════════════════
 
-    MINERU_STUDENT_ID_LABEL = re.compile(
-        r"(?:学号|考号|考生号|准考证号)\s*[:：]\s*(\d{8,12})"
-    )
-    MINERU_STUDENT_ID_FALLBACK = re.compile(r"\b(\d{8,10})\b")
-
-    MINERU_STUDENT_NAME_LABEL = re.compile(
-        r"(?:姓名|学生|考生)\s*[:：]\s*([一-龥]{2,4})"
-    )
+    MINERU_STUDENT_ID_FALLBACK_RE = re.compile(r"\b(\d{8,10})\b")
 
     @staticmethod
     def _extract_student_mineru(raw_text: str) -> tuple[Optional[str], Optional[str]]:
-        """7.2: MinerU 专用学生信息提取。
-
-        MinerU 输出更结构化 → 标签优先 + 通用 8-10 位数字回退。
-        """
-        student_id = None
-        student_name = None
-
-        # 学号：标签格式
-        m = MinerUEngine.MINERU_STUDENT_ID_LABEL.search(raw_text)
-        if m:
-            student_id = m.group(1)
-        else:
-            # 回退：8-10 位连续数字
-            m = MinerUEngine.MINERU_STUDENT_ID_FALLBACK.search(raw_text)
+        """7.2: MinerU 学生信息提取 — 共用标签正则 + 通用 8-10 位数字回退。"""
+        student_id = _extract_student_id_by_label(raw_text)
+        if not student_id:
+            m = MinerUEngine.MINERU_STUDENT_ID_FALLBACK_RE.search(raw_text)
             if m:
                 student_id = m.group(1)
 
-        # 姓名：标签格式
-        m = MinerUEngine.MINERU_STUDENT_NAME_LABEL.search(raw_text)
-        if m:
-            student_name = m.group(1)
-
+        student_name = _extract_student_name_by_label(raw_text)
         return student_id, student_name
 
 
@@ -636,16 +610,9 @@ class VLMFallbackEngine:
     async def recognize(image_path: str) -> OCRResult:
         """用 VLM 识别答题卡图片。"""
         try:
-            path = Path(image_path)
-            if not path.is_absolute():
-                path = OCR_UPLOAD_DIR / image_path
-
-            if not path.exists():
-                return OCRResult(
-                    is_partial=True,
-                    engine="zhipu_glm4v",
-                    error=f"文件不存在: {image_path}",
-                )
+            path, err = _resolve_image_path(image_path)
+            if err:
+                return OCRResult(is_partial=True, engine="zhipu_glm4v", error=err)
 
             # 读取文件 → base64
             with open(path, "rb") as f:

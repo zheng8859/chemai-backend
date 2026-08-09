@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 async def save_grading_results(
     teacher_id: int,
-    batch_id: str | None = None,
     session_id: int | None = None,
     task_ids: list[int] | None = None,
 ) -> dict:
@@ -19,7 +18,6 @@ async def save_grading_results(
 
     Args:
         teacher_id: 教师 ID
-        batch_id: 批次 ID（预留）
         session_id: 上传会话 ID
         task_ids: 指定 task ID 列表
 

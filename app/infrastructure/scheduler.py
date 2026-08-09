@@ -57,24 +57,6 @@ async def _run_notify_parents():
         logger.exception("[scheduler] notify_parents_of_overdue_reviews 执行失败")
 
 
-async def _run_warning_check():
-    """Cron job: 每天 00:00 执行学情预警检测。"""
-    from ..services.early_warning_service import EarlyWarningService
-    from ..infrastructure.database import MainSession
-
-    logger.info("[scheduler] warning_check 开始执行")
-    try:
-        async with MainSession() as db:
-            result = await EarlyWarningService.run_all_checks(db, skip_if_locked=True)
-        logger.info(
-            f"[scheduler] warning_check 完成: "
-            f"students={result.get('total_students', 0)} "
-            f"warnings={result.get('new_warnings', 0)}"
-        )
-    except Exception:
-        logger.exception("[scheduler] warning_check 执行失败")
-
-
 # ── 注册 Cron Jobs ────────────────────────────────────────────
 
 async def _run_ocr_processor():
@@ -107,14 +89,6 @@ def register_jobs():
         name="逾期复习家长通知",
         replace_existing=True,
     )
-    # 预警检测 — 北京时间 00:00
-    scheduler.add_job(
-        _run_warning_check,
-        trigger=CronTrigger(hour=0, minute=0),
-        id="warning_check",
-        name="学情预警检测",
-        replace_existing=True,
-    )
     # OCR 处理器 — 每 5 秒
     scheduler.add_job(
         _run_ocr_processor,
@@ -123,7 +97,7 @@ def register_jobs():
         name="OCR 任务处理器",
         replace_existing=True,
     )
-    logger.info("[scheduler] 已注册 4 个 job")
+    logger.info("[scheduler] 已注册 3 个 job")
 
 
 def start_scheduler():

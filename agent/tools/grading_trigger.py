@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 async def trigger_grading(
     teacher_id: int,
-    batch_id: str | None = None,
     session_id: int | None = None,
     exam_paper_id: int | None = None,
     teacher_answers: dict | None = None,
@@ -24,7 +23,6 @@ async def trigger_grading(
 
     Args:
         teacher_id: 教师 ID
-        batch_id: 批次 ID（预留）
         session_id: 上传会话 ID
         exam_paper_id: 试卷 ID（可选，用于题库匹配）
         teacher_answers: 教师录入的答案（可选，最高优先级）

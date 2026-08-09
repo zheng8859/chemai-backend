@@ -207,6 +207,7 @@ class OCRService:
         teacher_id: int,
         class_id: int,
         exam_name: str = "",
+        exam_paper_id: int | None = None,
     ) -> dict:
         """批量上传答题卡：校验 → 写磁盘 → 创建 UploadSession + OCRTask → 自动创建 ExamRecord。"""
         # 2.4: 批量大小校验
@@ -266,7 +267,7 @@ class OCRService:
                 "status": "pending",
             })
 
-        # 自动创建 ExamRecord（状态='grading'）
+        # 自动创建 ExamRecord
         exam_record = ExamRecord(
             name=exam_name or f"OCR上传-{date.today().isoformat()}",
             class_id=class_id,
@@ -274,8 +275,13 @@ class OCRService:
             exam_date=datetime.now(timezone.utc),
             status="grading",
         )
+        if exam_paper_id:
+            exam_record.exam_paper_id = exam_paper_id
         db.add(exam_record)
         await db.flush()
+
+        # 在 session 的 JSON 字段中记录 exam_record_id，供后续状态流转使用
+        session.ocr_result_json = {"exam_record_id": exam_record.id}
 
         await db.commit()
 

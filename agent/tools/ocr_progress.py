@@ -14,14 +14,12 @@ logger = logging.getLogger(__name__)
 
 async def query_ocr_progress(
     teacher_id: int,
-    batch_id: str | None = None,
     session_id: int | None = None,
 ) -> dict:
     """查询 OCR 批次处理进度。
 
     Args:
         teacher_id: 教师 ID
-        batch_id: 批次 ID（预留，当前使用 session_id）
         session_id: 上传会话 ID
 
     Returns:

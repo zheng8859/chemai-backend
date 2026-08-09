@@ -16,12 +16,13 @@ from ..core.enums import OCRTaskStatus
 from ..models.ocr import OCRTask
 from ..models.exam_paper import ExamPaper, ExamPaperQuestion
 from ..models.teaching import Question
+from ..schemas.ocr import QuestionGrading, GradingResult, GradingSummary
 
 logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════
-# 6.2: AnswerKey 数据类
+# 6.2: AnswerKey 数据类（内部使用，无对应 API schema）
 # ═══════════════════════════════════════════════════════════════
 
 @dataclass
@@ -30,46 +31,6 @@ class AnswerKey:
     source_mode: str = "llm_auto"  # exam_paper | teacher_input | llm_auto
     question_count: int = 0
     questions: dict[int, str] = field(default_factory=dict)  # {q_number: correct_answer}
-
-
-@dataclass
-class QuestionGrading:
-    """逐题批改结果。"""
-    q_number: int
-    student_answer: str
-    correct_answer: str
-    is_correct: bool
-    reason: str = ""
-    score: float = 0.0
-    max_score: float = 0.0
-    confidence: float = 1.0
-    needs_review: bool = False
-
-
-@dataclass
-class GradingSummary:
-    """批次批改汇总。"""
-    batch_id: str
-    total_tasks: int
-    graded_count: int
-    failed_count: int
-    average_score: Optional[float] = None
-    results: list = field(default_factory=list)  # list[GradingResult]
-
-
-@dataclass
-class GradingResult:
-    """单任务批改结果。"""
-    task_id: int
-    student_id_raw: Optional[str] = None
-    student_name_raw: Optional[str] = None
-    total_score: Optional[float] = None
-    max_score: Optional[float] = None
-    engine: str = ""
-    degraded: bool = False
-    questions: list[QuestionGrading] = field(default_factory=list)
-    needs_review: bool = False
-    error: Optional[str] = None
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -134,6 +95,68 @@ class GradingService:
             source_mode="llm_auto",
             question_count=0,
             questions={},
+        )
+
+    # ═══════════════════════════════════════════════════════════
+    # 6.3-6.4: 双路径批改（correct_edu → LLM 降级）
+    # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    async def _grade_with_fallback(
+        ocr_text: str,
+        answer_key: AnswerKey,
+        task_id: int,
+        student_id_raw: Optional[str] = None,
+        student_name_raw: Optional[str] = None,
+        image_path: str = "",
+    ) -> GradingResult:
+        """6.3: correct_edu 优先 → LLM 降级。
+
+        仅选择题答题卡使用 correct_edu；非选择题/LLM 自判模式直接走 LLM。
+        """
+        from .ocr_engine import BaiduOCREngine
+
+        # 仅选择题场景且答案源非 llm_auto 时尝试 correct_edu
+        if answer_key.source_mode != "llm_auto" and image_path:
+            try:
+                edu_result = await BaiduOCREngine.grade_via_correct_edu(
+                    image_path,
+                    answer_key=answer_key.questions,
+                )
+                if edu_result.get("success") and edu_result.get("results"):
+                    # 转换 correct_edu 结果为 GradingResult
+                    questions = []
+                    correct_count = 0
+                    for q in edu_result["results"]:
+                        is_correct = q.get("is_correct", False)
+                        if is_correct:
+                            correct_count += 1
+                        questions.append(QuestionGrading(
+                            q_number=q.get("q_number", 0),
+                            student_answer=q.get("student_answer", ""),
+                            correct_answer=q.get("correct_answer", ""),
+                            is_correct=is_correct,
+                            reason=q.get("status_text", ""),
+                            confidence=0.95,
+                        ))
+                    total = len(questions)
+                    score = (correct_count / total * 100) if total > 0 else 0
+                    return GradingResult(
+                        task_id=task_id,
+                        student_id_raw=student_id_raw,
+                        student_name_raw=student_name_raw,
+                        total_score=round(score, 1),
+                        max_score=100.0,
+                        engine="correct_edu",
+                        questions=questions,
+                    )
+            except Exception as e:
+                logger.info("[grading] correct_edu 失败，降级到 LLM: %s", e)
+
+        # 降级到 LLM 批改
+        return await GradingService._grade_via_llm(
+            ocr_text, answer_key, task_id,
+            student_id_raw, student_name_raw,
         )
 
     # ═══════════════════════════════════════════════════════════
@@ -421,10 +444,11 @@ OCR 识别文本：
                 needs_review=True,
             )
 
-        # 执行批改（当前 P2: LLM 批改；P3 将加入 correct_edu 优先）
-        grading_result = await GradingService._grade_via_llm(
+        # 双路径批改：correct_edu 优先 → LLM 降级
+        grading_result = await GradingService._grade_with_fallback(
             raw_text, answer_key, task_id,
             task.student_id_raw, task.student_name_raw,
+            task.image_path,
         )
 
         # 存储批改结果到 task
@@ -463,8 +487,8 @@ OCR 识别文本：
         """
         from ..models.user import Student
         from ..models.teaching import StudentAnswer
-        from ..models.ocr import StudentSubmission
-        from ..core.enums import BarrierType
+        from ..models.ocr import StudentSubmission, UploadSession
+        from ..core.enums import BarrierType, UploadSessionStatus
 
         saved_count = 0
         skipped = []
@@ -542,6 +566,30 @@ OCR 识别文本：
 
         await db.commit()
 
+        # 更新已保存任务的会话状态：grading → graded
+        if saved_count > 0:
+            saved_task_ids = [
+                tid for tid in task_ids
+                if not any(s["task_id"] == tid for s in skipped)
+            ]
+            if saved_task_ids:
+                from sqlalchemy import update as _update, select as _select
+                # 获取涉及到的 session ids
+                tasks_result = await db.execute(
+                    _select(OCRTask.upload_session_id).where(
+                        OCRTask.id.in_(saved_task_ids)
+                    ).distinct()
+                )
+                session_ids = [row[0] for row in tasks_result.fetchall()]
+                if session_ids:
+                    await db.execute(
+                        _update(UploadSession)
+                        .where(UploadSession.id.in_(session_ids))
+                        .values(status=UploadSessionStatus.graded)
+                    )
+                    await db.commit()
+                    logger.info("[grading] 会话状态更新为 graded: %s", session_ids)
+
         logger.info(
             "[grading] 保存结果: saved=%d, skipped=%d, diagnosis=%s",
             saved_count, len(skipped), diagnosis_triggered,
@@ -565,21 +613,25 @@ OCR 识别文本：
 
         logger.info("[grading] 启动后保存管线: %d 条记录", saved_count)
 
-        # Step 1: 诊断（P4 完整实现）
+        from ..infrastructure.database import MainSession
+
+        # Step 1: 障碍诊断
         try:
-            logger.info("[grading] 诊断步骤: 跳过（P4 实现）")
+            async with MainSession() as db:
+                logger.info("[grading] 诊断步骤: 待 P4 诊断引擎接入")
         except Exception as e:
             logger.warning("[grading] 诊断失败: %s", e)
 
-        # Step 2: 统计
+        # Step 2: 班级统计
         try:
-            logger.info("[grading] 统计步骤: 跳过（P4 实现）")
+            async with MainSession() as db:
+                logger.info("[grading] 统计步骤: 待 exam_record_id 关联后自动触发")
         except Exception as e:
             logger.warning("[grading] 统计失败: %s", e)
 
-        # Step 3: 报告
+        # Step 3: LLM 分析报告
         try:
-            logger.info("[grading] 报告步骤: 跳过（P4 实现）")
+            logger.info("[grading] 报告步骤: 待通过 /ocr/stats 端点手动触发")
         except Exception as e:
             logger.warning("[grading] 报告失败: %s", e)
 

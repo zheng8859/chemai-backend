@@ -12,10 +12,15 @@ from ...services.ocr_service import OCRService, OCRError
 from ...services.grading_service import GradingService, AnswerKey
 from ...schemas.ocr import (
     BatchUploadRequest,
+    GradingResult,
     GradingRunRequest,
     GradingRunResponse,
     GradingSaveRequest,
     GradingSaveResponse,
+    RetryTaskResponse,
+    ServicesStatusResponse,
+    GradingResultsResponse,
+    StatsResponse,
 )
 from ...schemas.base import PaginatedResponse
 
@@ -126,6 +131,7 @@ async def batch_upload(
     teacher_id: int = Form(...),
     class_id: int = Form(...),
     exam_name: str = Form(""),
+    exam_paper_id: int = Form(0),
     db: AsyncSession = Depends(get_db),
     user: UserContext = Depends(require_permission("ocr", "create")),
 ):
@@ -133,6 +139,7 @@ async def batch_upload(
     try:
         return await OCRService.batch_upload(
             db, files, teacher_id, class_id, exam_name,
+            exam_paper_id=exam_paper_id if exam_paper_id else None,
         )
     except OCRError as e:
         status_map = {
@@ -175,7 +182,7 @@ async def retry_task(
     if result.rowcount == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"OCR 任务不存在: id={task_id}")
 
-    return {"success": True, "task_id": task_id, "status": "pending"}
+    return RetryTaskResponse(success=True, task_id=task_id, status="pending")
 
 
 # ── OCR Services Status ───────────────────────────────────────
@@ -187,12 +194,12 @@ async def get_services_status(
     """获取 OCR 引擎可用性状态。"""
     from ...services.ocr_engine import get_engine_status
     eng = get_engine_status()
-    return {
-        "ocr": eng.ocr,
-        "mineru": eng.mineru,
-        "vision": eng.vision,
-        "queue_pending": 0,  # 后续由调度器填充
-    }
+    return ServicesStatusResponse(
+        ocr=eng.ocr,
+        mineru=eng.mineru,
+        vision=eng.vision,
+        queue_pending=0,
+    )
 
 
 # ── Grading ──────────────────────────────────────────────────
@@ -205,6 +212,26 @@ async def grading_run(
     user: UserContext = Depends(require_permission("ocr", "create")),
 ):
     """6.8: 执行批改 — 接收 task_ids + 可选 exam_paper_id/teacher_answers → 逐个执行批改。"""
+    # 更新会话状态 uploaded → grading
+    from sqlalchemy import update as _update
+    from ...models.ocr import UploadSession, OCRTask
+    from ...core.enums import UploadSessionStatus
+    from sqlalchemy import select as _select
+
+    task_check = await db.execute(
+        _select(OCRTask.upload_session_id).where(
+            OCRTask.id.in_(body.task_ids)
+        ).distinct()
+    )
+    sids = [row[0] for row in task_check.fetchall() if row[0]]
+    if sids:
+        await db.execute(
+            _update(UploadSession)
+            .where(UploadSession.id.in_(sids))
+            .values(status=UploadSessionStatus.grading)
+        )
+        await db.commit()
+
     # 解析答案源
     answer_key = await GradingService.resolve_answer_source(
         db,
@@ -228,11 +255,11 @@ async def grading_run(
         except Exception as e:
             logger.warning("[grading] 任务 %d 批改异常: %s", task_id, e)
             failed += 1
-            results.append({
-                "task_id": task_id,
-                "error": str(e)[:200],
-                "needs_review": True,
-            })
+            results.append(GradingResult(
+                task_id=task_id,
+                error=str(e)[:200],
+                needs_review=True,
+            ))
 
     return GradingRunResponse(
         batch_id=batch_id,
@@ -252,10 +279,10 @@ async def grading_results(
     """6.9: 查询批次批改结果。"""
     # 当前 P2: 批改结果存储在 OCRTask.grading_result 字段中，按 task 查询
     # P3 将引入独立的 GradingBatch 表
-    return {
-        "batch_id": batch_id,
-        "message": "请通过 GET /ocr/tasks/{task_id} 查看各任务 grading_result 字段",
-    }
+    return GradingResultsResponse(
+        batch_id=batch_id,
+        message="请通过 GET /ocr/tasks/{task_id} 查看各任务 grading_result 字段",
+    )
 
 
 @router.post("/grading/save", status_code=status.HTTP_200_OK)
@@ -309,9 +336,9 @@ async def compute_stats_and_report(
 
     report = await generate_class_report(exam_record_id, stats)
 
-    return {
-        "success": True,
-        "exam_record_id": exam_record_id,
-        "statistics": stats,
-        "report": report,
-    }
+    return StatsResponse(
+        success=True,
+        exam_record_id=exam_record_id,
+        statistics=stats,
+        report=report,
+    )
