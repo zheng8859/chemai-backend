@@ -779,8 +779,7 @@
         var logoutEl = drawer.querySelector('.drawer-logout');
         if (logoutEl) {
           logoutEl.addEventListener('click', function () {
-            ChemAuth.clearToken();
-            location.href = 'login.html';
+            ChemAuth.logout();
           });
         }
       }
