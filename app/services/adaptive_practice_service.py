@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from ..models.teaching import (
     PracticeSession,
@@ -146,6 +147,20 @@ class AdaptivePracticeService:
         await db.commit()
         await db.refresh(session)
 
+        # Best-effort 通知写入（不阻塞练习创建）
+        try:
+            from .notification_service import NotificationService
+            await NotificationService.create_notification_best_effort(
+                db,
+                student_id=student_id,
+                type_=NotificationService.TYPE_PRACTICE_ASSIGNED,
+                title="新的自适应练习已布置",
+                body=f"教师为你布置了一份包含 {session.question_count} 道题的练习：{session.title}",
+                related_id=session.id,
+            )
+        except Exception:
+            pass  # best-effort, already logged in service
+
         return {
             "practice_id": practice_id,
             "title": session.title,
@@ -173,41 +188,70 @@ class AdaptivePracticeService:
                 "completed": [...],
             }
         """
-        # 待完成
+        # 待完成（预加载关联题目）
         pending_result = await db.execute(
             select(PracticeSession)
+            .options(selectinload(PracticeSession.session_questions)
+                     .selectinload(PracticeSessionQuestion.question))
             .where(
                 PracticeSession.student_id == student_id,
                 PracticeSession.status == PracticeSessionStatus.in_progress.value,
             )
             .order_by(PracticeSession.created_at.desc())
         )
-        pending = pending_result.scalars().all()
+        pending = pending_result.unique().scalars().all()
 
-        # 已完成
+        # 已完成（预加载关联题目）
         completed_result = await db.execute(
             select(PracticeSession)
+            .options(selectinload(PracticeSession.session_questions)
+                     .selectinload(PracticeSessionQuestion.question))
             .where(
                 PracticeSession.student_id == student_id,
                 PracticeSession.status == PracticeSessionStatus.completed.value,
             )
             .order_by(PracticeSession.created_at.desc())
         )
-        completed = completed_result.scalars().all()
+        completed = completed_result.unique().scalars().all()
 
-        def _format_session(s: PracticeSession) -> dict:
+        async def _format_session(s: PracticeSession) -> dict:
+            questions = []
+            for sq in sorted(s.session_questions, key=lambda x: x.sort_order):
+                q = sq.question
+                if q:
+                    questions.append({
+                        "id": q.id,
+                        "content": q.content,
+                        "options": q.options or [],
+                        "question_type": q.question_type,
+                        "answer": q.answer,
+                        "analysis": q.analysis,
+                        "difficulty": q.difficulty,
+                    })
             return {
+                "id": s.id,
                 "practice_id": s.practice_id,
                 "title": s.title,
                 "question_count": s.question_count,
+                "answered_count": s.questions_served,
                 "status": s.status,
+                "barrier_type": s.barrier_type,
+                "knowledge_point_tags": s.knowledge_point_tags or [],
+                "questions": questions,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
                 "deadline": s.deadline.isoformat() if s.deadline else None,
             }
 
+        import asyncio
+        pending_formatted = await asyncio.gather(
+            *[_format_session(s) for s in pending]
+        )
+        completed_formatted = await asyncio.gather(
+            *[_format_session(s) for s in completed]
+        )
         return {
-            "pending": [_format_session(s) for s in pending],
-            "completed": [_format_session(s) for s in completed],
+            "pending": list(pending_formatted),
+            "completed": list(completed_formatted),
         }
 
     # ═══════════════════════════════════════════════════════════
