@@ -43,6 +43,7 @@ from .diagnosis import (
     VariantQuestion,
     WarningLog,
 )
+from .barrier_profile_history import BarrierProfileHistory
 
 # 家校互通
 from .homework import StudentParentBinding, ParentNotification
@@ -87,6 +88,7 @@ __all__ = [
     "ReviewHistory",
     "VariantQuestion",
     "WarningLog",
+    "BarrierProfileHistory",
     # homework
     "StudentParentBinding",
     "ParentNotification",

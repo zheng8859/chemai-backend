@@ -97,6 +97,14 @@ class WarningType(str, Enum):
     new_barrier = "new_barrier"                  # 新障碍出现
 
 
+# ── 预警状态 (34号 §三.4) ──────────────────────────────────
+class WarningStatus(str, Enum):
+    pending = "pending"        # 新生成，等待教师查看
+    processing = "processing"  # 教师已查看，正在处理中
+    resolved = "resolved"      # 已处理完成
+    dismissed = "dismissed"    # 教师判定为误报，手动忽略
+
+
 # ── 预警严重级别 (34号 §三.4) ──────────────────────────────
 class WarningSeverity(str, Enum):
     info = "info"        # 提示
