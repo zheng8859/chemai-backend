@@ -304,7 +304,7 @@
         <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span>
         <span class="tab-label">错题</span>
       </button>
-      <button class="tab-item" onclick="location.href='profile.html'">
+      <button class="tab-item" onclick="location.href='report.html'">
         <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
         <span class="tab-label">我的</span>
       </button>
@@ -522,6 +522,19 @@
         card.classList.remove('open');
         content.style.maxHeight = '0';
       } else {
+        // 先关闭所有已展开的卡片
+        var allOpen = document.querySelectorAll('.wrong-card.open');
+        allOpen.forEach(function (openCard) {
+          if (openCard !== card) {
+            var openContent = openCard.querySelector('.wq-content');
+            if (openContent) {
+              openContent.style.maxHeight = openContent.scrollHeight + 'px';
+              openContent.offsetHeight;
+              openCard.classList.remove('open');
+              openContent.style.maxHeight = '0';
+            }
+          }
+        });
         content.style.maxHeight = '';
         card.classList.add('open');
       }
@@ -556,6 +569,12 @@
             state.mastered++;
             state.total = Math.max(0, state.total - 1);
             updateStats();
+            // 动画结束后从 DOM 中移除
+            setTimeout(function () {
+              if (card.parentNode) {
+                card.parentNode.removeChild(card);
+              }
+            }, 400);
           }
           ChemAPI.showToast('已标记为掌握');
         })

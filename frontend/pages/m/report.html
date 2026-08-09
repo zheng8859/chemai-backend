@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css">
   <style>
     :root {
       --oxford-blue: #002045;
@@ -91,7 +92,9 @@
       font-size: 14px; font-weight: 500;
       background: #f5f5f5; padding: 4px 8px;
       border-radius: 4px; color: var(--text-primary);
+      cursor: pointer; user-select: all;
     }
+    .bind-value:active { background: #e0e0e0; }
 
     /* ── Stats Trio ── */
     .stats-trio {
@@ -233,6 +236,28 @@
       margin-top: 16px;
     }
 
+    /* ── Logout Button ── */
+    .btn-logout {
+      width: calc(100% - 32px); margin: 0 16px 24px;
+      height: 44px;
+      background: none; color: #e53935;
+      border: 1px solid #e53935; border-radius: 8px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.78); color: #fff;
+      padding: 10px 20px; border-radius: 8px;
+      font-size: 13px; z-index: 999;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+      max-width: 320px; text-align: center;
+    }
+    .toast.show { opacity: 1; pointer-events: auto; }
+
     /* ── Bottom Tab ── */
     .tab-bar {
       display: flex; height: 56px; min-height: 56px;
@@ -257,7 +282,7 @@
     <!-- Top Bar -->
     <header class="top-bar">
       <span class="title">我的</span>
-      <button class="settings-btn" aria-label="设置">
+      <button class="settings-btn" aria-label="设置" onclick="window._goSettings()">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
       </button>
     </header>
@@ -266,20 +291,20 @@
 
       <!-- Profile Card -->
       <div class="profile-card">
-        <div class="avatar-lg">张</div>
-        <div class="profile-name">张三</div>
-        <div class="profile-class">高一(3)班</div>
+        <div class="avatar-lg" id="avatarEl">--</div>
+        <div class="profile-name" id="profileName">--</div>
+        <div class="profile-class" id="profileClass">--</div>
         <div class="bind-code">
           <span class="bind-label">绑定码</span>
-          <span class="bind-value">X7K2M9</span>
+          <span class="bind-value" id="bindCode" onclick="window._copyBindCode()" title="点击复制绑定码">----</span>
         </div>
       </div>
 
       <!-- Stats Trio -->
-      <div class="stats-trio">
-        <div class="item"><span class="num">85</span><span class="lbl">完成练习</span></div>
-        <div class="item"><span class="num">73%</span><span class="lbl">正确率</span></div>
-        <div class="item"><span class="num">12天</span><span class="lbl">连续打卡</span></div>
+      <div class="stats-trio" id="statsTrio">
+        <div class="item"><span class="num" id="statPractice">--</span><span class="lbl">完成练习</span></div>
+        <div class="item"><span class="num" id="statAccuracy">--</span><span class="lbl">正确率</span></div>
+        <div class="item"><span class="num" id="statStreak">--</span><span class="lbl">连续打卡</span></div>
       </div>
 
       <!-- Menu List -->
@@ -287,11 +312,11 @@
         <div class="menu-item" onclick="openModal()">
           <span class="menu-label">学习报告</span>
           <div class="menu-right">
-            <span class="badge-new">新</span>
+            <span class="badge-new" id="badgeNew">新</span>
             <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
         </div>
-        <div class="menu-item">
+        <div class="menu-item" onclick="window._goLearningPlan()">
           <span class="menu-label">学习计划</span>
           <div class="menu-right">
             <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -300,24 +325,27 @@
         <div class="menu-item" onclick="location.href='wrong.html'">
           <span class="menu-label">我的错题本</span>
           <div class="menu-right">
-            <span class="badge-num">23</span>
+            <span class="badge-num" id="badgeWrong">--</span>
             <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
         </div>
         <div class="menu-item" onclick="location.href='review.html'">
           <span class="menu-label">复习中心</span>
           <div class="menu-right">
-            <span class="badge-num">8</span>
+            <span class="badge-num" id="badgeReview">--</span>
             <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
         </div>
-        <div class="menu-item">
+        <div class="menu-item" onclick="window._goSettings()">
           <span class="menu-label">个人设置</span>
           <div class="menu-right">
             <svg class="arrow-gray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
         </div>
       </div>
+
+      <!-- Logout -->
+      <button class="btn-logout" onclick="window._doLogout()">退出登录</button>
 
     </div>
 
@@ -327,11 +355,11 @@
         <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 5.4 1.8"></path><path d="M12 6v4l3 2"></path></svg></span>
         <span class="tab-label">AI助教</span>
       </button>
-      <button class="tab-item">
+      <button class="tab-item" onclick="location.href='practice.html'">
         <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span>
         <span class="tab-label">练习</span>
       </button>
-      <button class="tab-item">
+      <button class="tab-item" onclick="location.href='wrong.html'">
         <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span>
         <span class="tab-label">错题</span>
       </button>
@@ -346,7 +374,7 @@
 
     <div class="modal-sheet" id="modalSheet">
       <div class="modal-header">
-        <span class="modal-title">学习周报（7月第1周）</span>
+        <span class="modal-title" id="modalTitle">学习周报</span>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
       <div class="modal-body">
@@ -354,15 +382,15 @@
         <!-- Modal Stats -->
         <div class="modal-stats">
           <div class="modal-stat">
-            <div class="num">25</div>
+            <div class="num" id="modalPracticeCount">--</div>
             <div class="lbl">本周练习</div>
           </div>
           <div class="modal-stat">
-            <div class="num">76%</div>
+            <div class="num" id="modalAccuracy">--</div>
             <div class="lbl">正确率</div>
           </div>
           <div class="modal-stat">
-            <div class="num">3.2h</div>
+            <div class="num" id="modalStudyHours">--</div>
             <div class="lbl">学习时长</div>
           </div>
         </div>
@@ -370,7 +398,8 @@
         <!-- Knowledge Points -->
         <div class="kp-section">
           <h3>知识点掌握度</h3>
-          <div class="kp-item">
+          <div id="kpList">
+            <div class="kp-item">
             <span class="kp-name">氧化还原</span>
             <div class="kp-track"><div class="kp-fill" style="width:85%"></div></div>
             <span class="kp-pct">85%</span>
@@ -395,11 +424,12 @@
             <div class="kp-track"><div class="kp-fill" style="width:60%"></div></div>
             <span class="kp-pct">60%</span>
           </div>
+          </div><!-- end #kpList -->
         </div>
 
         <!-- Teacher Comment -->
-        <div class="teacher-comment">
-          <b>教师评语：</b>张同学本周表现不错，氧化还原反应部分掌握较好，正确率有明显提升。建议重点加强化学平衡和电化学部分的练习，这两块正确率偏低。继续保持打卡节奏！
+        <div class="teacher-comment" id="teacherComment">
+          <b>教师评语：</b>暂无评语
         </div>
 
         <button class="btn-close-bottom" onclick="closeModal()">关闭</button>
@@ -408,19 +438,201 @@
 
   </div>
 
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/api-client.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/mhchem.min.js"></script>
   <script>
+    'use strict';
+
+    // ── Modal control ──
     var overlay = document.getElementById('modalOverlay');
     var sheet = document.getElementById('modalSheet');
 
     function openModal() {
       overlay.classList.add('show');
       sheet.classList.add('open');
+      _loadWeeklyReport();
     }
 
     function closeModal() {
       overlay.classList.remove('show');
       sheet.classList.remove('open');
     }
+
+    // ── Global handlers for onclick ──
+    window._goSettings = function () {
+      ChemAPI.showToast('设置功能即将上线');
+    };
+
+    window._goLearningPlan = function () {
+      var userId = ChemAuth.getUserId();
+      if (!userId) return;
+      ChemAPI.apiGet('/learning-plan/' + userId).then(function (data) {
+        if (data && data.plan) {
+          ChemAPI.showToast(data.plan.title || '已加载学习计划');
+        } else {
+          ChemAPI.showToast('暂无学习计划');
+        }
+      }).catch(function (err) {
+        if (err.status === 404) {
+          ChemAPI.showToast('暂无学习计划');
+        } else {
+          ChemAPI.showToast('加载失败');
+        }
+      });
+    };
+
+    window._copyBindCode = function () {
+      var code = document.getElementById('bindCode').textContent;
+      if (!code || code === '----') return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(function () {
+          ChemAPI.showToast('绑定码已复制: ' + code);
+        }).catch(function () {
+          _fallbackCopy(code);
+        });
+      } else {
+        _fallbackCopy(code);
+      }
+    };
+
+    function _fallbackCopy(text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); ChemAPI.showToast('绑定码已复制: ' + text); }
+      catch (e) { ChemAPI.showToast('复制失败，请手动复制'); }
+      document.body.removeChild(ta);
+    }
+
+    window._doLogout = function () {
+      ChemAuth.logout();
+    };
+
+    // ── Init ──
+    function init() {
+      // 3.2.2: 认证守卫
+      if (!ChemAuth.isAuthenticated()) {
+        ChemAuth.redirectToLogin();
+        return;
+      }
+
+      var payload = ChemAuth.decodeToken(ChemAuth.getToken());
+      var userId = ChemAuth.getUserId();
+
+      // 渲染个人资料卡片
+      var name = (payload && payload.student_name) || (payload && payload.sub) || '同学';
+      var className = (payload && payload.class_name) || '';
+      var bindCode = (payload && payload.binding_code) || '----';
+
+      document.getElementById('avatarEl').textContent = name.charAt(0);
+      document.getElementById('profileName').textContent = name;
+      document.getElementById('profileClass').textContent = className || '--';
+      document.getElementById('bindCode').textContent = bindCode;
+
+      // 3.2.3: 加载 stats
+      _loadStats(userId);
+
+      // 3.2.7: 加载徽章数
+      _loadBadges(userId);
+    }
+
+    // ── Stats ──
+    function _loadStats(userId) {
+      ChemAPI.apiGet('/student/' + userId + '/stats').then(function (data) {
+        document.getElementById('statPractice').textContent = data.total_practices || data.completed_count || '0';
+        var acc = data.accuracy;
+        if (acc !== undefined && acc !== null) {
+          document.getElementById('statAccuracy').textContent =
+            (typeof acc === 'number' ? Math.round(acc * 100) : acc) + '%';
+        } else {
+          document.getElementById('statAccuracy').textContent = '--';
+        }
+        document.getElementById('statStreak').textContent =
+          (data.streak_days || data.consecutive_days || '0') + '天';
+      }).catch(function () {
+        // 3.2.4: 降级处理
+        document.getElementById('statPractice').textContent = '--';
+        document.getElementById('statAccuracy').textContent = '--';
+        document.getElementById('statStreak').textContent = '--';
+        document.getElementById('statsTrio').style.color = 'var(--text-muted)';
+        ChemAPI.showToast('加载统计数据失败');
+      });
+    }
+
+    // ── Badges ──
+    function _loadBadges(userId) {
+      // 错题本数量
+      ChemAPI.apiGet('/practice/wrong/list', { student_id: userId, page_size: 1 }).then(function (data) {
+        var count = (data && data.total !== undefined) ? data.total : (data && data.items ? data.items.length : 0);
+        document.getElementById('badgeWrong').textContent = count;
+      }).catch(function () {
+        document.getElementById('badgeWrong').textContent = '--';
+      });
+
+      // 复习中心待复习数量
+      ChemAPI.apiGet('/review/student/' + userId + '/due').then(function (data) {
+        var count = (data && data.total !== undefined) ? data.total : (data && data.items ? data.items.length : 0);
+        document.getElementById('badgeReview').textContent = count;
+      }).catch(function () {
+        document.getElementById('badgeReview').textContent = '--';
+      });
+    }
+
+    // ── Weekly Report Modal ──
+    function _loadWeeklyReport() {
+      var userId = ChemAuth.getUserId();
+      if (!userId) return;
+
+      // 复用 stats 数据填充模态框，同时尝试获取 diagnosis 数据
+      ChemAPI.apiGet('/student/' + userId + '/stats').then(function (stats) {
+        document.getElementById('modalPracticeCount').textContent =
+          stats.weekly_practices || stats.total_practices || stats.completed_count || '--';
+        var acc = stats.accuracy;
+        document.getElementById('modalAccuracy').textContent = acc !== undefined
+          ? ((typeof acc === 'number' ? Math.round(acc * 100) : acc) + '%') : '--';
+        document.getElementById('modalStudyHours').textContent =
+          (stats.study_hours || stats.weekly_hours || '--');
+
+        // 知识点掌握度
+        if (stats.knowledge_points && Array.isArray(stats.knowledge_points)) {
+          _renderKnowledgePoints(stats.knowledge_points);
+        }
+
+        // 教师评语
+        if (stats.teacher_comment) {
+          document.getElementById('teacherComment').innerHTML =
+            '<b>教师评语：</b>' + ChemAPI.escapeHtml(stats.teacher_comment);
+        }
+      }).catch(function () {
+        document.getElementById('modalPracticeCount').textContent = '--';
+        document.getElementById('modalAccuracy').textContent = '--';
+        document.getElementById('modalStudyHours').textContent = '--';
+      });
+    }
+
+    function _renderKnowledgePoints(points) {
+      var container = document.getElementById('kpList');
+      if (!container) return;
+      var html = '';
+      points.forEach(function (kp) {
+        var name = kp.name || kp.topic || '';
+        var pct = kp.mastery !== undefined ? Math.round(kp.mastery * 100) : (kp.percentage || 0);
+        html += '<div class="kp-item">'
+          + '<span class="kp-name">' + ChemAPI.escapeHtml(name) + '</span>'
+          + '<div class="kp-track"><div class="kp-fill" style="width:' + pct + '%"></div></div>'
+          + '<span class="kp-pct">' + pct + '%</span>'
+          + '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    // ── Bootstrap ──
+    init();
   </script>
 </body>
 </html>

@@ -91,6 +91,12 @@ var ChemAuth = (function () {
     window.location.href = prefix + LOGIN_PAGE;
   }
 
+  function logout() {
+    clearToken();
+    var prefix = window.location.pathname.indexOf('/pages/') !== -1 ? '' : 'pages/m/';
+    window.location.href = prefix + LOGIN_PAGE;
+  }
+
   // ══════════════════════════════════════════════════════════════
   // 登录后保存 (供 login.html 调用)
   // ══════════════════════════════════════════════════════════════
@@ -121,5 +127,6 @@ var ChemAuth = (function () {
     isAuthenticated: isAuthenticated,
     redirectToLogin: redirectToLogin,
     login: login,
+    logout: logout,
   };
 })();
