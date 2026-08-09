@@ -362,58 +362,58 @@
   (function () {
     'use strict';
 
-    // ── Auth ──
+    // ── 登录与角色校验 ──
     if (!ChemAuth.isAuthenticated()) { ChemAuth.redirectToLogin(); return; }
     var user = ChemAuth.getCurrentUser();
-    if (user && (user.role === 'student' || user.role === 'parent')) {
+    if (!user || (user.role !== 'teacher' && user.role !== 'system_admin')) {
       window.location.href = 'index.html'; return;
     }
     document.getElementById('headerUserName').textContent = user ? ('教师' + user.userId) : '教师';
     document.getElementById('headerAvatar').textContent = '教';
 
-    // ── State ──
+    // ── 全局状态 ──
     var currentPage = 1;
     var pageSize = 15;
     var totalItems = 0;
     var currentWarningId = null;
     var checking = false;
 
-    // ── URL params ──
+    // ── URL 参数解析 ──
     var urlParams = new URLSearchParams(window.location.search);
     var initClassId = urlParams.get('class_id');
 
-    // ── Init ──
+    // ── 初始化加载 ──
     loadStats();
-    loadClassList();
-    fetchWarnings();
+    loadClassList().then(function () { fetchWarnings(); });
 
     // ═══════════════════════════════════════════════════════
-    // Stats
+    // 统计摘要条
     // ═══════════════════════════════════════════════════════
     function loadStats() {
       ChemAPI.apiGet('/warning/stats')
         .then(function (res) {
           var d = res.data || {};
+          var sev = d.by_severity || {};
           document.getElementById('statsBar').innerHTML =
-            '<div class="stat-item"><div class="stat-value" style="color:#ef4444">' + (d.severe_count || 0) + '</div><div class="stat-label">严重预警</div></div>' +
-            '<div class="stat-item"><div class="stat-value" style="color:#f59e0b">' + (d.warning_count || 0) + '</div><div class="stat-label">警告</div></div>' +
-            '<div class="stat-item"><div class="stat-value" style="color:#3b82f6">' + (d.info_count || 0) + '</div><div class="stat-label">提示</div></div>' +
-            '<div class="stat-item"><div class="stat-value">' + (d.total_count || 0) + '</div><div class="stat-label">总计</div></div>';
+            '<div class="stat-item"><div class="stat-value" style="color:' + ChemConst.warningSeverityColor('severe') + '">' + (sev.severe || 0) + '</div><div class="stat-label">严重预警</div></div>' +
+            '<div class="stat-item"><div class="stat-value" style="color:' + ChemConst.warningSeverityColor('warning') + '">' + (sev.warning || 0) + '</div><div class="stat-label">警告</div></div>' +
+            '<div class="stat-item"><div class="stat-value" style="color:' + ChemConst.warningSeverityColor('info') + '">' + (sev.info || 0) + '</div><div class="stat-label">提示</div></div>' +
+            '<div class="stat-item"><div class="stat-value">' + (d.total || 0) + '</div><div class="stat-label">总计</div></div>';
         })
         .catch(function () {
           document.getElementById('statsBar').innerHTML =
-            '<div class="stat-item"><div class="stat-value" style="color:#ef4444">--</div><div class="stat-label">严重预警</div></div>' +
-            '<div class="stat-item"><div class="stat-value" style="color:#f59e0b">--</div><div class="stat-label">警告</div></div>' +
-            '<div class="stat-item"><div class="stat-value" style="color:#3b82f6">--</div><div class="stat-label">提示</div></div>' +
+            '<div class="stat-item"><div class="stat-value" style="color:' + ChemConst.warningSeverityColor('severe') + '">--</div><div class="stat-label">严重预警</div></div>' +
+            '<div class="stat-item"><div class="stat-value" style="color:' + ChemConst.warningSeverityColor('warning') + '">--</div><div class="stat-label">警告</div></div>' +
+            '<div class="stat-item"><div class="stat-value" style="color:' + ChemConst.warningSeverityColor('info') + '">--</div><div class="stat-label">提示</div></div>' +
             '<div class="stat-item"><div class="stat-value">--</div><div class="stat-label">总计</div></div>';
         });
     }
 
     // ═══════════════════════════════════════════════════════
-    // Class list for filter
+    // 班级筛选下拉列表
     // ═══════════════════════════════════════════════════════
     function loadClassList() {
-      ChemAPI.apiGet('/panel/classes')
+      return ChemAPI.apiGet('/panel/classes')
         .then(function (res) {
           var list = res.data || [];
           var sel = document.getElementById('filterClass');
@@ -428,10 +428,10 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Fetch warnings
+    // 加载预警列表
     // ═══════════════════════════════════════════════════════
     function fetchWarnings() {
-      var params = { page: currentPage, page_size: pageSize };
+      var params = { limit: pageSize, offset: (currentPage - 1) * pageSize };
       var cls = document.getElementById('filterClass').value;
       var type = document.getElementById('filterType').value;
       var sev = document.getElementById('filterSeverity').value;
@@ -443,9 +443,8 @@
 
       ChemAPI.apiGet('/warning/list', params)
         .then(function (res) {
-          var data = res.data || {};
-          totalItems = data.total || 0;
-          renderTable(data.items || []);
+          renderTable(res.data || []);
+          totalItems = res.total || 0;
           renderPagination();
         })
         .catch(function () {
@@ -461,12 +460,12 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Table
+    // 预警列表表格
     // ═══════════════════════════════════════════════════════
     function renderTable(items) {
       var tbody = document.getElementById('warningTableBody');
 
-      // Empty state
+      // 空列表态
       if (!items || items.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7"><div class="state-msg">暂无预警记录</div></td></tr>';
         document.getElementById('pagination').innerHTML = '';
@@ -496,7 +495,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Pagination
+    // 分页控件
     // ═══════════════════════════════════════════════════════
     function renderPagination() {
       var totalPages = Math.ceil(totalItems / pageSize);
@@ -526,7 +525,7 @@
     };
 
     // ═══════════════════════════════════════════════════════
-    // Detail drawer
+    // 预警详情抽屉
     // ═══════════════════════════════════════════════════════
     function openDetail(id) {
       currentWarningId = id;
@@ -557,15 +556,15 @@
       html += '<div class="info-row"><span class="info-label">严重度</span><span style="color:' + sevColor + ';font-weight:600">' + sevLabel + '</span></div>';
       html += '<div class="info-row"><span class="info-label">状态</span><span class="tag-status">' + statusLabel + '</span></div>';
       html += '<div class="info-row"><span class="info-label">标题</span><span class="info-value">' + ChemAPI.escapeHtml(d.title || '') + '</span></div>';
-      if (d.description) {
-        html += '<div class="info-row"><span class="info-label">描述</span><span>' + ChemAPI.escapeHtml(d.description) + '</span></div>';
+      if (d.message) {
+        html += '<div class="info-row"><span class="info-label">描述</span><span>' + ChemAPI.escapeHtml(d.message) + '</span></div>';
       }
       html += '<div class="info-row"><span class="info-label">时间</span><span style="font-size:12px;color:var(--text-muted)">' +
         (d.created_at ? d.created_at.slice(0, 16).replace('T', ' ') : '--') + '</span></div>';
 
-      // Data snapshot
+      // 数据快照（JSON）
       html += '<div class="section-label">数据快照</div>';
-      var snapshot = d.data_snapshot || {};
+      var snapshot = d.data || {};
       try {
         var jsonStr = JSON.stringify(snapshot, null, 2);
         html += '<pre>' + ChemAPI.escapeHtml(jsonStr) + '</pre>';
@@ -575,7 +574,7 @@
 
       body.innerHTML = html;
 
-      // Action buttons — only show for pending/processing
+      // 操作按钮 — 仅 pending/processing 状态显示
       var actions = document.getElementById('drawerActions');
       if (d.status === 'pending' || d.status === 'processing') {
         actions.classList.remove('hidden');
@@ -590,13 +589,13 @@
       currentWarningId = null;
     }
 
-    // ── ESC key to close drawer
+    // ── ESC 键关闭抽屉
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeDrawer();
     });
 
     // ═══════════════════════════════════════════════════════
-    // Status actions
+    // 状态操作按钮
     // ═══════════════════════════════════════════════════════
     function resolveWarning() {
       if (!currentWarningId) return;
@@ -632,7 +631,7 @@
     window.dismissWarning = dismissWarning;
 
     // ═══════════════════════════════════════════════════════
-    // Manual check
+    // 手动检测
     // ═══════════════════════════════════════════════════════
     function manualCheck() {
       if (checking) return;
