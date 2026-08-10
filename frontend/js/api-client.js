@@ -86,7 +86,7 @@ var ChemAPI = (function () {
           // 统一提取 error_code + message
           var errDetail = (data && data.detail) ? data.detail : null;
           var errorCode = errDetail ? errDetail.error_code : 'UNKNOWN';
-          var message = errDetail ? errDetail.message : (data.message || '请求失败');
+          var message = errDetail ? (errDetail.message || errDetail.detail || '请求失败') : (data.message || '请求失败');
           var err = new Error(message);
           err.status = res.status;
           err.errorCode = errorCode;
@@ -261,6 +261,54 @@ var ChemAPI = (function () {
     }
   }
 
+  /** 验证 6 位数字绑定码格式
+   * @param {string} code — 绑定码字符串
+   * @returns {boolean} — 是否为有效 6 位数字
+   */
+  function validateBindCode(code) {
+    return /^\d{6}$/.test(code);
+  }
+
+  // ── 化学术语 → 通俗表述（家长端前端兜底）────────────────────
+  var _TERM_MAP = {
+    "氧化还原反应": "与电子转移相关的反应",
+    "离子反应": "溶液中离子的反应",
+    "物质的量": "化学计量单位",
+    "摩尔": "化学计量单位",
+    "化学平衡": "反应的动态平衡",
+    "元素周期律": "元素性质的规律",
+    "电解质": "能导电的化合物",
+    "共价键": "原子间的连接方式",
+    "离子键": "原子间的连接方式",
+    "配平": "方程式配平",
+    "沉淀": "不溶于水的固体",
+    "中和反应": "酸碱反应",
+    "摩尔质量": "单位物质的量的质量",
+    "阿伏加德罗常数": "微观粒子计数单位",
+    "电离": "物质在水中分解",
+    "水解": "物质与水的反应",
+    "酯化反应": "酸与醇生成酯的反应",
+    "加成反应": "有机物加成的反应",
+    "取代反应": "有机物原子替换的反应",
+    "消去反应": "有机物消除小分子的反应",
+  };
+
+  /** 将化学专业术语替换为通俗表述（家长端前端兜底）。
+   * 后端已做转换，此函数作为客户端防御层，确保未被转换的术语不会直接展示。
+   * @param {string} text — 原始文本
+   * @returns {string} — 替换后的文本
+   */
+  function convertTerms(text) {
+    if (!text) return text;
+    var result = text;
+    Object.keys(_TERM_MAP).forEach(function(term) {
+      if (result.indexOf(term) !== -1) {
+        result = result.split(term).join(_TERM_MAP[term]);
+      }
+    });
+    return result;
+  }
+
   // ══════════════════════════════════════════════════════════════
 
   return {
@@ -273,6 +321,8 @@ var ChemAPI = (function () {
     renderOptionsHtml: renderOptionsHtml,
     createQuizNavigator: createQuizNavigator,
     updateQuizNav: updateQuizNav,
+    validateBindCode: validateBindCode,
+    convertTerms: convertTerms,
     BASE_URL: BASE_URL,
   };
 })();

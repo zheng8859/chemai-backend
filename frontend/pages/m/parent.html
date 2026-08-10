@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css">
   <style>
     :root {
       --oxford-blue: #002045;
@@ -138,9 +139,9 @@
       display: flex; height: 6px; border-radius: 3px; overflow: hidden;
     }
     .obstacle-seg { height: 100%; }
-    .obstacle-seg.concept { background: var(--concept-purple); width: 30%; }
-    .obstacle-seg.exam    { background: var(--exam-blue); width: 50%; }
-    .obstacle-seg.express { background: var(--express-cyan); width: 20%; }
+    .obstacle-seg.concept { background: var(--concept-purple); }
+    .obstacle-seg.exam    { background: var(--exam-blue); }
+    .obstacle-seg.express { background: var(--express-cyan); }
 
     .obstacle-legend {
       display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--text-muted);
@@ -246,7 +247,8 @@
 
     /* ── Floating AI Button ── */
     .floating-ai {
-      position: fixed; bottom: 24px; right: 16px;
+      position: fixed; bottom: 24px;
+      left: 50%; margin-left: 155px; /* 390/2 - 40 */
       width: 56px; height: 56px; border-radius: 50%;
       background: var(--oxford-blue); color: var(--white);
       font-size: 16px; font-weight: 700;
@@ -255,11 +257,15 @@
       box-shadow: 0 4px 12px rgba(0,32,69,.3);
       z-index: 100;
     }
+    /* On narrow screens, align to right */
+    @media (max-width: 400px) {
+      .floating-ai { left: auto; right: 16px; margin-left: 0; }
+    }
 
     /* ── AI Panel Overlay ── */
     .ai-overlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.4); z-index: 98;
+      background: rgba(0,0,0,0.4); z-index: 99;
       opacity: 0; pointer-events: none;
       transition: opacity 0.3s;
     }
@@ -268,7 +274,7 @@
     /* ── AI Bottom Sheet ── */
     .ai-sheet {
       position: fixed; bottom: 0; left: 0; right: 0; height: 60vh;
-      background: var(--white); z-index: 99;
+      background: var(--white); z-index: 100;
       border-radius: 16px 16px 0 0;
       transform: translateY(100%);
       transition: transform 0.3s ease;
@@ -314,6 +320,65 @@
       background: var(--oxford-blue); color: var(--white);
       border: none; display: flex; align-items: center; justify-content: center; cursor: pointer;
     }
+
+    /* ── Bind Sheet ── */
+    .bind-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--white); z-index: 99;
+      border-radius: 16px 16px 0 0;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      padding-bottom: 24px;
+    }
+    .bind-sheet.open { transform: translateY(0); }
+
+    /* ── Chat Messages in AI Sheet ── */
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 0 20px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .chat-msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+    .chat-msg.user { align-self: flex-end; background: var(--oxford-blue); color: var(--white); }
+    .chat-msg.ai   { align-self: flex-start; background: #f0f0f0; color: var(--text-primary); }
+    .chat-status { align-self: flex-start; font-size: 13px; color: var(--text-muted); padding: 4px 14px; }
+
+    /* ── History button in chat header ── */
+    .sheet-history-btn {
+      position: absolute; left: 20px;
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: #f0f0f0; border: none; border-radius: 50%;
+      cursor: pointer; font-size: 14px; color: var(--text-secondary);
+    }
+
+    /* ── Conversation List ── */
+    .conv-list { flex: 1; overflow-y: auto; padding: 0 20px; }
+    .conv-item {
+      padding: 12px 0; border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+    }
+    .conv-item .conv-title { font-size: 14px; color: var(--text-primary); }
+    .conv-item .conv-time { font-size: 12px; color: var(--text-muted); }
+    .conv-item .conv-del { color: #e53935; font-size: 20px; padding: 0 4px; cursor: pointer; }
+
+    /* ── Loading / Error states ── */
+    .tab-placeholder {
+      padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px;
+    }
+    .tab-placeholder .retry-btn {
+      display: inline-block; margin-top: 12px; padding: 8px 24px;
+      background: var(--teal); color: var(--white); border: none; border-radius: 8px;
+      font-size: 14px; cursor: pointer;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 10px 24px;
+      border-radius: 20px; font-size: 14px; z-index: 9999;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; pointer-events: auto; }
   </style>
 </head>
 <body>
@@ -326,7 +391,7 @@
         <button class="icon-btn" aria-label="设置">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
-        <button class="icon-btn" aria-label="退出">
+        <button class="icon-btn" aria-label="退出" onclick="ChemAuth.logout()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
         </button>
       </div>
@@ -480,70 +545,710 @@
 
     </div><!-- /content-scroll -->
 
-    <!-- Floating AI Button -->
-    <button class="floating-ai" onclick="openAiPanel()">AI</button>
+  </div><!-- /mobile-shell -->
 
-    <!-- AI Overlay -->
-    <div class="ai-overlay" id="aiOverlay" onclick="closeAiPanel()"></div>
+  <!-- Floating AI Button (outside mobile-shell to avoid overflow clip) -->
+  <button class="floating-ai" onclick="openAiPanel()">AI</button>
 
-    <!-- AI Bottom Sheet -->
-    <div class="ai-sheet" id="aiSheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-header">
-        <span class="sheet-title">AI学习顾问</span>
-        <button class="sheet-close" onclick="closeAiPanel()">✕</button>
-      </div>
-      <div class="sheet-chips">
-        <button class="sheet-chip">孩子最近学习怎么样？</button>
-        <button class="sheet-chip">如何帮助孩子提高成绩？</button>
-        <button class="sheet-chip">分析最近错题原因</button>
-      </div>
-      <div class="sheet-input-area">
-        <input class="sheet-input" placeholder="输入你的问题...">
-        <button class="sheet-send">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-        </button>
-      </div>
+  <!-- AI Overlay -->
+  <div class="ai-overlay" id="aiOverlay" onclick="closeAiPanel();closeBindSheet()"></div>
+
+  <!-- Bind Child Bottom Sheet -->
+  <div class="bind-sheet" id="bindSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">绑定新子女</span>
+      <button class="sheet-close" onclick="closeBindSheet()">✕</button>
     </div>
-
+    <div style="padding: 0 20px;">
+      <input class="sheet-input" id="bindCodeSheetInput" placeholder="请输入6位绑定码" maxlength="6" inputmode="numeric" style="width:100%;margin-bottom:12px;">
+      <select id="bindRelationSelect" style="width:100%;height:40px;border-radius:8px;border:1px solid #ddd;padding:0 12px;font-size:14px;margin-bottom:12px;">
+        <option value="father">爸爸</option>
+        <option value="mother">妈妈</option>
+        <option value="grandfather">爷爷</option>
+        <option value="grandmother">奶奶</option>
+        <option value="other" selected>其他</option>
+      </select>
+      <button onclick="submitBinding()" style="width:100%;height:40px;background:var(--oxford-blue);color:var(--white);border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;">确认绑定</button>
+    </div>
   </div>
 
+  <!-- AI Bottom Sheet (placeholder, rebuilt by showAiChatView) -->
+  <div class="ai-sheet" id="aiSheet"></div>
+
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/api-client.js"></script>
+  <script src="../../js/sse-client.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/mhchem.min.js"></script>
   <script>
-    // ── Tab Switching ──
-    document.querySelectorAll('#tabRow .tab-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('#tabRow .tab-btn').forEach(function(b) { b.classList.remove('active'); });
-        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.tab).classList.add('active');
+    // ════════════════════════════════════════════════════════════
+    // State
+    // ════════════════════════════════════════════════════════════
+    var state = {
+      children: [],
+      currentChild: null,
+      childIdx: 0,
+      activeTab: 'tab1',
+      loadedTabs: {},
+      threadId: null,
+      notifPage:  0,
+      notifHasMore: true,
+      notifLoading: false,
+      aiView: 'chat',      // 'chat' | 'history'
+      aiMessages: [],
+    };
+
+    var dom = {
+      childName:  document.querySelector('.child-name'),
+      childPrev:  document.querySelector('.child-row .arrow-btn:first-child'),
+      childNext:  document.querySelector('.child-row .arrow-btn:last-child'),
+      bindLink:   document.querySelector('.bind-link'),
+      childSelector: document.querySelector('.child-selector'),
+      aiOverlay:  document.getElementById('aiOverlay'),
+      aiSheet:    document.getElementById('aiSheet'),
+      bindSheet:  document.getElementById('bindSheet'),
+      floatingAi: document.querySelector('.floating-ai'),
+    };
+
+    // ════════════════════════════════════════════════════════════
+    // Init
+    // ════════════════════════════════════════════════════════════
+    (function init() {
+      // Auth guard
+      if (!ChemAuth.isAuthenticated()) { location.href = 'parent-login.html'; return; }
+      var user = ChemAuth.getCurrentUser();
+      if (user.role !== 'parent') { document.body.innerHTML = '<div class="tab-placeholder"><p>仅家长角色可访问</p></div>'; return; }
+
+      // Tab switching
+      document.querySelectorAll('#tabRow .tab-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          switchTab(btn.dataset.tab);
+        });
       });
-    });
 
-    // ── AI解读 Toggle ──
-    function toggleAiExpand(btn) {
-      var content = btn.nextElementSibling;
-      content.classList.toggle('open');
-      btn.textContent = content.classList.contains('open') ? '🤖 收起解读' : '🤖 AI 解读';
+      // Child selector arrows
+      dom.childPrev.addEventListener('click', function() { selectChild(state.childIdx - 1); });
+      dom.childNext.addEventListener('click', function() { selectChild(state.childIdx + 1); });
+
+      // Bind link → open bind sheet
+      dom.bindLink.addEventListener('click', function(e) { e.preventDefault(); openBindSheet(); });
+
+      // Load children
+      loadChildren();
+    })();
+
+    // ════════════════════════════════════════════════════════════
+    // Tab Framework
+    // ════════════════════════════════════════════════════════════
+    function switchTab(tabName) {
+      state.activeTab = tabName;
+      document.querySelectorAll('#tabRow .tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+      document.querySelector('#' + tabName).classList.add('active');
+      document.querySelector('[data-tab=' + tabName + ']').classList.add('active');
+
+      if (state.currentChild && !state.loadedTabs[tabName]) {
+        state.loadedTabs[tabName] = true;
+        if (tabName === 'tab1') loadOverview();
+        if (tabName === 'tab2') loadReport();
+        if (tabName === 'tab3') loadNotifications(0);
+      }
     }
 
-    // ── Message Toggle ──
-    function toggleMsg(item) {
-      item.classList.toggle('open');
+    // ════════════════════════════════════════════════════════════
+    // Children
+    // ════════════════════════════════════════════════════════════
+    function loadChildren(selectLast) {
+      ChemAPI.apiGet('/parent/children').then(function(res) {
+        state.children = res.data || [];
+        if (state.children.length === 0) {
+          dom.childSelector.innerHTML = '<div style="padding:12px 16px;text-align:center;"><span style="color:var(--text-muted);">暂无绑定子女</span><br><a href="#" onclick="openBindSheet()" style="color:var(--teal);font-size:14px;margin-top:4px;display:inline-block;">+ 绑定子女</a></div>';
+          return;
+        }
+
+        // Rebuild selector
+        var idx = (selectLast && state.children.length > 0) ? state.children.length - 1 : 0;
+        state.currentChild = state.children[idx];
+        state.childIdx = idx;
+        renderChildSelector();
+        switchTab('tab1'); // Load first tab
+      }).catch(function() {
+        ChemAPI.showToast('加载子女列表失败');
+      });
     }
 
-    // ── AI Panel ──
-    var aiOverlay = document.getElementById('aiOverlay');
-    var aiSheet = document.getElementById('aiSheet');
+    function selectChild(idx) {
+      if (idx < 0 || idx >= state.children.length) return;
+      state.childIdx = idx;
+      state.currentChild = state.children[idx];
+      state.loadedTabs = {};  // Reset loaded tabs for new child
+      reportState = { weeks: [], weekIdx: 0 };  // Reset week selector state
+      renderChildSelector();
+      // Reload active tab
+      if (state.activeTab === 'tab1') loadOverview();
+      else if (state.activeTab === 'tab2') loadReport();
+      else if (state.activeTab === 'tab3') { state.notifPage = 0; state.notifHasMore = true; loadNotifications(0); }
+    }
 
+    function renderChildSelector() {
+      var child = state.currentChild;
+      dom.childName.textContent = child.student_name + '  ' + (child.class_name || '');
+      dom.childPrev.style.visibility = state.childIdx === 0 ? 'hidden' : '';
+      dom.childNext.style.visibility = state.childIdx >= state.children.length - 1 ? 'hidden' : '';
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // Tab 1: Overview
+    // ════════════════════════════════════════════════════════════
+    function loadOverview() {
+      var tab = document.getElementById('tab1');
+      tab.innerHTML = '<div class="tab-placeholder">加载中...</div>';
+
+      ChemAPI.apiGet('/parent/child/' + state.currentChild.student_id + '/report')
+        .then(function(res) { renderOverview(res.data); })
+        .catch(function() {
+          tab.innerHTML = '<div class="tab-placeholder">加载失败<button class="retry-btn" onclick="loadOverview()">重试</button></div>';
+        });
+    }
+
+    function renderOverview(data) {
+      if (!data || data.weekly_practice_count === undefined) {
+        document.getElementById('tab1').innerHTML = '<div class="tab-placeholder">暂无学习数据<p style="font-size:12px;">孩子完成首次练习后将生成数据</p></div>';
+        return;
+      }
+
+      var accuracy = data.accuracy_rate != null ? Math.round(data.accuracy_rate * 100) + '%' : '--';
+      var lastTime = data.last_practice_time
+        ? new Date(data.last_practice_time).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : '暂无';
+      var weakKP = (data.weak_knowledge_points || []).map(function(kp) {
+        return '<span class="chip-purple">' + ChemAPI.escapeHtml(ChemAPI.convertTerms(kp)) + '</span>';
+      }).join('');
+
+      // Barrier bar + characteristics
+      var barrierHtml = '';
+      if (data.barriers) {
+        var conceptPct = Math.round(data.barriers.concept * 100);
+        var readingPct = Math.round(data.barriers.reading * 100);
+        var expressionPct = Math.round(data.barriers.expression * 100);
+        var hasData = conceptPct + readingPct + expressionPct > 0;
+
+        barrierHtml = '<div class="feature-card"><div class="feature-title">学习特点分析</div>'
+          + (hasData
+            ? '<div class="obstacle-bar">'
+              + '<div class="obstacle-seg concept" style="width:' + conceptPct + '%"></div>'
+              + '<div class="obstacle-seg exam" style="width:' + readingPct + '%"></div>'
+              + '<div class="obstacle-seg express" style="width:' + expressionPct + '%"></div>'
+              + '</div>'
+              + '<div class="obstacle-legend">'
+              + '<span><span class="legend-dot concept"></span>概念理解 ' + conceptPct + '%</span>'
+              + '<span><span class="legend-dot exam"></span>审题障碍 ' + readingPct + '%</span>'
+              + '<span><span class="legend-dot express"></span>表述障碍 ' + expressionPct + '%</span>'
+              + '</div>'
+            : '')
+          + '<p class="feature-text">' + ChemAPI.escapeHtml(ChemAPI.convertTerms(data.characteristics || '暂无足够数据进行分析')) + '</p>'
+          + '</div>';
+      }
+
+      var html =
+        '<div class="stats-grid">'
+        + '<div class="stat-card"><div class="num">' + data.weekly_practice_count + '题</div><div class="lbl">本周练习</div></div>'
+        + '<div class="stat-card"><div class="num">' + accuracy + '</div><div class="lbl">正确率（加权）</div></div>'
+        + '<div class="stat-card"><div class="lbl">薄弱知识点</div>' + (weakKP || '<span style="color:var(--text-muted);font-size:13px;">暂无</span>') + '</div>'
+        + '<div class="stat-card"><div class="lbl">最近学习</div><div class="date-value">' + lastTime + '</div></div>'
+        + '</div>'
+        + '<div class="stats-grid" style="grid-template-columns:1fr 1fr;">'
+        + '<div class="stat-card"><div class="num">' + (data.streak_days || 0) + '天</div><div class="lbl">连续学习</div></div>'
+        + '<div class="stat-card"><div class="num">' + (data.total_practice_count || 0) + '题</div><div class="lbl">累计练习</div></div>'
+        + '</div>'
+        + barrierHtml;
+
+      document.getElementById('tab1').innerHTML = html;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // Tab 2: Report
+    // ════════════════════════════════════════════════════════════
+    var reportState = { weeks: [], weekIdx: 0 };
+
+    function loadReport() {
+      var tab = document.getElementById('tab2');
+      tab.innerHTML = '<div class="tab-placeholder">加载中...</div>';
+
+      var sid = state.currentChild.student_id;
+      Promise.all([
+        ChemAPI.apiGet('/parent/child/' + sid + '/timeline', { weeks: 12 }),
+        ChemAPI.apiGet('/parent/child/' + sid + '/weekly')
+      ]).then(function(results) {
+        renderReport(results[0].data, results[1].data);
+      }).catch(function() {
+        tab.innerHTML = '<div class="tab-placeholder">加载失败<button class="retry-btn" onclick="loadReport()">重试</button></div>';
+      });
+    }
+
+    function renderReport(timeline, weekly) {
+      reportState.weeks = (timeline && timeline.weeks) ? timeline.weeks : [];
+      reportState.weekIdx = reportState.weeks.length > 0 ? reportState.weeks.length - 1 : 0;
+
+      renderReportContent(weekly);
+    }
+
+    function renderReportContent(weekly) {
+      var tab = document.getElementById('tab2');
+      var weeks = reportState.weeks;
+      var idx = reportState.weekIdx;
+      var isCurrentWeek = idx === weeks.length - 1;
+
+      var weekLabel = weeks.length > 0
+        ? weeks[idx].week_start + ' ~ ' + weeks[idx].week_end
+        : '本周';
+
+      // Week selector
+      var selectorHtml = '<div class="week-selector">'
+        + '<button class="arrow-btn" onclick="navigateWeek(-1)">&lt;</button>'
+        + '<span class="week-label">' + weekLabel + (isCurrentWeek ? ' (本周)' : '') + '</span>'
+        + '<button class="arrow-btn" onclick="navigateWeek(1)">&gt;</button>'
+        + '</div>';
+
+      var bodyHtml = '';
+
+      if (isCurrentWeek && weekly && !weekly.no_data) {
+        // Full weekly report
+        bodyHtml =
+          '<div class="modal-stats">'
+          + '<div class="modal-stat"><div class="num">' + ChemAPI.escapeHtml(weekly.summary || '') + '</div><div class="lbl">总结</div></div>'
+          + '</div>'
+          + '<div class="feature-text" style="padding:0 16px;">' + ChemAPI.escapeHtml(weekly.detail || '') + '</div>'
+          + '<div class="feature-card" style="margin-top:12px"><div class="feature-title">家长建议</div>'
+          + '<p class="feature-text">' + ChemAPI.escapeHtml(weekly.advice || '暂无建议') + '</p>'
+          + '</div>';
+      } else if (isCurrentWeek && (!weekly || weekly.no_data)) {
+        // No weekly report yet
+        bodyHtml =
+          '<div class="tab-placeholder"><p>本周周报尚未生成</p>'
+          + '<button class="retry-btn" onclick="generateReport()">生成周报</button></div>';
+      } else {
+        // Historical week: show timeline data
+        var w = weeks[idx];
+        bodyHtml =
+          '<div class="feature-card" style="margin-top:16px">'
+          + '<div class="modal-stats">'
+          + '<div class="modal-stat"><div class="num">' + (w.practice_count || 0) + '</div><div class="lbl">完成练习</div></div>'
+          + '<div class="modal-stat"><div class="num">' + (w.accuracy != null ? Math.round(w.accuracy * 100) + '%' : '--') + '</div><div class="lbl">正确率</div></div>'
+          + '</div>'
+          + '<div class="feature-text">本周主题：' + ChemAPI.escapeHtml((w.topics_covered || []).join('、') || '暂无数据') + '</div>'
+          + '</div>'
+          + '<div class="tab-placeholder" style="font-size:12px;color:var(--text-muted);">历史周仅显示简略数据</div>';
+      }
+
+      tab.innerHTML = '<div class="feature-card" style="margin-top:16px">' + selectorHtml + '</div>' + bodyHtml;
+    }
+
+    function navigateWeek(delta) {
+      var newIdx = reportState.weekIdx + delta;
+      if (newIdx < 0 || newIdx >= reportState.weeks.length) return;
+      reportState.weekIdx = newIdx;
+      var isCurrent = newIdx === reportState.weeks.length - 1;
+      if (isCurrent) {
+        ChemAPI.apiGet('/parent/child/' + state.currentChild.student_id + '/weekly')
+          .then(function(r) { renderReportContent(r.data); })
+          .catch(function() { renderReportContent(null); });
+      } else {
+        renderReportContent(null);
+      }
+    }
+
+    function generateReport() {
+      var tab = document.getElementById('tab2');
+      tab.innerHTML = '<div class="tab-placeholder">生成中...</div>';
+      ChemAPI.apiPost('/parent/child/' + state.currentChild.student_id + '/weekly/generate')
+        .then(function(res) {
+          ChemAPI.showToast('周报已生成');
+          loadReport();
+        })
+        .catch(function() {
+          tab.innerHTML = '<div class="tab-placeholder">生成失败<button class="retry-btn" onclick="loadReport()">重试</button></div>';
+        });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // Tab 3: Messages
+    // ════════════════════════════════════════════════════════════
+    function loadNotifications(page) {
+      if (state.notifLoading) return;
+      state.notifLoading = true;
+      if (page === 0) document.getElementById('tab3').innerHTML = '<div class="tab-placeholder">加载中...</div>';
+
+      ChemAPI.apiGet('/parent/notifications', { limit: 20, offset: page * 20 })
+        .then(function(res) {
+          // PaginatedResponse is unwrapped: {items, total, limit, offset}
+          var items = (res && res.items) || [];
+          state.notifHasMore = (res && res.total || 0) > (page + 1) * 20;
+          state.notifPage = page;
+
+          if (page === 0) {
+            if (items.length === 0) {
+              document.getElementById('tab3').innerHTML = '<div class="tab-placeholder">暂无消息</div>';
+            } else {
+              document.getElementById('tab3').innerHTML = '<div id="msgList"></div>';
+              appendNotifications(items);
+            }
+          } else {
+            appendNotifications(items);
+          }
+          state.notifLoading = false;
+
+          // Scroll pagination (on parent .content-scroll, which is the actual scroll container)
+          if (state.notifHasMore && page === 0) {
+            // Clean up previous scroll handler to avoid stacking
+            if (state._scrollHandler) {
+              var scrollContainer = document.querySelector('.content-scroll');
+              if (scrollContainer) scrollContainer.removeEventListener('scroll', state._scrollHandler);
+            }
+            state._scrollHandler = function() {
+              var sc = document.querySelector('.content-scroll');
+              if (!sc) return;
+              if (sc.scrollHeight - sc.scrollTop - sc.clientHeight < 60 && state.notifHasMore && !state.notifLoading) {
+                loadNotifications(state.notifPage + 1);
+              }
+            };
+            var scrollContainer = document.querySelector('.content-scroll');
+            if (scrollContainer) scrollContainer.addEventListener('scroll', state._scrollHandler);
+          }
+        })
+        .catch(function() {
+          document.getElementById('tab3').innerHTML = '<div class="tab-placeholder">加载失败<button class="retry-btn" onclick="loadNotifications(0)">重试</button></div>';
+          state.notifLoading = false;
+        });
+    }
+
+    function appendNotifications(items) {
+      var container = document.getElementById('msgList');
+      if (!container) return;
+
+      items.forEach(function(n) {
+        var isRead = n.read_at != null;
+        var typeLabel = { weekly_report: '📊', score_alert: '⚠️', learning_plan: '📋', reminder: '🔔', daily_report: '📝' }[n.notification_type] || '📌';
+        var div = document.createElement('div');
+        div.className = 'msg-item' + (isRead ? ' read' : '');
+        div.innerHTML =
+          (isRead ? '' : '<div class="msg-dot"></div>')
+          + '<div class="msg-title">' + typeLabel + ' ' + ChemAPI.escapeHtml(n.title) + '</div>'
+          + '<div class="msg-preview">' + ChemAPI.escapeHtml((n.body || '').substring(0, 50)) + '</div>'
+          + '<div class="msg-time">' + (n.sent_at ? new Date(n.sent_at).toLocaleDateString('zh-CN') : '') + '</div>'
+          + '<div class="msg-detail"><div class="msg-detail-body">' + ChemAPI.escapeHtml(n.body || '') + '</div></div>';
+
+        div.addEventListener('click', function() {
+          this.classList.toggle('open');
+          if (!isRead && !this._markedRead) {
+            this._markedRead = true;
+            fetch('/api/v1/parent/notifications/' + n.id + '/read', {
+              method: 'PUT', headers: { 'Authorization': 'Bearer ' + ChemAuth.getToken() }
+            }).catch(function() {});
+            var dot = this.querySelector('.msg-dot');
+            if (dot) dot.remove();
+            this.classList.add('read');
+          }
+        });
+
+        container.appendChild(div);
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // AI Panel
+    // ════════════════════════════════════════════════════════════
     function openAiPanel() {
-      aiOverlay.classList.add('show');
-      aiSheet.classList.add('open');
+      dom.aiOverlay.classList.add('show');
+      dom.aiSheet.classList.add('open');
+      dom.floatingAi.style.display = 'none';
+      // Default to new conversation
+      showAiChatView();
     }
 
     function closeAiPanel() {
-      aiOverlay.classList.remove('show');
-      aiSheet.classList.remove('open');
+      dom.aiOverlay.classList.remove('show');
+      dom.aiSheet.classList.remove('open');
+      dom.floatingAi.style.display = '';
+      ChemSSE.abort();
+      // Reset for next open
+      state.threadId = null;
+      state.aiMessages = [];
+      state.aiView = 'chat';
     }
+
+    function showAiChatView() {
+      state.aiView = 'chat';
+      var sheet = dom.aiSheet;
+      sheet.innerHTML =
+        '<div class="sheet-handle"></div>'
+        + '<div class="sheet-header">'
+        + '<button class="sheet-history-btn" onclick="showAiHistoryView()">📜</button>'
+        + '<span class="sheet-title">AI学习顾问</span>'
+        + '<button class="sheet-close" onclick="closeAiPanel()">✕</button>'
+        + '</div>'
+        + '<div class="chat-messages" id="chatMessages">'
+        + '<div class="chat-status">👋 你好！我是孩子的AI学习顾问，随时为你解答任何学习问题。</div>'
+        + '</div>'
+        + '<div class="sheet-chips">'
+        + '<button class="sheet-chip">孩子最近学习怎么样？</button>'
+        + '<button class="sheet-chip">如何帮助孩子提高成绩？</button>'
+        + '<button class="sheet-chip">分析最近错题原因</button>'
+        + '</div>'
+        + '<div class="sheet-input-area">'
+        + '<input class="sheet-input" id="aiInput" placeholder="输入你的问题...">'
+        + '<button class="sheet-send" id="aiSendBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>'
+        + '</div>';
+
+      // Re-bind events
+      bindChipClicks();
+      bindAiInputEvents();
+    }
+
+    function sendAiMessage(message) {
+      if (ChemSSE.isSending()) return;
+      if (!state.currentChild) { ChemAPI.showToast('请先选择子女'); return; }
+      var chatContainer = document.getElementById('chatMessages');
+      if (!chatContainer) return;
+
+      // Add user message
+      appendChatMsg('user', message);
+
+      // Disable input
+      setAiInputState(true);
+
+      // Add status
+      var statusEl = document.createElement('div');
+      statusEl.className = 'chat-status';
+      statusEl.textContent = 'AI 正在思考...';
+      document.getElementById('chatMessages').appendChild(statusEl);
+
+      // AI reply bubble
+      var aiBubble = document.createElement('div');
+      aiBubble.className = 'chat-msg ai';
+      aiBubble.style.display = 'none';
+      document.getElementById('chatMessages').appendChild(aiBubble);
+
+      // SSE connect
+      ChemSSE.connect('/api/v1/parent/agent/chat', {
+        message: message,
+        thread_id: state.threadId || null,
+        student_id: state.currentChild.student_id
+      }, {
+        phase: function(data) {
+          if (data.phase === 'tool_call') {
+            statusEl.textContent = '🔍 正在查询学习数据...';
+          } else if (data.phase === 'reply') {
+            statusEl.textContent = '';
+          }
+        },
+        text: function(data) {
+          statusEl.style.display = 'none';
+          aiBubble.style.display = '';
+          // 前端术语转换兜底：防御 LLM 未按 persona 转换的场景
+          aiBubble.innerHTML += ChemAPI.convertTerms(data.content || '');
+          // Render KaTeX
+          ChemAPI.renderLatex(aiBubble);
+          // Scroll to bottom
+          var container = document.getElementById('chatMessages');
+          container.scrollTop = container.scrollHeight;
+        },
+        tool_call: function() {
+          statusEl.textContent = '🔍 正在获取数据...';
+        },
+        tool_result: function() {
+          // Tool result handled silently
+        },
+        done: function(data) {
+          statusEl.remove();
+          if (data.thread_id) state.threadId = data.thread_id;
+          setAiInputState(false);
+          if (!aiBubble.innerHTML.trim()) {
+            aiBubble.innerHTML = '抱歉，我暂时无法生成回复，请稍后重试。';
+          }
+          aiBubble.style.display = '';
+        },
+        error: function() {
+          statusEl.remove();
+          aiBubble.innerHTML = 'AI 助手暂时无法回复，请稍后重试';
+          aiBubble.style.display = '';
+          setAiInputState(false);
+        },
+      });
+    }
+
+    function appendChatMsg(role, content) {
+      var el = document.createElement('div');
+      el.className = 'chat-msg ' + role;
+      el.textContent = content;
+      document.getElementById('chatMessages').appendChild(el);
+      var container = document.getElementById('chatMessages');
+      if (container) container.scrollTop = container.scrollHeight;
+    }
+
+    function setAiInputState(disabled) {
+      var input = document.getElementById('aiInput');
+      var btn = document.getElementById('aiSendBtn');
+      if (input) input.disabled = disabled;
+      if (btn) btn.disabled = disabled;
+    }
+
+    function bindChipClicks() {
+      document.querySelectorAll('.sheet-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() { sendAiMessage(chip.textContent); });
+      });
+    }
+
+    function bindAiInputEvents() {
+      document.getElementById('aiSendBtn').addEventListener('click', function() {
+        var input = document.getElementById('aiInput');
+        var msg = input.value.trim();
+        if (msg) { sendAiMessage(msg); input.value = ''; }
+      });
+      document.getElementById('aiInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') document.getElementById('aiSendBtn').click();
+      });
+    }
+
+    // ── Conversation History ──
+    function showAiHistoryView() {
+      state.aiView = 'history';
+      dom.aiSheet.innerHTML =
+        '<div class="sheet-handle"></div>'
+        + '<div class="sheet-header">'
+        + '<button class="sheet-close" style="left:20px;position:absolute;" onclick="showAiChatView()">← 返回</button>'
+        + '<span class="sheet-title">历史对话</span>'
+        + '<button class="sheet-close" onclick="newConversation()">+</button>'
+        + '</div>'
+        + '<div class="conv-list" id="convList"><div class="tab-placeholder">加载中...</div></div>';
+
+      ChemAPI.apiGet('/parent/agent/conversations').then(function(res) {
+        var list = res.data || [];
+        var container = document.getElementById('convList');
+        if (list.length === 0) {
+          container.innerHTML = '<div class="tab-placeholder">暂无对话</div>';
+          return;
+        }
+        container.innerHTML = '';
+        list.forEach(function(c) {
+          var div = document.createElement('div');
+          div.className = 'conv-item';
+          div.innerHTML =
+            '<span class="conv-title">' + ChemAPI.escapeHtml(c.thread_id.substring(0, 16) + '...') + '</span>'
+            + '<span class="conv-time">' + (c.last_active ? new Date(c.last_active).toLocaleDateString('zh-CN') : '') + '</span>';
+
+          div.addEventListener('click', function() {
+            state.threadId = c.thread_id;
+            state.aiMessages = [];
+            showAiChatView();
+            // Load and render history messages
+            ChemAPI.apiGet('/parent/agent/history/' + c.thread_id).then(function(hr) {
+              // Checkpoints wrap messages as: {checkpoint_data: {messages: [{role, content}, ...]}}
+              var checkpoints = (hr.data || []);
+              var allMsgs = [];
+              checkpoints.forEach(function(cp) {
+                var msgs = (cp.checkpoint_data && cp.checkpoint_data.messages) || [];
+                msgs.forEach(function(m) {
+                  if (m.role !== 'system') allMsgs.push(m);
+                });
+              });
+              var chatContainer = document.getElementById('chatMessages');
+              if (allMsgs.length > 0 && chatContainer) {
+                chatContainer.innerHTML = '';
+                allMsgs.forEach(function(msg) {
+                  appendChatMsg(msg.role === 'user' ? 'user' : 'ai', msg.content);
+                });
+              } else {
+                appendChatMsg('ai', '继续提问即可。');
+              }
+            });
+          });
+
+          var delBtn = document.createElement('span');
+          delBtn.className = 'conv-del';
+          delBtn.textContent = '🗑';
+          delBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            fetch('/api/v1/parent/agent/conversations/' + c.thread_id, {
+              method: 'DELETE',
+              headers: { 'Authorization': 'Bearer ' + ChemAuth.getToken() }
+            }).then(function() {
+              ChemAPI.showToast('已删除');
+              div.remove();
+            });
+          });
+          div.appendChild(delBtn);
+          container.appendChild(div);
+        });
+      });
+    }
+
+    function newConversation() {
+      ChemAPI.apiPost('/parent/agent/new').then(function(res) {
+        state.threadId = (res.data && res.data.thread_id) || null;
+        state.aiMessages = [];
+        showAiChatView();
+        ChemAPI.showToast('已创建新对话');
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // Bind Sheet
+    // ════════════════════════════════════════════════════════════
+    function openBindSheet() {
+      dom.aiOverlay.classList.add('show');
+      dom.bindSheet.classList.add('open');
+    }
+
+    function closeBindSheet() {
+      dom.aiOverlay.classList.remove('show');
+      dom.bindSheet.classList.remove('open');
+    }
+
+    function submitBinding() {
+      var code = document.getElementById('bindCodeSheetInput').value.trim();
+      var relation = document.getElementById('bindRelationSelect').value;
+
+      if (!code) { ChemAPI.showToast('请输入6位绑定码'); return; }
+      if (!ChemAPI.validateBindCode(code)) { ChemAPI.showToast('绑定码为6位数字'); return; }
+
+      ChemAPI.apiPost('/parent/bind', { bind_code: code, relation: relation }).then(function() {
+        closeBindSheet();
+        ChemAPI.showToast('绑定成功');
+        loadChildren(true); // Auto-select newly bound child
+      }).catch(function(err) {
+        var msg = err.message || '绑定失败';
+        if (err.errorCode === 'INVALID_BIND_CODE') msg = '绑定码无效';
+        if (err.errorCode === 'ALREADY_BOUND') msg = '已绑定该学生';
+        ChemAPI.showToast(msg);
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // Global helpers for onclick
+    // ════════════════════════════════════════════════════════════
+    window.openBindSheet = openBindSheet;
+    window.closeBindSheet = closeBindSheet;
+    window.submitBinding = submitBinding;
+    window.loadOverview = loadOverview;
+    window.loadReport = loadReport;
+    window.loadNotifications = loadNotifications;
+    window.generateReport = generateReport;
+    window.navigateWeek = navigateWeek;
+    window.openAiPanel = openAiPanel;
+    window.closeAiPanel = closeAiPanel;
+    window.showAiHistoryView = showAiHistoryView;
+    window.showAiChatView = showAiChatView;
+    window.newConversation = newConversation;
+    // Static demo content handlers (content replaced after API load, no-ops to prevent errors)
+    window.toggleMsg = function(el) {
+      if (el) { el.classList.toggle('open'); }
+    };
+    window.toggleAiExpand = function(btn) {
+      var content = btn && btn.nextElementSibling;
+      if (content) { content.classList.toggle('open'); }
+    };
   </script>
 </body>
 </html>
