@@ -205,7 +205,7 @@ async def get_services_status(
 # ── Grading ──────────────────────────────────────────────────
 
 
-@router.post("/grading/run", status_code=status.HTTP_200_OK)
+@router.post("/ocr/grading/run", status_code=status.HTTP_200_OK)
 async def grading_run(
     body: GradingRunRequest,
     db: AsyncSession = Depends(get_db),
@@ -271,7 +271,7 @@ async def grading_run(
     )
 
 
-@router.get("/grading/results/{batch_id}")
+@router.get("/ocr/grading/results/{batch_id}")
 async def grading_results(
     batch_id: str,
     user: UserContext = Depends(get_current_user),
@@ -285,7 +285,7 @@ async def grading_results(
     )
 
 
-@router.post("/grading/save", status_code=status.HTTP_200_OK)
+@router.post("/ocr/grading/save", status_code=status.HTTP_200_OK)
 async def grading_save(
     body: GradingSaveRequest,
     db: AsyncSession = Depends(get_db),
@@ -300,10 +300,14 @@ async def grading_save(
 
     result = await GradingService.save_results(db, body.task_ids)
 
-    # 8.3: 异步触发诊断管线
+    # 8.3: 异步触发诊断→统计→报告管线
     if result["diagnosis_triggered"]:
         _asyncio.create_task(
-            GradingService._post_save_pipeline(result["saved_count"])
+            GradingService._post_save_pipeline(
+                saved_count=result["saved_count"],
+                exam_record_id=result.get("exam_record_id", 1),
+                saved_task_ids=result.get("saved_task_ids", []),
+            )
         )
 
     return GradingSaveResponse(

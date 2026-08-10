@@ -38,23 +38,30 @@ def upgrade() -> None:
     )
 
     # 2. ParentNotification 字段迁移：is_read(bool) → read_at(datetime) + 新增 related_id
+    #    必须先加列 → 数据迁移 → 再删旧列（SQLite batch_alter_table 在三步之间才能正确执行）
     with op.batch_alter_table('parent_notification', schema=None) as batch_op:
         batch_op.add_column(sa.Column('read_at', sa.DateTime(timezone=True), nullable=True, comment='已读时间'))
         batch_op.add_column(sa.Column('related_id', sa.Integer(), nullable=True, comment='关联资源 ID（如 weekly_report_id / warning_log_id）'))
-        # 数据迁移：已读的 is_read=True → read_at=created_at
-        op.execute(
-            "UPDATE parent_notification SET read_at = created_at WHERE is_read = 1"
-        )
+
+    # 数据迁移：新表中已读的 is_read=1 → read_at=created_at
+    op.execute(
+        "UPDATE parent_notification SET read_at = created_at WHERE is_read = 1"
+    )
+
+    with op.batch_alter_table('parent_notification', schema=None) as batch_op:
         batch_op.drop_column('is_read')
 
 
 def downgrade() -> None:
     with op.batch_alter_table('parent_notification', schema=None) as batch_op:
         batch_op.add_column(sa.Column('is_read', sa.BOOLEAN(), server_default=sa.text("'0'"), nullable=False))
-        # 反向数据迁移
-        op.execute(
-            "UPDATE parent_notification SET is_read = 1 WHERE read_at IS NOT NULL"
-        )
+
+    # 反向数据迁移
+    op.execute(
+        "UPDATE parent_notification SET is_read = 1 WHERE read_at IS NOT NULL"
+    )
+
+    with op.batch_alter_table('parent_notification', schema=None) as batch_op:
         batch_op.drop_column('read_at')
         batch_op.drop_column('related_id')
 

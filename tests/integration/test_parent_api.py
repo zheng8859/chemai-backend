@@ -110,6 +110,61 @@ class TestBindings:
         assert resp.status_code == 403
 
     @pytest.mark.anyio
+    async def test_bind_by_code_only_success(self, async_client, parent_headers, db_session):
+        """仅提供 bind_code（不传 student_id）→ 自动解析学生并绑定成功。"""
+        from app.models.org import School, Grade, Class as ClassModel
+        school = School(name="测试学校", region="测试区")
+        db_session.add(school)
+        await db_session.flush()
+        grade = Grade(name="高一", school_id=school.id)
+        db_session.add(grade)
+        await db_session.flush()
+        class_ = ClassModel(name="高一(1)班", grade_id=grade.id)
+        db_session.add(class_)
+        await db_session.flush()
+
+        # 创建 Student + bind_code
+        student_account = Account(
+            id=988, phone="13900000001", password_hash="hash",
+            role=AccountRole.student,
+        )
+        db_session.add(student_account)
+        await db_session.flush()
+        student = Student(
+            account_id=student_account.id, name="测试学生",
+            class_id=class_.id, school_id=school.id,
+            student_id="S00002", bind_code="888888",
+        )
+        db_session.add(student)
+        await db_session.flush()
+
+        # 创建 Parent（id=996 对齐 parent_headers fixture）
+        account = Account(
+            id=996, phone="13900000002", password_hash="hash",
+            role=AccountRole.parent,
+        )
+        db_session.add(account)
+        await db_session.flush()
+        parent = Parent(account_id=account.id, name="测试家长")
+        db_session.add(parent)
+        await db_session.commit()
+
+        # 仅传 bind_code，不传 student_id
+        resp = await async_client.post(
+            "/api/v1/parent/bind",
+            json={
+                "bind_code": "888888",
+                "relation": "father",
+            },
+            headers=parent_headers,
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["success"] is True
+        # bind_code 路径解析到了正确的 student
+        assert data["data"]["student_id"] == student.id
+
+    @pytest.mark.anyio
     async def test_list_children_empty(self, async_client, parent_headers, db_session):
         """无绑定子女 → 空列表。"""
         account = Account(

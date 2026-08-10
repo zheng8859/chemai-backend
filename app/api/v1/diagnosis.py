@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.database import get_db
-from ...api.deps import get_current_user, require_permission, UserContext, get_pagination_params
+from ...api.deps import get_current_user, require_permission, UserContext, get_pagination_params, require_student_self
 from ...services.diagnosis_service import DiagnosisService, DiagnosisError
 from ...llm.router import LLMError
 from ...schemas.diagnosis import (
@@ -12,6 +12,7 @@ from ...schemas.diagnosis import (
     DiagnosisRunResponse,
     DiagnosisOverrideRequest,
     DiagnosisOverrideResponse,
+    StudentDiagnosisResponse,
 )
 from ...schemas.base import PaginatedResponse
 
@@ -80,6 +81,28 @@ async def get_class_diagnosis(
     user: UserContext = Depends(get_current_user),
 ):
     return await DiagnosisService.get_class_diagnosis(db, class_id, exam_id)
+
+
+# ── Student Self-View Diagnosis ────────────────────────────────
+
+@router.get(
+    "/diagnosis/student/{student_id}",
+    response_model=StudentDiagnosisResponse,
+)
+async def get_student_diagnosis(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    student_db_id: int = Depends(require_student_self()),
+):
+    """学生查看自己的障碍诊断数据。
+
+    返回三维障碍画像+趋势、主导障碍类型、Top 5 薄弱知识点。
+    仅学生本人可访问。
+    """
+    try:
+        return await DiagnosisService.get_student_diagnosis(db, student_db_id)
+    except DiagnosisError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=e.detail)
 
 
 # ── LLM Diagnosis ─────────────────────────────────────────────

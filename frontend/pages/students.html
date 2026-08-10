@@ -376,7 +376,7 @@
     // ── Auth ──
     if (!ChemAuth.isAuthenticated()) { ChemAuth.redirectToLogin(); return; }
     var user = ChemAuth.getCurrentUser();
-    if (user && (user.role === 'student' || user.role === 'parent')) {
+    if (!user || (user.role !== 'teacher' && user.role !== 'system_admin')) {
       window.location.href = 'index.html'; return;
     }
     document.getElementById('headerUserName').textContent = user ? ('教师' + user.userId) : '教师';
@@ -402,7 +402,7 @@
     buildBarrierChips();
 
     // ═══════════════════════════════════════════════════════
-    // Class list
+    // 班级列表
     // ═══════════════════════════════════════════════════════
     function loadClassList() {
       ChemAPI.apiGet('/panel/classes')
@@ -442,24 +442,24 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Data loading
+    // 数据加载
     // ═══════════════════════════════════════════════════════
     function loadPageData() {
       if (!currentClassId) return;
 
-      // Parallel: overview + student list
+      // 并行加载：班级学情概览 + 学生列表
       Promise.all([
         ChemAPI.apiGet('/panel/class/' + currentClassId),
         ChemAPI.apiGet('/classes/' + currentClassId + '/students', { limit: 500, offset: 0 })
       ]).then(function (results) {
         var overview = results[0].data || {};
-        var studentRes = results[1].data || {};
-        allStudents = studentRes.items || [];
+        var studentRes = results[1];
+        allStudents = (studentRes.items) || [];
         totalItems = allStudents.length;
         renderStats(overview);
         renderStudentGrid();
         renderPagination();
-        // Auto-open detail if URL has focus param
+        // URL 参数 ?focus=SID：自动打开指定学生详情抽屉
         if (initFocus) {
           openDrawer(parseInt(initFocus));
           initFocus = null;
@@ -471,7 +471,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Stats (task 4.1)
+    // 统计摘要栏
     // ═══════════════════════════════════════════════════════
     function renderStats(overview) {
       var studentCount = overview.student_count != null ? overview.student_count : '--';
@@ -487,7 +487,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Barrier chips (task 4.3)
+    // 障碍类型筛选 Chip
     // ═══════════════════════════════════════════════════════
     function buildBarrierChips() {
       document.getElementById('barrierChips').innerHTML =
@@ -520,7 +520,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Student grid (task 4.2)
+    // 学生卡片网格
     // ═══════════════════════════════════════════════════════
     function getFilteredStudents() {
       var searchTerm = (document.getElementById('searchBox').value || '').toLowerCase().trim();
@@ -586,9 +586,9 @@
         var readingPct = Math.round((bp.reading || 0) * 100);
         var expressPct = Math.round((bp.expression || 0) * 100);
         var total = conceptPct + readingPct + expressPct;
-        var cw = total > 0 ? Math.round(conceptPct / total * 100) : 33;
-        var rw = total > 0 ? Math.round(readingPct / total * 100) : 33;
-        var ew = 100 - cw - rw;
+        var conceptW = total > 0 ? Math.round(conceptPct / total * 100) : 33;
+        var readingW = total > 0 ? Math.round(readingPct / total * 100) : 33;
+        var expressW = 100 - conceptW - readingW;
 
         html += '<div class="student-card" onclick="openDrawer(' + s.id + ')">' +
           '<div class="card-header">' +
@@ -599,9 +599,9 @@
             '</div>' +
           '</div>' +
           '<div class="barrier-bar">' +
-            '<div class="barrier-segment concept" style="width:' + cw + '%"></div>' +
-            '<div class="barrier-segment reading" style="width:' + rw + '%"></div>' +
-            '<div class="barrier-segment expression" style="width:' + ew + '%"></div>' +
+            '<div class="barrier-segment concept" style="width:' + conceptW + '%"></div>' +
+            '<div class="barrier-segment reading" style="width:' + readingW + '%"></div>' +
+            '<div class="barrier-segment expression" style="width:' + expressW + '%"></div>' +
           '</div>' +
           '<button class="detail-btn" onclick="event.stopPropagation();openDrawer(' + s.id + ')">详情</button>' +
           '</div>';
@@ -610,7 +610,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Pagination
+    // 分页控件
     // ═══════════════════════════════════════════════════════
     function renderPagination() {
       var totalPages = Math.ceil(totalItems / pageSize);
@@ -619,9 +619,9 @@
 
       var html = '';
       html += '<button class="page-btn" ' + (currentPage <= 1 ? 'disabled' : 'onclick="goPage(' + (currentPage - 1) + ')"') + '>上一页</button>';
-      var sp = Math.max(1, currentPage - 2);
-      var ep = Math.min(totalPages, currentPage + 2);
-      for (var p = sp; p <= ep; p++) {
+      var startPage = Math.max(1, currentPage - 2);
+      var endPage = Math.min(totalPages, currentPage + 2);
+      for (var p = startPage; p <= endPage; p++) {
         html += '<button class="page-btn' + (p === currentPage ? ' active' : '') + '" onclick="goPage(' + p + ')">' + p + '</button>';
       }
       html += '<button class="page-btn" ' + (currentPage >= totalPages ? 'disabled' : 'onclick="goPage(' + (currentPage + 1) + ')"') + '>下一页</button>';
@@ -637,7 +637,7 @@
     };
 
     // ═══════════════════════════════════════════════════════
-    // Detail drawer (task 4.4)
+    // 学生详情抽屉
     // ═══════════════════════════════════════════════════════
     function openDrawer(studentId) {
       document.getElementById('drawerOverlay').classList.add('open');
@@ -661,7 +661,7 @@
       var bp = (data.barrier_profile_history && data.barrier_profile_history.length > 0)
         ? data.barrier_profile_history[data.barrier_profile_history.length - 1]
         : null;
-      var barrierProfile = bp ? (bp.barrier_profile || {}) : {};
+      var barrierProfile = bp ? (bp.profile || {}) : {};
       var conceptPct = Math.round((barrierProfile.concept || 0) * 100);
       var readingPct = Math.round((barrierProfile.reading || 0) * 100);
       var expressPct = Math.round((barrierProfile.expression || 0) * 100);
@@ -675,7 +675,7 @@
 
       var html = '';
 
-      // Basic info
+      // 基本信息
       html += '<div class="info-section"><h3>基本信息</h3><div class="info-grid">' +
         '<div class="info-item"><span class="info-label">姓名</span><span class="info-value">' + ChemAPI.escapeHtml(info.name || '--') + '</span></div>' +
         '<div class="info-item"><span class="info-label">学号</span><span class="info-value">' + ChemAPI.escapeHtml(String(info.id || studentId)) + '</span></div>' +
@@ -683,7 +683,7 @@
         '<div class="info-item"><span class="info-label">状态</span><span class="info-value">' + ChemAPI.escapeHtml(info.status || '--') + '</span></div>' +
         '</div></div>';
 
-      // Barrier distribution
+      // 障碍分布条
       html += '<div class="barrier-section"><h3>障碍分布</h3>';
       html += '<div class="barrier-item">' +
         '<span class="barrier-label-text">概念</span><div class="barrier-track"><div class="barrier-fill concept" style="width:' + conceptPct + '%"></div></div>' +
@@ -696,7 +696,7 @@
         '<span class="barrier-percent">' + expressPct + '%</span></div>';
       html += '</div>';
 
-      // Accuracy trend chart
+      // 正确率趋势图
       html += '<div class="chart-section"><h3>正确率趋势</h3>';
       if (trend.length > 0) {
         html += '<div class="trend-mini" id="drawerTrendChart"></div>';
@@ -705,7 +705,7 @@
       }
       html += '</div>';
 
-      // Weak knowledge points
+      // 薄弱知识点标签云
       html += '<div class="tags-section"><h3>薄弱知识点</h3>';
       if (weakPoints.length > 0) {
         html += '<div class="tag-list">';
@@ -723,27 +723,15 @@
 
       body.innerHTML = html;
 
-      // Render trend chart if data exists
+      // 渲染迷你正确率趋势折线图
       if (trend.length > 0) {
         var chartData = [];
         for (var k = 0; k < trend.length; k++) {
+          var t = trend[k];
           chartData.push({
-            label: trend[k]._exam_name || trend[k].period || '',
-            value: trend[k]._accuracy ? trend[k]._accuracy * 100 : (trend[k].score || 0)
+            label: (t.date || '').toString().slice(0, 10),
+            value: t.accuracy != null ? Math.round(t.accuracy * 100) : 0
           });
-        }
-        // Map data keys — check actual structure
-        if (trend.length > 0) {
-          var firstItem = trend[0];
-          // AccuracyTrendItem has accuracy_rate and exam_name
-          chartData = [];
-          for (var kk = 0; kk < trend.length; kk++) {
-            var t = trend[kk];
-            chartData.push({
-              label: t.exam_name || '',
-              value: t.accuracy_rate != null ? t.accuracy_rate * 100 : 0
-            });
-          }
         }
         Charts.renderTrendChart('drawerTrendChart', chartData, {
           width: 400,

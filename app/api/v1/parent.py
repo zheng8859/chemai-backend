@@ -52,8 +52,9 @@ from ...schemas.parent import (
 from ...schemas.base import PaginatedResponse
 from ...models.user import Parent, Student
 from ...models.agent_memory import ConversationCheckpoint
+from ...core.enums import BindingStatus
 from ...models.homework import StudentParentBinding
-from ...llm.router import llm_chat
+from ...llm.router import llm_chat, llm_chat_with_tools
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,6 @@ async def _resolve_parent_id(db: AsyncSession, user: UserContext) -> int:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="仅家长角色可访问",
         )
-    from sqlalchemy import select
     result = await db.execute(
         select(Parent).where(Parent.account_id == user.user_id)
     )
@@ -281,10 +281,96 @@ _PARENT_PERSONA_SYSTEM = """你是一位贴心的教育顾问，专门为家长�
 - 建议家长给孩子报补习班"""
 
 
+# ── Parent Agent 工具定义（OpenAI function-calling 格式）─────
+
+_PARENT_TOOLS: list[dict] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_child_overview",
+            "description": "获取孩子的学习概览：本周练习次数、正确率、连续学习天数、薄弱知识点、学习特点描述",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weekly_report",
+            "description": "获取孩子本周的学习周报（含学习总结、详细数据、给家长的建议）",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_child_timeline",
+            "description": "获取孩子近几周的学习时间线（每周练习次数统计）",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "weeks": {
+                        "type": "integer",
+                        "description": "查询最近几周，默认 4，最大 12",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+]
+
+
 def _make_sse_event(event: str, data: dict) -> str:
     """构造一条 SSE 帧。"""
     payload = json.dumps(data, ensure_ascii=False, default=str)
     return f"event: {event}\ndata: {payload}\n\n"
+
+
+async def _execute_parent_tool(
+    tool_name: str,
+    tool_args: dict,
+    db: AsyncSession,
+    parent_db_id: int,
+    student_db_id: int,
+) -> str:
+    """执行家长 Agent 工具调用，返回 JSON 字符串结果。
+
+    Args:
+        tool_name: 工具名称
+        tool_args: LLM 传入的参数
+        db: 数据库会话
+        parent_db_id: 家长数据库 ID
+        student_db_id: 当前选中学生的数据库 ID
+
+    Returns:
+        工具执行结果 JSON 字符串
+    """
+    if tool_name == "get_child_overview":
+        overview = await ParentService.get_child_overview(db, student_db_id)
+        return json.dumps(overview.model_dump(), ensure_ascii=False, default=str)
+
+    if tool_name == "get_weekly_report":
+        report = await WeeklyReportService.get_report(db, student_db_id)
+        if report is None:
+            return json.dumps({"message": "本周周报尚未生成"}, ensure_ascii=False)
+        return json.dumps(report.model_dump(), ensure_ascii=False, default=str)
+
+    if tool_name == "get_child_timeline":
+        weeks = tool_args.get("weeks", 4)
+        timeline = await ParentService.get_child_timeline(
+            db, student_db_id, weeks=min(weeks, 12)
+        )
+        return json.dumps(timeline.model_dump(), ensure_ascii=False, default=str)
+
+    return json.dumps({"error": f"未知工具: {tool_name}"}, ensure_ascii=False)
 
 
 @router.post("/agent/chat")
@@ -296,9 +382,11 @@ async def agent_chat(
 ):
     """家长 Agent SSE 流式对话。
 
-    组装 Parent persona，注入学生上下文，流式返回 SSE 事件：
-    - phase: {phase: "thinking"|"reply"}
+    组装 Parent persona + ReAct 工具调用循环，流式返回 SSE 事件：
+    - phase: {phase: "thinking"|"tool_call"|"tool_result"|"reply"}
     - text: {content: "..."}
+    - tool_call: {name: "...", arguments: {...}}
+    - tool_result: {name: "...", result: "..."}
     - done: {thread_id: "..."}
     - error: {message: "..."}
     """
@@ -309,7 +397,7 @@ async def agent_chat(
         select(StudentParentBinding).where(
             StudentParentBinding.student_id == data.student_id,
             StudentParentBinding.parent_id == parent_db_id,
-            StudentParentBinding.status == "active",
+            StudentParentBinding.status == BindingStatus.active,
         )
     )
     if binding_result.scalar_one_or_none() is None:
@@ -351,24 +439,90 @@ async def agent_chat(
     ]
 
     async def event_stream():
-        """SSE 事件生成器。"""
+        """SSE 事件生成器（含 ReAct 工具调用循环）。"""
+        all_messages: list[dict] = list(messages)
         try:
             # Phase: thinking
             yield _make_sse_event("phase", {"phase": "thinking"})
 
-            # 非流式调用 LLM（json_mode=False 获取自然语言回复）
-            raw_response = await llm_chat(
-                messages,
-                temperature=0.7,
-                max_tokens=1024,
-                json_mode=False,
-            )
+            # ReAct 工具调用循环（最多 3 轮）
+            max_tool_rounds = 3
+            for _round in range(max_tool_rounds):
+                # 调用 LLM（带工具定义）
+                response = await llm_chat_with_tools(
+                    all_messages,
+                    tools=_PARENT_TOOLS,
+                    temperature=0.7,
+                    max_tokens=1024,
+                )
 
-            # Phase: reply
+                tool_calls = response.get("tool_calls")
+                if not tool_calls:
+                    # 无工具调用 → LLM 给出最终文本回复
+                    final_text = response.get("content") or ""
+                    all_messages.append({
+                        "role": "assistant",
+                        "content": final_text,
+                    })
+                    break
+
+                # 处理工具调用
+                for tc in tool_calls:
+                    fn = tc.get("function", {})
+                    tool_name = fn.get("name", "unknown")
+                    try:
+                        tool_args = json.loads(fn.get("arguments", "{}"))
+                    except json.JSONDecodeError:
+                        tool_args = {}
+
+                    # SSE: tool_call
+                    yield _make_sse_event("tool_call", {
+                        "name": tool_name,
+                        "arguments": tool_args,
+                    })
+
+                    # 执行工具
+                    tool_result_str = await _execute_parent_tool(
+                        tool_name, tool_args, db, parent_db_id, data.student_id,
+                    )
+
+                    # SSE: tool_result
+                    yield _make_sse_event("tool_result", {
+                        "name": tool_name,
+                        "result": tool_result_str[:500],
+                    })
+
+                    # 追加到消息历史
+                    all_messages.append({
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [tc],
+                    })
+                    all_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.get("id", ""),
+                        "content": tool_result_str,
+                    })
+
+            # Phase: reply → 输出最终文本
             yield _make_sse_event("phase", {"phase": "reply"})
 
-            # 模拟逐字流式输出（将响应按短句拆分）
-            sentences = raw_response.replace("\n", "\n\n").split("\n\n")
+            final_text = all_messages[-1].get("content", "")
+            if not final_text:
+                # 如果最后一轮是工具调用且无文本，再补一次 LLM 调用获取总结
+                try:
+                    summary_resp = await llm_chat_with_tools(
+                        all_messages,
+                        tools=_PARENT_TOOLS,
+                        temperature=0.7,
+                        max_tokens=1024,
+                    )
+                    final_text = summary_resp.get("content") or "抱歉，我暂时无法生成回复。"
+                except Exception:
+                    final_text = "抱歉，我暂时无法生成回复。"
+
+            # 模拟逐字流式输出
+            sentences = final_text.replace("\n", "\n\n").split("\n\n")
             for sentence in sentences:
                 text = sentence.strip()
                 if not text:
@@ -376,7 +530,7 @@ async def agent_chat(
                 yield _make_sse_event("text", {"content": text + "\n\n"})
                 await asyncio.sleep(0.05)
 
-            # Save checkpoint
+            # Save checkpoint（完整对话历史，保留多轮上下文）
             try:
                 checkpoint = ConversationCheckpoint(
                     thread_id=thread_id,
@@ -386,9 +540,11 @@ async def agent_chat(
                         "parent_id": parent_db_id,
                         "student_id": data.student_id,
                         "messages": [
-                            {"role": "system", "content": _PARENT_PERSONA_SYSTEM[:200]},
-                            {"role": "user", "content": data.message},
-                            {"role": "assistant", "content": raw_response[:500]},
+                            {
+                                "role": m.get("role"),
+                                "content": (m.get("content") or "")[:4096],
+                            }
+                            for m in all_messages
                         ],
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     },
@@ -404,9 +560,6 @@ async def agent_chat(
         except Exception as e:
             logger.error(f"Parent agent error: {e}", exc_info=True)
             yield _make_sse_event("error", {"message": "AI 助手暂时无法回复，请稍后重试"})
-
-        finally:
-            # 确保客户端收到关闭信号
             yield _make_sse_event("done", {"thread_id": thread_id})
 
     return StreamingResponse(

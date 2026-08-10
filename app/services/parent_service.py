@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.enums import BindingStatus, NotificationType
+from ..core.enums import BindingStatus, NotificationType, PracticeSessionStatus
 from ..models.user import Student, Parent
 from ..models.homework import StudentParentBinding, ParentNotification, WeeklyReport
 from ..models.org import Class, School, Grade
@@ -22,6 +22,7 @@ from ..schemas.parent import (
     ChildTimelineResponse,
     ParentNotificationResponse,
 )
+from ..utils import get_current_week_start
 
 logger = logging.getLogger(__name__)
 
@@ -44,14 +45,29 @@ class ParentService:
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
-    async def create_binding(db: AsyncSession, parent_db_id: int, data: BindingCreate) -> BindingRead:
-        """创建亲子绑定（验证绑定码）。"""
-        result = await db.execute(select(Student).where(Student.id == data.student_id))
-        student = result.scalar_one_or_none()
-        if student is None:
-            raise ParentError(f"学生不存在: id={data.student_id}")
-        if student.bind_code != data.bind_code:
-            raise ParentError("绑定码无效", "INVALID_BIND_CODE")
+    async def create_binding(db: AsyncSession, parent_db_id: int, data) -> BindingRead:
+        """创建亲子绑定（验证绑定码）。
+
+        支持两种方式定位学生：
+        1. 通过 data.student_id（兼容旧调用）
+        2. 通过 data.bind_code 直接查找（前端新路径）
+        """
+        if data.student_id:
+            # 通过 student_id 查找
+            result = await db.execute(select(Student).where(Student.id == data.student_id))
+            student = result.scalar_one_or_none()
+            if student is None:
+                raise ParentError(f"学生不存在: id={data.student_id}")
+            if student.bind_code != data.bind_code:
+                raise ParentError("绑定码无效", "INVALID_BIND_CODE")
+        else:
+            # 通过 bind_code 反向查找学生
+            result = await db.execute(
+                select(Student).where(Student.bind_code == data.bind_code)
+            )
+            student = result.scalar_one_or_none()
+            if student is None:
+                raise ParentError("绑定码无效，未找到对应学生", "INVALID_BIND_CODE")
 
         # 检查是否已存在 active 绑定
         existing = await db.execute(
@@ -65,7 +81,7 @@ class ParentService:
             raise ParentError("已绑定该学生", "ALREADY_BOUND")
 
         binding = StudentParentBinding(
-            student_id=data.student_id,
+            student_id=student.id,
             parent_id=parent_db_id,
             status=BindingStatus.active,
             relation=data.relation,
@@ -141,15 +157,13 @@ class ParentService:
     ) -> ChildOverviewResponse:
         """获取子女学习概览：本周练习数、正确率、连续天数、薄弱点。"""
         now = datetime.now(timezone.utc)
-        week_start = (now - timedelta(days=now.weekday())).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        week_start = get_current_week_start(now)
 
         # 本周练习会话
         sessions_result = await db.execute(
             select(PracticeSession).where(
                 PracticeSession.student_id == student_db_id,
-                PracticeSession.status == "completed",
+                PracticeSession.status == PracticeSessionStatus.completed,
                 PracticeSession.created_at >= week_start,
             )
         )
@@ -169,16 +183,23 @@ class ParentService:
         student = student_result.scalar_one_or_none()
 
         weak_kps = student.weak_knowledge_points if student and student.weak_knowledge_points else []
+        # 将化学术语转换为通俗表述（家长端可读）
+        if weak_kps:
+            from ..utils import convert_chemical_terms_list
+            weak_kps = convert_chemical_terms_list(weak_kps)
         last_practice = student.last_practice_time if student else None
 
-        # 学习特点通俗描述
+        # 学习特点通俗描述 + 障碍画像
         characteristics = "暂无足够数据进行分析"
+        barriers = None
         if student and student.barrier_profile:
             bp = student.barrier_profile
             parts = []
             concept = bp.get("concept", 0)
             reading = bp.get("reading", 0)
             expression = bp.get("expression", 0)
+
+            barriers = dict(concept=concept, reading=reading, expression=expression)
 
             if concept >= 0.5:
                 parts.append("在概念理解方面需要多花一些时间")
@@ -204,6 +225,7 @@ class ParentService:
             total_practice_count=total_count,
             weak_knowledge_points=weak_kps,
             characteristics=characteristics,
+            barriers=barriers,
             last_practice_time=last_practice,
         )
 
@@ -224,7 +246,7 @@ class ParentService:
             count_result = await db.execute(
                 select(func.count(PracticeSession.id)).where(
                     PracticeSession.student_id == student_db_id,
-                    PracticeSession.status == "completed",
+                    PracticeSession.status == PracticeSessionStatus.completed,
                     PracticeSession.created_at >= week_start,
                     PracticeSession.created_at < week_end,
                 )

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from .teaching import StudentAnswer
     from .diagnosis import ReviewTask, WarningLog, BarrierConfig, KnowledgePoint
     from .homework import StudentParentBinding
-    from .ocr import StudentSubmission, UploadSession
+    from .ocr import StudentSubmission, UploadSession, OCRTask
     from .question_bank import QuestionSet
     from .agent_memory import LongTermMemory
 
@@ -97,6 +97,7 @@ class Teacher(Base, TimestampMixin):
     barrier_config: Mapped[Optional["BarrierConfig"]] = relationship(back_populates="teacher", uselist=False)
     question_sets: Mapped[List["QuestionSet"]] = relationship(back_populates="teacher")
     upload_sessions: Mapped[List["UploadSession"]] = relationship(back_populates="teacher")
+    ocr_tasks: Mapped[List["OCRTask"]] = relationship(back_populates="teacher")
 
     def __repr__(self) -> str:
         return f"<Teacher id={self.id} name='{self.name}' role={self.role}>"
@@ -162,6 +163,8 @@ class Student(Base, TimestampMixin):
     long_term_memories: Mapped[List["LongTermMemory"]] = relationship(
         "LongTermMemory", foreign_keys="LongTermMemory.student_id", back_populates="student"
     )
+    learning_plans: Mapped[List["LearningPlan"]] = relationship(back_populates="student")
+    notifications: Mapped[List["Notification"]] = relationship(back_populates="student")
 
     def __repr__(self) -> str:
         return f"<Student id={self.id} name='{self.name}' class_id={self.class_id}>"

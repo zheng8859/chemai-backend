@@ -9,59 +9,35 @@ from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from ..core.enums import NotificationType
+from ..core.enums import BindingStatus, NotificationType, PracticeSessionStatus
 from ..models.homework import StudentParentBinding, ParentNotification, WeeklyReport
 from ..models.user import Student, Parent
 from ..models.teaching import PracticeSession, StudentAnswer
 from ..llm.router import llm_chat
 from ..llm.providers.openai_compat import LLMError
 from ..schemas.parent import WeeklyReportResponse
+from ..utils import get_current_week_start, get_current_week_range
 from .parent_service import ParentService
 
 logger = logging.getLogger(__name__)
 
 # ── 化学术语 → 通俗表述映射（33号 §八 — 家长端术语转换）──────────
 
-_TERM_MAP: dict[str, str] = {
-    "氧化还原反应": "与电子转移相关的反应",
-    "离子反应": "溶液中离子的反应",
-    "物质的量": "化学计量单位",
-    "摩尔": "化学计量单位",
-    "化学平衡": "反应的动态平衡",
-    "元素周期律": "元素性质的规律",
-    "电解质": "能导电的化合物",
-    "共价键": "原子间的连接方式",
-    "离子键": "原子间的连接方式",
-    "配平": "方程式配平",
-    "沉淀": "不溶于水的固体",
-    "中和反应": "酸碱反应",
-    "摩尔质量": "单位物质的量的质量",
-    "阿伏加德罗常数": "微观粒子计数单位",
-    "电离": "物质在水中分解",
-    "水解": "物质与水的反应",
-    "酯化反应": "酸与醇生成酯的反应",
-    "加成反应": "有机物加成的反应",
-    "取代反应": "有机物原子替换的反应",
-    "消去反应": "有机物消除小分子的反应",
-}
-
-
 def _convert_terms(raw: str) -> str:
     """将化学专业术语替换为通俗表述（家长可阅读）。"""
-    result = raw
-    for term, plain in _TERM_MAP.items():
-        if term in result:
-            result = result.replace(term, plain)
-    return result
+    from ..utils import convert_chemical_terms
+    return convert_chemical_terms(raw)
 
 
 def _convert_term_list(terms: list[str]) -> str:
     """将术语列表转为通俗表述字符串。"""
     if not terms:
         return "暂无"
-    converted = [_convert_terms(t) for t in terms]
-    return "、".join(converted)
+    from ..utils import convert_chemical_terms_list
+    converted = convert_chemical_terms_list(terms)
+    return "、".join(converted) if converted else "暂无"
 
 # ── 周报生成 System Prompt（33号 §八） ──────────────────────
 
@@ -106,7 +82,7 @@ _WEEKLY_REPORT_USER = """请为以下学生生成本周（{week_start} 至 {week
 
 ## 本周学习数据
 - 完成练习次数：{practice_count}
-- 加权正确率：{accuracy}（{"暂无数据" if accuracy is None else f"{accuracy:.1%}"}）
+- 加权正确率：{accuracy_str}
 - 连续学习天数：{streak_days}
 - 练习涉及知识点：{topics_plain}
 
@@ -135,7 +111,7 @@ class WeeklyReportService:
     async def generate_report(
         db: AsyncSession,
         student_db_id: int,
-        generated_by: str = "system",
+        generated_by: str = "auto",
     ) -> WeeklyReportResponse:
         """为指定学生生成当周周报。
 
@@ -146,16 +122,18 @@ class WeeklyReportService:
         5. 返回响应
         """
         now = datetime.now(timezone.utc)
-        week_start = (now - timedelta(days=now.weekday())).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
-        week_end = (week_start + timedelta(days=7)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        week_start, week_end = get_current_week_range(now)
 
         # ── 聚合数据 ──
+        from ..models.org import Class, Grade
+
         student_result = await db.execute(
-            select(Student).where(Student.id == student_db_id)
+            select(Student)
+            .options(
+                selectinload(Student.class_)
+                .selectinload(Class.grade)
+            )
+            .where(Student.id == student_db_id)
         )
         student = student_result.scalar_one_or_none()
         if student is None:
@@ -165,7 +143,7 @@ class WeeklyReportService:
         count_result = await db.execute(
             select(func.count(PracticeSession.id)).where(
                 PracticeSession.student_id == student_db_id,
-                PracticeSession.status == "completed",
+                PracticeSession.status == PracticeSessionStatus.completed,
                 PracticeSession.created_at >= week_start,
                 PracticeSession.created_at < week_end,
             )
@@ -181,7 +159,7 @@ class WeeklyReportService:
         sessions_result = await db.execute(
             select(PracticeSession).where(
                 PracticeSession.student_id == student_db_id,
-                PracticeSession.status == "completed",
+                PracticeSession.status == PracticeSessionStatus.completed,
                 PracticeSession.created_at >= week_start,
                 PracticeSession.created_at < week_end,
             )
@@ -225,7 +203,7 @@ class WeeklyReportService:
             student_name=student.name,
             grade=grade_name,
             practice_count=practice_count,
-            accuracy=accuracy,
+            accuracy_str=accuracy_str,
             streak_days=streak,
             topics_plain=topics_str,
             weak_points_plain=weak_str,
@@ -243,6 +221,11 @@ class WeeklyReportService:
         try:
             raw = await llm_chat(messages, temperature=0.7, json_mode=True)
             data = json.loads(raw)
+            # 归一化：LLM 可能将文本字段返回为字符串或字符串列表
+            for field in ("summary", "detail", "advice"):
+                val = data.get(field, "")
+                if isinstance(val, list):
+                    data[field] = "\n".join(val)
         except (LLMError, json.JSONDecodeError) as e:
             logger.error(f"WeeklyReport LLM 调用失败: {e}")
             # 降级：生成基础报告
@@ -254,23 +237,41 @@ class WeeklyReportService:
                 weak_kps=weak_kps,
             )
 
-        # ── 存储 ──
-        report = WeeklyReport(
-            student_id=student_db_id,
-            week_start=week_start,
-            week_end=week_end - timedelta(days=1),
-            summary=data.get("summary", "本周学习报告已生成"),
-            detail=data.get("detail", "暂无详细数据"),
-            advice=data.get("advice", "请持续关注孩子的学习情况"),
-            no_data=data.get("no_data", practice_count < 2),
-            generated_at=datetime.now(timezone.utc),
-            generated_by=generated_by,
+        # ── 存储（upsert：同一学生同一周只保留最新一份）──
+        report = await db.execute(
+            select(WeeklyReport).where(
+                WeeklyReport.student_id == student_db_id,
+                WeeklyReport.week_start == week_start,
+            )
         )
-        db.add(report)
-        await db.commit()
-        await db.refresh(report)
+        existing = report.scalar_one_or_none()
 
-        return WeeklyReportResponse.model_validate(report)
+        if existing:
+            existing.summary = data.get("summary", existing.summary)
+            existing.detail = data.get("detail", existing.detail)
+            existing.advice = data.get("advice", existing.advice)
+            existing.no_data = data.get("no_data", existing.no_data)
+            existing.generated_at = datetime.now(timezone.utc)
+            existing.generated_by = generated_by
+            report_obj = existing
+        else:
+            report_obj = WeeklyReport(
+                student_id=student_db_id,
+                week_start=week_start,
+                week_end=week_end - timedelta(days=1),
+                summary=data.get("summary", "本周学习报告已生成"),
+                detail=data.get("detail", "暂无详细数据"),
+                advice=data.get("advice", "请持续关注孩子的学习情况"),
+                no_data=data.get("no_data", practice_count < 2),
+                generated_at=datetime.now(timezone.utc),
+                generated_by=generated_by,
+            )
+            db.add(report_obj)
+
+        await db.commit()
+        await db.refresh(report_obj)
+
+        return WeeklyReportResponse.model_validate(report_obj)
 
     @staticmethod
     def _fallback_report(
@@ -325,10 +326,7 @@ class WeeklyReportService:
             week_start: 周一日期，默认为本周一
         """
         if week_start is None:
-            now = datetime.now(timezone.utc)
-            week_start = (now - timedelta(days=now.weekday())).replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
+            week_start = get_current_week_start()
 
         result = await db.execute(
             select(WeeklyReport).where(
@@ -349,7 +347,7 @@ class WeeklyReportService:
     async def generate_and_notify(
         db: AsyncSession,
         student_db_id: int,
-        generated_by: str = "system",
+        generated_by: str = "auto",
     ) -> WeeklyReportResponse:
         """生成周报 → 查询绑定家长 → 创建通知。"""
         report = await WeeklyReportService.generate_report(
@@ -360,7 +358,7 @@ class WeeklyReportService:
         bindings_result = await db.execute(
             select(StudentParentBinding).where(
                 StudentParentBinding.student_id == student_db_id,
-                StudentParentBinding.status == "active",
+                StudentParentBinding.status == BindingStatus.active,
             )
         )
         bindings = bindings_result.scalars().all()
@@ -394,7 +392,7 @@ class WeeklyReportService:
         # 查找所有有活跃绑定的学生
         bindings_result = await db.execute(
             select(StudentParentBinding.student_id).where(
-                StudentParentBinding.status == "active",
+                StudentParentBinding.status == BindingStatus.active,
             ).distinct()
         )
         student_ids = [row[0] for row in bindings_result.all()]
@@ -406,14 +404,14 @@ class WeeklyReportService:
         for sid in student_ids:
             try:
                 report = await WeeklyReportService.generate_and_notify(
-                    db, sid, generated_by="cron"
+                    db, sid, generated_by="auto"
                 )
                 generated += 1
                 # count notifications from generate_and_notify
                 bindings_count = await db.execute(
                     select(func.count(StudentParentBinding.id)).where(
                         StudentParentBinding.student_id == sid,
-                        StudentParentBinding.status == "active",
+                        StudentParentBinding.status == BindingStatus.active,
                     )
                 )
                 notifications_sent += bindings_count.scalar() or 0

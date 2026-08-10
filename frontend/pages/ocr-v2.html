@@ -383,7 +383,7 @@ createApp({
         if (!doneIds.length) { showToast('没有已完成 OCR 的任务','error'); return; }
         grading.value = true;
         try {
-          const data = await api('POST','/grading/run',{task_ids:doneIds});
+          const data = await api('POST','/ocr/grading/run',{task_ids:doneIds});
           gradingResults.value = data.results||[];
           showToast(`批改完成: ${data.graded} 通过, ${data.failed} 失败`,'success');
           step.value = 3;
@@ -398,7 +398,7 @@ createApp({
       saving.value = true;
       try {
         const taskIds = gradingResults.value.map(r=>r.task_id);
-        const data = await api('POST','/grading/save',{task_ids:taskIds});
+        const data = await api('POST','/ocr/grading/save',{task_ids:taskIds});
         showToast(`保存成功: ${data.saved_count} 条, 诊断已触发`,'success');
       } catch(e) { showToast('保存失败: '+e.message,'error'); }
       finally { saving.value = false; }

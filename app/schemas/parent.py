@@ -21,8 +21,8 @@ class BindCodeRequest(BaseModel):
 
 
 class BindRequest(BaseModel):
-    """家长提交绑定请求。"""
-    student_id: int
+    """家长提交绑定请求。student_id 可选：不传则通过 bind_code 自动解析学生。"""
+    student_id: int | None = None
     bind_code: str = Field(..., min_length=6, max_length=6)
     relation: ParentRelation = ParentRelation.other
 
@@ -39,6 +39,13 @@ class ChildInfo(BaseModel):
 
 # ── 子女数据查询 ─────────────────────────────────────────
 
+class BarrierProfile(BaseModel):
+    """三维障碍画像（0-1 比例值）。"""
+    concept: float = Field(default=0, ge=0, le=1, description="概念理解障碍")
+    reading: float = Field(default=0, ge=0, le=1, description="审题障碍")
+    expression: float = Field(default=0, ge=0, le=1, description="表述障碍")
+
+
 class ChildOverviewResponse(BaseModel):
     """子女学习概览。"""
     student_id: int
@@ -49,6 +56,7 @@ class ChildOverviewResponse(BaseModel):
     total_practice_count: int = Field(default=0, description="累计练习总量")
     weak_knowledge_points: list[str] = Field(default_factory=list, description="薄弱知识点（通俗描述）")
     characteristics: str = Field(default="暂无足够数据进行分析", description="学习特点通俗描述")
+    barriers: BarrierProfile | None = Field(default=None, description="三维障碍画像")
     last_practice_time: datetime | None = None
 
 
@@ -69,15 +77,15 @@ class ChildTimelineResponse(BaseModel):
 
 # ── 周报 ────────────────────────────────────────────────
 
-class WeeklyReportResponse(BaseModel):
+class WeeklyReportResponse(ORMBase):
     """周报响应。"""
     id: int
     student_id: int
     week_start: date
     week_end: date
-    summary: str
-    detail: str
-    advice: str
+    summary: str = Field(max_length=200, description="周报摘要")
+    detail: str = Field(max_length=600, description="周报详情")
+    advice: str = Field(max_length=400, description="家长建议")
     no_data: bool = False
     generated_at: datetime
     generated_by: str
@@ -99,6 +107,7 @@ class ParentNotificationResponse(BaseModel):
     body: str
     related_id: int | None = None
     is_read: bool = Field(default=False, description="是否已读（read_at != null）")
+    read_at: datetime | None = Field(default=None, description="阅读时间")
     sent_at: datetime
 
     model_config = {"from_attributes": True}

@@ -11,7 +11,7 @@ class TestGradingSaveAPI:
     @pytest.mark.anyio
     async def test_save_requires_auth(self, async_client):
         """未认证返回 401/403。"""
-        response = await async_client.post("/api/v1/grading/save", json={
+        response = await async_client.post("/api/v1/ocr/grading/save", json={
             "task_ids": [1],
         })
         assert response.status_code in (401, 403)
@@ -20,7 +20,7 @@ class TestGradingSaveAPI:
     async def test_save_student_forbidden(self, async_client, student_headers):
         """学生角色无 ocr:create 权限。"""
         response = await async_client.post(
-            "/api/v1/grading/save",
+            "/api/v1/ocr/grading/save",
             json={"task_ids": [1]},
             headers=student_headers,
         )
@@ -30,7 +30,7 @@ class TestGradingSaveAPI:
     async def test_save_teacher_success_200(self, async_client, teacher_headers):
         """教师调用返回 200（通过权限检查，内部无已完成 task 则 saved=0）。"""
         response = await async_client.post(
-            "/api/v1/grading/save",
+            "/api/v1/ocr/grading/save",
             json={"task_ids": [99999]},  # 不存在的 task
             headers=teacher_headers,
         )
@@ -44,7 +44,7 @@ class TestGradingSaveAPI:
     async def test_save_empty_task_ids(self, async_client, teacher_headers):
         """空 task_ids 返回 200，saved=0。"""
         response = await async_client.post(
-            "/api/v1/grading/save",
+            "/api/v1/ocr/grading/save",
             json={"task_ids": []},
             headers=teacher_headers,
         )
@@ -56,7 +56,7 @@ class TestGradingSaveAPI:
     async def test_save_missing_fields_422(self, async_client, teacher_headers):
         """缺少 task_ids 返回 422。"""
         response = await async_client.post(
-            "/api/v1/grading/save",
+            "/api/v1/ocr/grading/save",
             json={},
             headers=teacher_headers,
         )

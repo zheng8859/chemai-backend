@@ -111,6 +111,11 @@ var ChemSSE = (function () {
         // HTTP 错误 (401 / 500 等)
         _state = 'error';
         _sending = false;
+        // 401 → 清除 token 跳转登录（与 api-client.js 行为一致）
+        if (response.status === 401 && typeof ChemAuth !== 'undefined') {
+          ChemAuth.redirectToLogin();
+          return;
+        }
         if (handlers.error) {
           handlers.error({
             type: 'error',

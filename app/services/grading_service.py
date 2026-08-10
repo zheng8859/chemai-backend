@@ -532,9 +532,19 @@ OCR 识别文本：
             # 双写 StudentSubmission + StudentAnswer
             grading = task.grading_result
 
+            # 从 UploadSession.ocr_result_json 获取 exam_record_id
+            exam_record_id = 1
+            if task.upload_session_id:
+                sess_result = await db.execute(
+                    select(UploadSession).where(UploadSession.id == task.upload_session_id)
+                )
+                session = sess_result.scalar_one_or_none()
+                if session and session.ocr_result_json:
+                    exam_record_id = session.ocr_result_json.get("exam_record_id", 1)
+
             # StudentSubmission
             submission = StudentSubmission(
-                exam_record_id=1,  # P4 将从 UploadSession 关联
+                exam_record_id=exam_record_id,
                 student_id=student.id if student else 0,
                 class_id=student.class_id if student else 0,
                 original_image=task.image_path,
@@ -549,7 +559,7 @@ OCR 识别文本：
                 answer = StudentAnswer(
                     question_id=0,  # P4 将从 ExamPaper 关联
                     student_id=student.id if student else 0,
-                    exam_record_id=1,
+                    exam_record_id=exam_record_id,
                     answer_content=q.get("student_answer", ""),
                     is_correct=q.get("is_correct", False),
                     barrier_type=BarrierType.concept if not q.get("is_correct") else None,
@@ -564,35 +574,50 @@ OCR 识别文本：
         # 诊断触发标记
         diagnosis_triggered = saved_count > 0
 
+        # 收集已保存的 task_ids（用于状态更新 + 管线上下文传递）
+        saved_task_ids = [
+            tid for tid in task_ids
+            if not any(s["task_id"] == tid for s in skipped)
+        ]
+
+        # 收集 exam_record_id（从第一个已保存 task 对应的 UploadSession 获取）
+        pipeline_exam_record_id = 1
+        if saved_task_ids:
+            t_result = await db.execute(
+                select(OCRTask).where(OCRTask.id == saved_task_ids[0])
+            )
+            first_task = t_result.scalar_one_or_none()
+            if first_task and first_task.upload_session_id:
+                s_r = await db.execute(
+                    select(UploadSession).where(UploadSession.id == first_task.upload_session_id)
+                )
+                s = s_r.scalar_one_or_none()
+                if s and s.ocr_result_json and s.ocr_result_json.get("exam_record_id"):
+                    pipeline_exam_record_id = s.ocr_result_json["exam_record_id"]
+
         await db.commit()
 
         # 更新已保存任务的会话状态：grading → graded
-        if saved_count > 0:
-            saved_task_ids = [
-                tid for tid in task_ids
-                if not any(s["task_id"] == tid for s in skipped)
-            ]
-            if saved_task_ids:
-                from sqlalchemy import update as _update, select as _select
-                # 获取涉及到的 session ids
-                tasks_result = await db.execute(
-                    _select(OCRTask.upload_session_id).where(
-                        OCRTask.id.in_(saved_task_ids)
-                    ).distinct()
+        if saved_task_ids:
+            from sqlalchemy import update as _update, select as _select
+            tasks_result = await db.execute(
+                _select(OCRTask.upload_session_id).where(
+                    OCRTask.id.in_(saved_task_ids)
+                ).distinct()
+            )
+            session_ids = [row[0] for row in tasks_result.fetchall()]
+            if session_ids:
+                await db.execute(
+                    _update(UploadSession)
+                    .where(UploadSession.id.in_(session_ids))
+                    .values(status=UploadSessionStatus.graded)
                 )
-                session_ids = [row[0] for row in tasks_result.fetchall()]
-                if session_ids:
-                    await db.execute(
-                        _update(UploadSession)
-                        .where(UploadSession.id.in_(session_ids))
-                        .values(status=UploadSessionStatus.graded)
-                    )
-                    await db.commit()
-                    logger.info("[grading] 会话状态更新为 graded: %s", session_ids)
+                await db.commit()
+                logger.info("[grading] 会话状态更新为 graded: %s", session_ids)
 
         logger.info(
-            "[grading] 保存结果: saved=%d, skipped=%d, diagnosis=%s",
-            saved_count, len(skipped), diagnosis_triggered,
+            "[grading] 保存结果: saved=%d, skipped=%d, diagnosis=%s, exam_record_id=%d",
+            saved_count, len(skipped), diagnosis_triggered, pipeline_exam_record_id,
         )
 
         return {
@@ -600,40 +625,252 @@ OCR 识别文本：
             "skipped_count": len(skipped),
             "skipped_details": skipped,
             "diagnosis_triggered": diagnosis_triggered,
+            "exam_record_id": pipeline_exam_record_id,
+            "saved_task_ids": saved_task_ids,
         }
 
     @staticmethod
-    async def _post_save_pipeline(saved_count: int) -> None:
-        """8.3: 异步执行诊断→统计→报告链。
+    async def _post_save_pipeline(
+        saved_count: int,
+        exam_record_id: int = 1,
+        saved_task_ids: list[int] | None = None,
+        *,
+        _db: AsyncSession | None = None,  # 测试注入：绕过 MainSession()
+    ) -> dict:
+        """8.3: 异步执行诊断→统计→报告链（三步 Pipeline）。
 
         8.4: 各步独立 try/catch，前一步失败不阻塞后续。
-        """
-        if saved_count == 0:
-            return
 
-        logger.info("[grading] 启动后保存管线: %d 条记录", saved_count)
+        Args:
+            saved_count: 已保存记录数
+            exam_record_id: 考试记录 ID（从 UploadSession 提取）
+            saved_task_ids: 已保存的 task ID 列表
+            _db: 测试专用，传入已有的 AsyncSession 以绕过 MainSession()
+
+        Returns:
+            {"diagnosis": int, "stats": dict|None, "report": str|None}
+        """
+        result = {"diagnosis": 0, "stats": None, "report": None}
+
+        if saved_count == 0:
+            return result
+
+        logger.info(
+            "[grading] 启动后保存管线: %d 条记录, exam_record_id=%d",
+            saved_count, exam_record_id,
+        )
 
         from ..infrastructure.database import MainSession
 
-        # Step 1: 障碍诊断
+        async def _get_db():
+            if _db is not None:
+                yield _db
+            else:
+                async with MainSession() as session:
+                    yield session
+
+        # ═══════════════════════════════════════════════════════════
+        # Step 1: 障碍诊断 — LLM 批量诊断错误作答
+        # ═══════════════════════════════════════════════════════════
         try:
-            async with MainSession() as db:
-                logger.info("[grading] 诊断步骤: 待 P4 诊断引擎接入")
+            async for db in _get_db():
+                diagnosed_count = await GradingService._run_diagnosis(
+                    db, exam_record_id,
+                )
+                result["diagnosis"] = diagnosed_count
+                logger.info("[grading] 诊断完成: %d 条", diagnosed_count)
+                break
         except Exception as e:
             logger.warning("[grading] 诊断失败: %s", e)
 
+        # ═══════════════════════════════════════════════════════════
         # Step 2: 班级统计
+        # ═══════════════════════════════════════════════════════════
         try:
-            async with MainSession() as db:
-                logger.info("[grading] 统计步骤: 待 exam_record_id 关联后自动触发")
+            async for db in _get_db():
+                stats = await compute_exam_statistics(db, exam_record_id)
+                result["stats"] = stats
+                logger.info("[grading] 统计完成: participants=%s, avg=%.1f",
+                             stats.get("participants", 0), stats.get("avg_score", 0))
+                break
         except Exception as e:
             logger.warning("[grading] 统计失败: %s", e)
 
+        # ═══════════════════════════════════════════════════════════
         # Step 3: LLM 分析报告
-        try:
-            logger.info("[grading] 报告步骤: 待通过 /ocr/stats 端点手动触发")
-        except Exception as e:
-            logger.warning("[grading] 报告失败: %s", e)
+        # ═══════════════════════════════════════════════════════════
+        if result["stats"] and "error" not in result["stats"]:
+            try:
+                report = await generate_class_report(exam_record_id, result["stats"])
+                result["report"] = report
+                logger.info("[grading] 报告生成完成: %d 字符", len(report))
+            except Exception as e:
+                logger.warning("[grading] 报告失败: %s", e)
+        else:
+            logger.info("[grading] 跳过报告: 无有效统计数据")
+
+        return result
+
+    # ── Step 1 子方法: LLM 诊断引擎 ──
+
+    @staticmethod
+    async def _run_diagnosis(
+        db: AsyncSession,
+        exam_record_id: int,
+    ) -> int:
+        """对指定考试下所有未诊断的错误作答执行 LLM 批量诊断。
+
+        调用 chem_skills 诊断引擎的 diagnose_batch()，
+        更新 StudentAnswer.barrier_type / misconception_category / diagnosed_by，
+        聚合学生画像并更新 Student.barrier_profile。
+        """
+        from sqlalchemy import select, update as _update
+        from ..models.teaching import StudentAnswer, Question
+        from ..models.user import Student
+        from ..core.enums import DiagnosisSource
+        from ..llm.router import llm_chat
+        from chem_skills.chemistry_diagnosis.engine.llm_diagnoser import (
+            diagnose_batch, SYSTEM_PROMPT,
+        )
+        from chem_skills.chemistry_diagnosis.engine.aggregator import (
+            aggregate_student, aggregate_class,
+        )
+
+        # 查询所有未诊断的错误作答
+        answers_result = await db.execute(
+            select(StudentAnswer).where(
+                StudentAnswer.exam_record_id == exam_record_id,
+                StudentAnswer.is_correct == False,
+                StudentAnswer.diagnosed_by.is_(None),
+            )
+        )
+        error_answers = answers_result.scalars().all()
+
+        if not error_answers:
+            logger.info("[diagnosis] 无待诊断错误作答 (exam_record_id=%d)", exam_record_id)
+            return 0
+
+        # 收集题目内容（按 question_id 做缓存避免重复查询）
+        question_cache: dict[int, str] = {}
+        answer_cache: dict[int, str] = {}
+
+        for ea in error_answers:
+            qid = ea.question_id
+            if qid and qid not in question_cache:
+                q_result = await db.execute(
+                    select(Question).where(Question.id == qid)
+                )
+                q = q_result.scalar_one_or_none()
+                if q:
+                    question_cache[qid] = q.content
+                    answer_cache[qid] = q.answer
+                else:
+                    question_cache[qid] = "题目内容缺失"
+                    answer_cache[qid] = "答案缺失"
+
+        # 构建诊断输入
+        diagnosis_inputs = []
+        answer_id_map = {}  # index -> StudentAnswer.id
+        for idx, ea in enumerate(error_answers):
+            qid = ea.question_id
+            diagnosis_inputs.append({
+                "question_content": question_cache.get(qid, "题目内容缺失"),
+                "student_answer": ea.answer_content or "（空）",
+                "correct_answer": answer_cache.get(qid, "答案缺失"),
+                "history": [],  # P4: 可扩展历史错题
+            })
+            answer_id_map[idx] = ea.id
+
+        # LLM 回调适配：将 llm_chat 包装为诊断引擎所需的签名
+        async def llm_call(prompt: str) -> str:
+            return await llm_chat(
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
+                max_tokens=500,
+                json_mode=True,
+            )
+
+        # 批量诊断（支持循环处理超限内容）
+        total_diagnosed = 0
+        remaining = list(diagnosis_inputs)
+        batch_idx = 0
+
+        while remaining:
+            batch_results, failed = await diagnose_batch(
+                llm_call, remaining,
+                max_concurrency=5,
+                batch_limit=10,
+            )
+            total_diagnosed += len(batch_results)
+
+            # 更新 StudentAnswer 记录
+            for orig, diag_result in batch_results:
+                # 找到对应的 answer_id
+                orig_idx = diagnosis_inputs.index(orig)
+                answer_id = answer_id_map[orig_idx]
+                await db.execute(
+                    _update(StudentAnswer)
+                    .where(StudentAnswer.id == answer_id)
+                    .values(
+                        barrier_type=diag_result.barrier_type,
+                        misconception_category=diag_result.misconception_category,
+                        diagnosed_by=DiagnosisSource.ai_llm,
+                    )
+                )
+
+            # 移除已处理的，循环处理剩余
+            processed_count = len(batch_results) + failed
+            remaining = remaining[processed_count:]
+            batch_idx += 1
+
+            if processed_count == 0:
+                break
+
+            logger.info(
+                "[diagnosis] batch %d: %d 成功, %d 失败, %d 剩余",
+                batch_idx, len(batch_results), failed, len(remaining),
+            )
+
+        await db.commit()
+
+        # 聚合学生画像
+        if total_diagnosed > 0:
+            # 按 student_id 分组已诊断答案
+            all_diagnosed_result = await db.execute(
+                select(StudentAnswer).where(
+                    StudentAnswer.exam_record_id == exam_record_id,
+                    StudentAnswer.diagnosed_by == DiagnosisSource.ai_llm,
+                )
+            )
+            all_diagnosed = all_diagnosed_result.scalars().all()
+
+            by_student: dict[int, list[dict]] = {}
+            for ans in all_diagnosed:
+                sid = ans.student_id
+                if sid not in by_student:
+                    by_student[sid] = []
+                by_student[sid].append({
+                    "barrier_type": ans.barrier_type.value if hasattr(ans.barrier_type, 'value') else str(ans.barrier_type),
+                    "misconception_category": ans.misconception_category.value if ans.misconception_category and hasattr(ans.misconception_category, 'value') else ans.misconception_category,
+                    "knowledge_point_tags": [],
+                })
+
+            # 更新每个学生的障碍画像
+            for student_id, diagnosed_answers in by_student.items():
+                profile = aggregate_student(student_id, diagnosed_answers)
+                await db.execute(
+                    _update(Student)
+                    .where(Student.id == student_id)
+                    .values(barrier_profile=profile.to_dict())
+                )
+
+            await db.commit()
+            logger.info("[diagnosis] 已更新 %d 名学生障碍画像", len(by_student))
+
+        return total_diagnosed
 
 
 # ═══════════════════════════════════════════════════════════════

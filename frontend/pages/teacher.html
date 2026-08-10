@@ -358,37 +358,37 @@
     'use strict';
 
     // ═══════════════════════════════════════════════════════
-    // Auth check
+    // 登录与角色校验
     // ═══════════════════════════════════════════════════════
     if (!ChemAuth.isAuthenticated()) {
       ChemAuth.redirectToLogin();
       return;
     }
     var user = ChemAuth.getCurrentUser();
-    if (user && (user.role === 'student' || user.role === 'parent')) {
+    if (!user || (user.role !== 'teacher' && user.role !== 'system_admin')) {
       window.location.href = 'index.html';
       return;
     }
 
-    // Display user info
+    // 显示教师信息
     var userName = user ? ('教师' + user.userId) : '教师';
     var avatarText = '教';
     document.getElementById('headerUserName').textContent = userName;
     document.getElementById('headerAvatar').textContent = avatarText;
 
     // ═══════════════════════════════════════════════════════
-    // State
+    // 全局状态
     // ═══════════════════════════════════════════════════════
     var currentClassId = null;
     var currentClassList = [];
 
     // ═══════════════════════════════════════════════════════
-    // Init
+    // 初始化
     // ═══════════════════════════════════════════════════════
     loadClassList();
 
     // ═══════════════════════════════════════════════════════
-    // Class list
+    // 班级列表
     // ═══════════════════════════════════════════════════════
     function loadClassList() {
       ChemAPI.apiGet('/panel/classes')
@@ -426,43 +426,45 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Panel data (parallel: overview + trend)
+    // 面板数据加载（班级概览 + 成绩趋势，独立加载、独立错误处理）
     // ═══════════════════════════════════════════════════════
     function loadPanelData() {
       if (!currentClassId) return;
 
-      // Reset all sections to loading
+      // 重置所有模块为加载态
       setKpiLoading();
-      setChartLoading('barChartContent', 'spinner');
-      setChartLoading('donutContent', 'spinner');
-      setChartLoading('trendContent', 'spinner');
+      setChartLoading('barChartContent');
+      setChartLoading('donutContent');
+      setChartLoading('trendContent');
       document.getElementById('concernSection').classList.add('hidden');
 
-      Promise.all([
-        ChemAPI.apiGet('/panel/class/' + currentClassId),
-        ChemAPI.apiGet('/panel/class/' + currentClassId + '/exam-trend'),
-      ]).then(function (results) {
-        var overview = results[0].data;
-        var trend = results[1].data;
-        renderKpi(overview);
-        renderBarChart(overview.knowledge_points || []);
-        renderDonutChart(overview.barrier_distribution || []);
-        renderTrendChart(trend || []);
-        renderConcernStudents(overview.concern_students || []);
-      }).catch(function () {
-        // Individual module errors handled by per-module catch in render functions
-        // This catch is for the parallel request itself failing (network)
-        showGlobalError();
-      });
-    }
+      // 加载班级概览（KPI + 柱状图 + 环形图 + 关注学生）
+      ChemAPI.apiGet('/panel/class/' + currentClassId)
+        .then(function (res) {
+          var overview = res.data || {};
+          renderKpi(overview);
+          renderBarChart(overview.knowledge_points || []);
+          renderDonutChart(overview.barrier_distribution || []);
+          renderConcernStudents(overview.concern_students || []);
+        })
+        .catch(function () {
+          document.getElementById('kpiGrid').innerHTML = '<div class="state-msg">KPI 加载失败，<button class="retry-btn" onclick="loadPanelData()">重试</button></div>';
+          document.getElementById('barChartContent').innerHTML = '<div class="state-msg">图表加载失败，<button class="retry-btn" onclick="loadPanelData()">重试</button></div>';
+          document.getElementById('donutContent').innerHTML = '<div class="state-msg">图表加载失败，<button class="retry-btn" onclick="loadPanelData()">重试</button></div>';
+        });
 
-    function showGlobalError() {
-      document.getElementById('mainContent').innerHTML =
-        '<div class="state-msg">数据加载失败，<button class="retry-btn" onclick="location.reload()">重试</button></div>';
+      // 独立加载成绩趋势
+      ChemAPI.apiGet('/panel/class/' + currentClassId + '/exam-trend')
+        .then(function (res) {
+          renderTrendChart((res.data) || []);
+        })
+        .catch(function () {
+          document.getElementById('trendContent').innerHTML = '<div class="state-msg">趋势加载失败，<button class="retry-btn" onclick="loadPanelData()">重试</button></div>';
+        });
     }
 
     // ═══════════════════════════════════════════════════════
-    // KPI cards
+    // KPI 概要卡片
     // ═══════════════════════════════════════════════════════
     function setKpiLoading() {
       var cards = document.querySelectorAll('#kpiGrid .kpi-card');
@@ -483,11 +485,11 @@
         '<div class="kpi-card"><div class="kpi-value">' + examCount + '</div><div class="kpi-label">考试次数</div></div>' +
         '<div class="kpi-card clickable" id="kpiConcern" onclick="goWarnings()"><div class="kpi-value concern">' + concernCount + '人</div><div class="kpi-label">需关注学生</div></div>' +
         '<div class="kpi-card"><div class="kpi-value">' + studentCount + '</div><div class="kpi-label">班级人数</div></div>' +
-        '<div class="kpi-card"><div class="kpi-value">' + avgScore + '</div><div class="kpi-label">班级均分</div></div>';
+        '<div class="kpi-card"><div class="kpi-value">' + avgScore + '</div><div class="kpi-label">班级加权均分</div></div>';
     }
 
     // ═══════════════════════════════════════════════════════
-    // Bar Chart (CSS) — tasks 2.3
+    // CSS 柱状图（知识点错误率 Top 5）
     // ═══════════════════════════════════════════════════════
     function renderBarChart(knowledgePoints) {
       var container = document.getElementById('barChartContent');
@@ -496,10 +498,10 @@
         return;
       }
 
-      // Max 5 items
+      // 最多 5 项
       var items = knowledgePoints.slice(0, 5);
       var maxError = items[0].error_rate;
-      // Y labels (0% ~ 100%)
+      // Y 轴标签（0% ~ 100%）
       var gridLabels = ['100%', '80%', '60%', '40%', '20%', '0%'];
 
       var html = '<div class="bar-chart"><div class="grid-lines">';
@@ -522,7 +524,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Donut Chart (CSS conic-gradient) — tasks 2.4
+    // CSS 环形图（障碍类型分布）
     // ═══════════════════════════════════════════════════════
     function renderDonutChart(barriers) {
       var container = document.getElementById('donutContent');
@@ -531,10 +533,10 @@
         return;
       }
 
-      var colors = { concept: '#7c3aed', reading: '#2563eb', expression: '#06b6d4' };
-      var labels = { concept: '概念理解', reading: '审题障碍', expression: '表述障碍' };
+      var colors = { concept: ChemConst.barrierColor('concept'), reading: ChemConst.barrierColor('reading'), expression: ChemConst.barrierColor('expression') };
+      var labels = { concept: ChemConst.barrierLabel('concept'), reading: ChemConst.barrierLabel('reading'), expression: ChemConst.barrierLabel('expression') };
 
-      // Build conic-gradient
+      // 构建 conic-gradient 扇形段
       var gradientParts = [];
       var legendHtml = '';
       var cumulative = 0;
@@ -563,7 +565,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Trend Chart (SVG via charts.js) — tasks 2.5
+    // SVG 折线图（班级考试成绩趋势）
     // ═══════════════════════════════════════════════════════
     function renderTrendChart(trendData) {
       var container = document.getElementById('trendContent');
@@ -590,7 +592,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Concern Students — tasks 2.6
+    // 关注学生横向滚动卡片
     // ═══════════════════════════════════════════════════════
     function renderConcernStudents(students) {
       if (!students || students.length === 0) {
@@ -621,13 +623,11 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // Helpers
+    // 辅助函数
     // ═══════════════════════════════════════════════════════
-    function setChartLoading(elId, type) {
+    function setChartLoading(elId) {
       var el = document.getElementById(elId);
-      if (type === 'spinner') {
-        el.innerHTML = '<div class="state-msg"><div class="spinner"></div></div>';
-      }
+      el.innerHTML = '<div class="state-msg"><div class="spinner"></div></div>';
     }
 
     window.goWarnings = function () {

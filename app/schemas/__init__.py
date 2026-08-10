@@ -111,6 +111,7 @@ from .agent import (
 )
 
 from .parent import (
+    BarrierProfile,
     BindCodeRequest,
     BindRequest,
     ChildInfo,
