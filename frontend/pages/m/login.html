@@ -190,6 +190,21 @@
       background: #1a365d;
     }
 
+    .btn-login:disabled {
+      background: #8a9bb5;
+      cursor: not-allowed;
+    }
+
+    /* 错误提示 */
+    .login-error {
+      display: none;
+      text-align: center;
+      color: #c0392b;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    .login-error.show { display: block; }
+
     /* ========== 底部文字 ========== */
     .footer-links {
       text-align: center;
@@ -239,7 +254,7 @@
     <!-- ===== 表单区 ===== -->
     <div class="form-area">
       <div class="input-group">
-        <input type="text" placeholder="请输入学号或手机号" autocomplete="username">
+        <input type="text" id="account-field" placeholder="请输入学号或手机号" autocomplete="username">
       </div>
 
       <div class="input-group">
@@ -249,7 +264,8 @@
         </button>
       </div>
 
-      <button class="btn-login" type="submit">登录</button>
+      <button class="btn-login" id="btn-login" type="submit">登录</button>
+      <div class="login-error" id="login-error"></div>
     </div>
 
     <!-- ===== 底部文字 ===== -->
@@ -262,14 +278,21 @@
 
   </div>
 
-  <!-- 密码可见性切换脚本 -->
+  <!-- 模块引入 -->
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/api-client.js"></script>
+
   <script>
     (function () {
-      const field = document.getElementById('password-field');
-      const toggle = document.getElementById('toggle-password');
-      const icon = toggle.querySelector('.eye-icon');
+      'use strict';
 
-      let visible = false;
+      // ════════════════════════════════════════════════════════
+      // 密码可见性切换
+      // ════════════════════════════════════════════════════════
+      var field = document.getElementById('password-field');
+      var toggle = document.getElementById('toggle-password');
+      var icon = toggle.querySelector('.eye-icon');
+      var visible = false;
 
       toggle.addEventListener('click', function () {
         visible = !visible;
@@ -281,6 +304,93 @@
           icon.textContent = '👁';
         }
       });
+
+      // ════════════════════════════════════════════════════════
+      // 登录表单
+      // ════════════════════════════════════════════════════════
+      var accountInput = document.getElementById('account-field');
+      var btnLogin = document.getElementById('btn-login');
+      var errorEl = document.getElementById('login-error');
+
+      /** 隐藏错误提示 */
+      function hideError() {
+        errorEl.classList.remove('show');
+        errorEl.textContent = '';
+      }
+
+      /** 显示错误提示 */
+      function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.classList.add('show');
+      }
+
+      /** 提交中状态 */
+      function setLoading(loading) {
+        btnLogin.disabled = loading;
+        btnLogin.textContent = loading ? '登录中...' : '登录';
+      }
+
+      /** 判断输入是手机号还是学号 */
+      function isPhone(val) {
+        return /^1\d{10}$/.test(val.trim());
+      }
+
+      /** 处理登录 */
+      function handleLogin() {
+        var account = accountInput.value.trim();
+        var password = field.value;
+
+        if (!account) {
+          showError('请输入学号或手机号');
+          accountInput.focus();
+          return;
+        }
+        if (!password) {
+          showError('请输入密码');
+          field.focus();
+          return;
+        }
+
+        hideError();
+        setLoading(true);
+
+        // 构造请求体
+        var body = { password: password };
+        if (isPhone(account)) {
+          body.phone = account;
+        } else {
+          body.school_id = account;
+        }
+
+        ChemAPI.apiPost('/auth/login', body)
+          .then(function (data) {
+            // 登录成功：保存 token 并跳转
+            ChemAuth.login(data.access_token || data.token);
+          })
+          .catch(function (err) {
+            setLoading(false);
+            if (err.status === 401) {
+              showError('学号或密码错误');
+            } else {
+              showError('网络连接失败，请重试');
+            }
+          });
+      }
+
+      // 绑定事件
+      btnLogin.addEventListener('click', handleLogin);
+
+      // Enter 键提交
+      accountInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { handleLogin(); }
+      });
+      field.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { handleLogin(); }
+      });
+
+      // 输入时清除错误
+      accountInput.addEventListener('input', hideError);
+      field.addEventListener('input', hideError);
     })();
   </script>
 

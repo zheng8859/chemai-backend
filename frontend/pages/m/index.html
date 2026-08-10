@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css">
   <style>
     :root {
       --oxford-blue: #002045;
@@ -214,6 +215,148 @@
     .tab-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
     .tab-icon svg { width: 18px; height: 18px; }
     .tab-label { font-size: 10px; font-weight: 500; }
+
+    /* ── Status Bar ── */
+    .status-bar {
+      display: none; align-items: center; gap: 8px;
+      padding: 6px 12px; background: #f0f7ff;
+      border-top: 1px solid #d0e2f5;
+      font-size: 12px; color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .status-bar.show { display: flex; }
+    .status-bar.executing { background: #e8f4fd; color: #0056b3; }
+    .status-bar.awaiting_approval { background: #fff8e1; color: #8d6e00; }
+    .status-bar.error { background: #fdecea; color: #c0392b; }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .status-dot.thinking { background: #f0ad4e; animation: pulse 1.2s infinite; }
+    .status-dot.executing { background: #0275d8; animation: pulse 0.8s infinite; }
+    .status-dot.reply { background: #5cb85c; }
+    .status-dot.awaiting_approval { background: #f0ad4e; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .status-timer {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      color: #c0392b; font-weight: 600; margin-left: auto;
+    }
+
+    /* ── Tool Card ── */
+    .tool-card {
+      max-width: 100%;
+      background: var(--white); border: 1px solid #e0dcd5;
+      border-radius: 10px; overflow: hidden;
+      margin: 4px 0;
+    }
+    .tool-card-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px; background: #f8f7f4;
+      border-bottom: 1px solid #e0dcd5;
+      font-size: 13px; font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .tool-card-icon { font-size: 16px; }
+    .tool-card-body { padding: 12px 14px; }
+
+    /* ── Step Row ── */
+    .step-row {
+      display: flex; gap: 10px; padding: 10px 0;
+      border-bottom: 1px solid #f0ede6;
+    }
+    .step-row:last-child { border-bottom: none; }
+    .step-num {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--teal-light); color: var(--teal);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; flex-shrink: 0;
+    }
+    .step-content { flex: 1; min-width: 0; }
+    .step-title {
+      font-size: 14px; font-weight: 600; color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .step-desc {
+      font-size: 12px; color: var(--text-secondary); line-height: 1.5;
+    }
+
+    /* ── Tutor Text ── */
+    .tutor-text {
+      font-size: 14px; line-height: 1.7; color: var(--text-primary);
+    }
+
+    /* ── Equilibrium Table ── */
+    .eq-table {
+      width: 100%; border-collapse: collapse;
+      margin-top: 10px; font-size: 13px;
+    }
+    .eq-table th, .eq-table td {
+      border: 1px solid #e0dcd5; padding: 8px 10px;
+      text-align: center;
+    }
+    .eq-table th { background: #f0ede6; font-weight: 600; }
+    .eq-table .eq-label { background: #f8f7f4; font-weight: 500; color: var(--text-secondary); }
+
+    /* ── Experiment Section ── */
+    .exp-section { padding: 8px 0; border-bottom: 1px solid #f0ede6; }
+    .exp-section:last-child { border-bottom: none; }
+    .exp-label { font-size: 13px; font-weight: 600; color: var(--teal); margin-bottom: 4px; }
+    .exp-content { font-size: 13px; line-height: 1.6; color: var(--text-primary); }
+
+    /* ── Approval Card ── */
+    .approval-card {
+      background: #fffdf5; border: 1px solid #f0d060;
+      border-radius: 10px; padding: 14px;
+      margin: 4px 0;
+    }
+    .approval-text { font-size: 14px; color: #8d6e00; margin-bottom: 10px; }
+    .approval-actions { display: flex; gap: 10px; }
+    .btn-approve, .btn-cancel-approval {
+      flex: 1; height: 36px; border-radius: 8px;
+      font-size: 14px; font-weight: 500; border: none; cursor: pointer;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+    .btn-approve { background: var(--oxford-blue); color: var(--white); }
+    .btn-cancel-approval { background: #f5f5f5; color: var(--text-secondary); border: 1px solid #ddd; }
+
+    /* ── Error / Retry ── */
+    .retry-bubble {
+      display: flex; align-items: center; gap: 8px;
+      max-width: 85%; padding: 10px 14px;
+      background: #fdecea; border: 1px solid #f5c6cb;
+      border-radius: 10px; font-size: 13px; color: #c0392b;
+    }
+    .retry-btn {
+      padding: 4px 12px; border-radius: 6px;
+      background: #c0392b; color: white; border: none;
+      font-size: 12px; cursor: pointer; flex-shrink: 0;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+
+    /* ── Tool Raw (fallback) ── */
+    .tool-raw {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 12px; line-height: 1.5;
+      white-space: pre-wrap; word-break: break-all;
+      color: var(--text-secondary);
+    }
+
+    /* ── Skeleton Loading ── */
+    .skeleton {
+      display: flex; flex-direction: column; gap: 10px; padding: 4px 0;
+    }
+    .skeleton-line {
+      height: 14px; border-radius: 7px;
+      background: linear-gradient(90deg, #e8e5df 25%, #f0ede6 50%, #e8e5df 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
   </style>
 </head>
 <body>
@@ -244,10 +387,17 @@
     <header class="top-bar">
       <button class="hamburger" onclick="toggleDrawer()" aria-label="菜单"><span></span><span></span><span></span></button>
       <span class="brand-title">ChemAI 助教</span>
-      <button class="new-chat-btn" aria-label="新建对话">
+      <button class="new-chat-btn" id="btnNewChat" aria-label="新建对话">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
       </button>
     </header>
+
+    <!-- Agent 状态栏 -->
+    <div class="status-bar" id="statusBar">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">就绪</span>
+      <span class="status-timer" id="statusTimer"></span>
+    </div>
 
     <div class="chips-bar">
       <button class="chip">帮我讲解这个知识点</button>
@@ -257,41 +407,635 @@
       <button class="chip">总结今天学习</button>
     </div>
 
-    <div class="chat-scroll">
-      <div class="bubble-row ai"><div class="bubble-wrapper"><div class="bubble">你好！我是 ChemAI 助教，可以帮你解答化学问题、配平方程式、讲解知识点。有什么需要帮助的吗？</div><div class="bubble-time">14:28</div></div></div>
-      <div class="bubble-row user"><div class="bubble-wrapper"><div class="bubble">帮我讲解一下氧化还原反应</div><div class="bubble-time">14:29</div></div></div>
-      <div class="bubble-row ai"><div class="bubble-wrapper"><div class="bubble">氧化还原反应的实质是<b>电子的转移</b>（得失或偏移）。<br><br>在反应中：<br>• <b>失去电子</b>的物质被<b>氧化</b>，是<b>还原剂</b><br>• <b>得到电子</b>的物质被<b>还原</b>，是<b>氧化剂</b><br><br>例如：Zn + Cu²⁺ → Zn²⁺ + Cu，Zn 失去电子被氧化，Cu²⁺ 得到电子被还原。</div><div class="bubble-time">14:29</div></div></div>
-      <div class="bubble-row user"><div class="bubble-wrapper"><div class="bubble">能给我出几道练习题吗？</div><div class="bubble-time">14:30</div></div></div>
-      <div class="bubble-row ai"><div class="bubble-wrapper"><div class="bubble">好的！这里有几道关于氧化还原反应的选择题：<br><br><b>1.</b> 下列反应中，属于氧化还原反应的是？<br>A. CaO + H₂O → Ca(OH)₂<br>B. 2Na + Cl₂ → 2NaCl<br>C. NaOH + HCl → NaCl + H₂O<br>D. CaCO₃ → CaO + CO₂↑<br><br><b>2.</b> 在反应 Fe + CuSO₄ → FeSO₄ + Cu 中，被氧化的物质是？<br>A. CuSO₄<br>B. Fe<br>C. Cu<br>D. FeSO₄<br><br>想做更多练习可以说"再来几道"哦！</div><div class="bubble-time">14:30</div></div></div>
+    <div class="chat-scroll" id="chatScroll">
+      <div class="bubble-row ai"><div class="bubble-wrapper"><div class="bubble">你好！我是 ChemAI 助教，可以帮你解答化学问题、配平方程式、讲解知识点。有什么需要帮助的吗？</div><div class="bubble-time" id="initialTime"></div></div></div>
     </div>
 
     <div class="input-area">
       <button class="attach-btn" aria-label="附件">📎</button>
-      <input type="text" class="msg-input" placeholder="输入你的问题…">
-      <button class="send-btn" aria-label="发送">
+      <input type="text" class="msg-input" id="msgInput" placeholder="输入你的问题…">
+      <button class="send-btn" id="btnSend" aria-label="发送">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
       </button>
     </div>
 
     <nav class="tab-bar">
-      <button class="tab-item active"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 5.4 1.8"></path><path d="M12 6v4l3 2"></path></svg></span><span class="tab-label">AI助教</span></button>
-      <button class="tab-item"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span><span class="tab-label">练习</span></button>
-      <button class="tab-item"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span><span class="tab-label">错题</span></button>
-      <button class="tab-item"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span><span class="tab-label">我的</span></button>
+      <button class="tab-item active" onclick="location.href='index.html'"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 5.4 1.8"></path><path d="M12 6v4l3 2"></path></svg></span><span class="tab-label">AI助教</span></button>
+      <button class="tab-item" onclick="location.href='practice.html'"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="12" y2="17"></line></svg></span><span class="tab-label">练习</span></button>
+      <button class="tab-item" onclick="location.href='wrong.html'"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></span><span class="tab-label">错题</span></button>
+      <button class="tab-item" onclick="location.href='review.html'"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></span><span class="tab-label">复习</span></button>
+      <button class="tab-item" onclick="location.href='report.html'"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span><span class="tab-label">我的</span></button>
     </nav>
 
   </div>
 
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/api-client.js"></script>
+  <script src="../../js/sse-client.js"></script>
+  <script src="../../js/agent-renderer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/mhchem.min.js"></script>
+
   <script>
-    var drawer = document.getElementById('drawer');
-    var overlay = document.getElementById('overlay');
-    function toggleDrawer() {
-      if (drawer.classList.contains('open')) { closeDrawer(); }
-      else { drawer.classList.add('open'); overlay.classList.add('show'); }
-    }
-    function closeDrawer() {
-      drawer.classList.remove('open'); overlay.classList.remove('show');
-    }
+    (function () {
+      'use strict';
+
+      // ════════════════════════════════════════════════════════
+      // 全局引用
+      // ════════════════════════════════════════════════════════
+      var chatScroll = document.getElementById('chatScroll');
+      var msgInput = document.getElementById('msgInput');
+      var btnSend = document.getElementById('btnSend');
+      var btnNewChat = document.getElementById('btnNewChat');
+      var drawer = document.getElementById('drawer');
+      var overlay = document.getElementById('overlay');
+      var statusBar = document.getElementById('statusBar');
+      var statusDot = document.getElementById('statusDot');
+      var statusText = document.getElementById('statusText');
+      var statusTimer = document.getElementById('statusTimer');
+
+      // ════════════════════════════════════════════════════════
+      // 状态
+      // ════════════════════════════════════════════════════════
+      var threadId = null;           // 当前对话 thread_id
+      var lastToolResult = null;     // 上一条 tool_result 文本（去重用）
+      var timerInterval = null;      // 工具计时器
+      var timerSeconds = 0;
+      var pendingBody = null;        // 重试用：最后一次发送的 body
+      var currentAiBubble = null;    // 当前正在流式写入的 AI 气泡 DOM
+      var currentToolCard = null;    // 当前工具卡片 DOM
+
+      // ════════════════════════════════════════════════════════
+      // 初始化
+      // ════════════════════════════════════════════════════════
+
+      function init() {
+        // 认证守卫
+        if (!ChemAuth.isAuthenticated()) {
+          ChemAuth.redirectToLogin();
+          return;
+        }
+        if (ChemAuth.getUserRole() === 'teacher') {
+          location.href = '../teacher.html';
+          return;
+        }
+
+        // 渲染侧边栏个人资料
+        var user = ChemAuth.getCurrentUser();
+        if (user) {
+          var nameEl = drawer.querySelector('.drawer-name');
+          var classEl = drawer.querySelector('.drawer-class');
+          if (nameEl) nameEl.textContent = user.student_name || user.name || user.sub;
+          if (classEl) classEl.textContent = user.class_name || '';
+        }
+
+        // 设置初始时间
+        document.getElementById('initialTime').textContent = _formatTime(new Date());
+
+        // 绑定事件
+        btnSend.addEventListener('click', sendMessage);
+        msgInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+        btnNewChat.addEventListener('click', newConversation);
+        setupChips();
+        setupDrawerEvents();
+
+        // 首次加载时创建新对话 ID
+        threadId = _generateThreadId();
+
+        setStatus('idle', '');
+      }
+
+      // ════════════════════════════════════════════════════════
+      // 状态栏
+      // ════════════════════════════════════════════════════════
+
+      function setStatus(phase, msg) {
+        statusBar.classList.add('show');
+        statusBar.className = 'status-bar show ' + phase;
+        statusDot.className = 'status-dot ' + phase;
+        statusText.textContent = msg || PHASE_LABELS[phase] || phase;
+        if (statusTimer) statusTimer.textContent = '';
+        stopTimer();
+        if (phase === 'executing') {
+          startTimer();
+        }
+      }
+
+      var PHASE_LABELS = {
+        thinking: '分析中...',
+        executing: '执行中...',
+        reply: '回复中...',
+        awaiting_approval: '等待确认',
+        done: '就绪',
+        error: '连接失败',
+      };
+
+      function startTimer() {
+        timerSeconds = 0;
+        stopTimer();
+        timerInterval = setInterval(function () {
+          timerSeconds++;
+          var m = Math.floor(timerSeconds / 60);
+          var s = timerSeconds % 60;
+          statusTimer.textContent = (m > 0 ? m + ':' : '') + (s < 10 ? '0' + s : s) + 's';
+        }, 1000);
+      }
+
+      function stopTimer() {
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      }
+
+      // ════════════════════════════════════════════════════════
+      // 消息发送
+      // ════════════════════════════════════════════════════════
+
+      function sendMessage() {
+        var text = msgInput.value.trim();
+        if (!text) return;
+        if (ChemSSE.isSending()) return;
+
+        msgInput.value = '';
+        msgInput.focus();
+
+        // 用户气泡
+        _appendBubble('user', text);
+        scrollToBottom();
+
+        // 构建请求
+        var user = ChemAuth.getCurrentUser() || {};
+        var body = {
+          message: text,
+          thread_id: threadId,
+          persona: 'student',
+          context: {
+            student_id: ChemAuth.getUserId(),
+            student_name: user.student_name || user.name || '',
+            class_name: user.class_name || '',
+          },
+        };
+        pendingBody = body;
+
+        // 建立 SSE 连接
+        ChemSSE.connect('/api/v1/chat/stream', body, {
+          phase: onPhase,
+          text: onText,
+          tool_call: onToolCall,
+          tool_result: onToolResult,
+          component: onComponent,
+          navigate: onNavigate,
+          done: onDone,
+          error: onError,
+        });
+        setStatus('thinking', '分析中...');
+      }
+
+      // ════════════════════════════════════════════════════════
+      // SSE 事件处理
+      // ════════════════════════════════════════════════════════
+
+      function onPhase(data) {
+        var state = (data && data.state) || (typeof data === 'string' ? data : 'thinking');
+        setStatus(state, PHASE_LABELS[state] || state);
+        if (state === 'awaiting_approval') {
+          _renderApprovalCard(data);
+        }
+      }
+
+      function onText(data) {
+        setStatus('reply', '回复中...');
+        var content = (data && data.content) ? data.content : (typeof data === 'string' ? data : '');
+
+        // 文本去重：与上一条 tool_result 比较
+        if (lastToolResult && content) {
+          var overlap = _calcOverlap(content, lastToolResult);
+          if (overlap > 0.7) return;
+        }
+
+        if (!currentAiBubble) {
+          currentAiBubble = _appendBubble('ai', '');
+        }
+        _appendToAiBubble(content);
+        scrollToBottom();
+      }
+
+      function onToolCall(data) {
+        setStatus('executing', '');
+        var toolName = (data && data.name) || 'unknown';
+        var label = (typeof ChemAgentRender !== 'undefined') ? ChemAgentRender.toolLabel(toolName) : toolName;
+        currentToolCard = _appendToolCard(label, toolName);
+        startTimer();
+        scrollToBottom();
+      }
+
+      function onToolResult(data) {
+        stopTimer();
+        setStatus('reply', '回复中...');
+        var toolName = (data && data.name) || '';
+        var result = (data && data.result !== undefined) ? data.result : data;
+        var success = (data && data.success !== false);
+
+        // 保存 tool_result 文本供去重
+        if (typeof result === 'string') {
+          lastToolResult = result;
+        } else if (result && typeof result === 'object') {
+          lastToolResult = result.result || result.text || result.content || '';
+        }
+
+        if (currentToolCard && success) {
+          var html = (typeof ChemAgentRender !== 'undefined')
+            ? ChemAgentRender.render(toolName, result)
+            : _escapeFallback(result);
+          var body = currentToolCard.querySelector('.tool-card-body');
+          if (body) body.innerHTML = html;
+        }
+
+        currentAiBubble = null;
+        scrollToBottom();
+      }
+
+      function onComponent(data) {
+        // 内联面板 — 当前 Student persona 暂不触发，预留
+        var comp = (data && data.component) || '';
+        if (comp) {
+          _appendBubble('ai', '[面板: ' + comp + ']');
+        }
+      }
+
+      function onNavigate(data) {
+        // SSE 客户端已内置处理，此处做额外清理
+        stopTimer();
+      }
+
+      function onDone(data) {
+        stopTimer();
+        setStatus('done', '');
+        setTimeout(function () {
+          statusBar.classList.remove('show');
+        }, 2000);
+
+        // 对最后一个 AI 气泡渲染 KaTeX
+        if (currentAiBubble) {
+          ChemAPI.renderLatex(currentAiBubble);
+        }
+
+        currentAiBubble = null;
+        currentToolCard = null;
+        lastToolResult = null;
+        pendingBody = null;
+
+        // 缓存当前对话
+        _saveLocalConversation();
+      }
+
+      function onError(data) {
+        stopTimer();
+        setStatus('error', data.message || '连接失败');
+
+        // 显示重试气泡
+        var html = (
+          '<div class="retry-bubble">'
+          + '<span>' + (data.message || '网络连接失败，请重试') + '</span>'
+          + '<button class="retry-btn" onclick="window._retrySSE()">重试</button>'
+          + '</div>'
+        );
+        chatScroll.insertAdjacentHTML('beforeend', html);
+        scrollToBottom();
+
+        currentAiBubble = null;
+        currentToolCard = null;
+      }
+
+      // SSE 重试（挂到 window 供 inline onclick 调用）
+      window._retrySSE = function () {
+        if (pendingBody) {
+          ChemSSE.connect('/api/v1/chat/stream', pendingBody, {
+            phase: onPhase,
+            text: onText,
+            tool_call: onToolCall,
+            tool_result: onToolResult,
+            component: onComponent,
+            navigate: onNavigate,
+            done: onDone,
+            error: onError,
+          });
+          setStatus('thinking', '分析中...');
+        }
+      };
+
+      // ════════════════════════════════════════════════════════
+      // 对话管理
+      // ════════════════════════════════════════════════════════
+
+      function newConversation() {
+        ChemSSE.abort();
+        stopTimer();
+        threadId = _generateThreadId();
+        chatScroll.innerHTML = (
+          '<div class="bubble-row ai"><div class="bubble-wrapper">'
+          + '<div class="bubble">你好！我是 ChemAI 助教，可以帮你解答化学问题、配平方程式、讲解知识点。有什么需要帮助的吗？</div>'
+          + '<div class="bubble-time">' + _formatTime(new Date()) + '</div>'
+          + '</div></div>'
+        );
+        currentAiBubble = null;
+        currentToolCard = null;
+        lastToolResult = null;
+        statusBar.classList.remove('show');
+        msgInput.focus();
+      }
+
+      function _generateThreadId() {
+        return 's-' + Date.now();
+      }
+
+      /** 保存当前对话摘要到 localStorage */
+      function _saveLocalConversation() {
+        try {
+          var cache = JSON.parse(localStorage.getItem('chemai_conv_cache') || '{}');
+          var messages = chatScroll.querySelectorAll('.bubble-row');
+          var preview = '';
+          for (var i = 0; i < messages.length; i++) {
+            var b = messages[i].querySelector('.bubble');
+            if (b) preview = b.textContent.substring(0, 50);
+          }
+          cache[threadId] = {
+            title: preview,
+            last_at: new Date().toISOString(),
+            message_count: messages.length,
+          };
+          localStorage.setItem('chemai_conv_cache', JSON.stringify(cache));
+        } catch (e) { /* quota exceeded etc. */ }
+      }
+
+      // ════════════════════════════════════════════════════════
+      // 侧边抽屉
+      // ════════════════════════════════════════════════════════
+
+      function setupDrawerEvents() {
+        // 退出登录
+        var logoutEl = drawer.querySelector('.drawer-logout');
+        if (logoutEl) {
+          logoutEl.addEventListener('click', function () {
+            ChemAuth.logout();
+          });
+        }
+      }
+
+      function loadConversationList() {
+        var historyEl = drawer.querySelector('.drawer-history');
+        if (!historyEl) return;
+
+        // 先从 localStorage 快速渲染
+        try {
+          var cache = JSON.parse(localStorage.getItem('chemai_conv_cache') || '{}');
+          var localIds = Object.keys(cache);
+          if (localIds.length > 0) {
+            _renderConversationList(historyEl, localIds.map(function (id) {
+              return { thread_id: id, title: cache[id].title, last_at: cache[id].last_at, message_count: cache[id].message_count };
+            }));
+          }
+        } catch (e) {}
+
+        // 异步从服务端同步
+        ChemAPI.apiGet('/chat/conversations', { prefix: 's-' })
+          .then(function (data) {
+            var list = (data && data.conversations) || [];
+            _renderConversationList(historyEl, list);
+
+            // 合并写回缓存
+            try {
+              var merged = JSON.parse(localStorage.getItem('chemai_conv_cache') || '{}');
+              for (var i = 0; i < list.length; i++) {
+                merged[list[i].thread_id] = {
+                  title: list[i].title,
+                  last_at: list[i].last_at,
+                  message_count: list[i].message_count,
+                };
+              }
+              localStorage.setItem('chemai_conv_cache', JSON.stringify(merged));
+            } catch (e) {}
+          })
+          .catch(function () {
+            // 服务端不可用时保留本地缓存数据
+          });
+      }
+
+      function _renderConversationList(container, list) {
+        container.innerHTML = '';
+        if (!list || list.length === 0) {
+          container.innerHTML = '<div class="drawer-item" style="color:#666;text-align:center;padding:20px">暂无对话记录</div>';
+          return;
+        }
+        for (var i = 0; i < list.length; i++) {
+          var item = list[i];
+          var el = document.createElement('div');
+          el.className = 'drawer-item';
+          el.innerHTML = (
+            '<div class="drawer-item-title">' + ChemAPI.escapeHtml(item.title || '新对话') + '</div>'
+            + '<div class="drawer-item-time">' + _formatDate(item.last_at) + '</div>'
+          );
+          el.addEventListener('click', (function (tid) {
+            return function () { loadConversation(tid); };
+          })(item.thread_id));
+          container.appendChild(el);
+        }
+      }
+
+      function loadConversation(tid) {
+        closeDrawer();
+        ChemSSE.abort();
+        stopTimer();
+
+        ChemAPI.apiGet('/chat/history/' + tid)
+          .then(function (data) {
+            threadId = tid;
+            chatScroll.innerHTML = '';
+            var messages = (data && data.messages) || [];
+            for (var i = 0; i < messages.length; i++) {
+              var m = messages[i];
+              var role = m.role;
+              var content = m.content;
+              if (role === 'user') {
+                _appendBubble('user', content);
+              } else if (role === 'assistant') {
+                _appendBubble('ai', content);
+              }
+            }
+            if (messages.length === 0) {
+              newConversation();
+            }
+            ChemAPI.renderLatex(chatScroll);
+            scrollToBottom();
+          })
+          .catch(function () {
+            ChemAPI.showToast('加载对话失败');
+          });
+      }
+
+      // ════════════════════════════════════════════════════════
+      // 快捷选择项
+      // ════════════════════════════════════════════════════════
+
+      function setupChips() {
+        var chips = document.querySelectorAll('.chip');
+        for (var i = 0; i < chips.length; i++) {
+          chips[i].addEventListener('click', function () {
+            msgInput.value = this.textContent;
+            sendMessage();
+          });
+        }
+      }
+
+      // ════════════════════════════════════════════════════════
+      // UI 辅助
+      // ════════════════════════════════════════════════════════
+
+      /** 添加聊天气泡 */
+      function _appendBubble(role, html) {
+        var row = document.createElement('div');
+        row.className = 'bubble-row ' + role;
+        row.innerHTML = (
+          '<div class="bubble-wrapper">'
+          + '<div class="bubble">' + html + '</div>'
+          + '<div class="bubble-time">' + _formatTime(new Date()) + '</div>'
+          + '</div>'
+        );
+        chatScroll.appendChild(row);
+        return row.querySelector('.bubble');
+      }
+
+      /** 追加文本到当前 AI 气泡 */
+      function _appendToAiBubble(text) {
+        if (!currentAiBubble) return;
+        currentAiBubble.innerHTML += text;
+      }
+
+      /** 添加工具调用卡片 */
+      function _appendToolCard(label, toolName) {
+        var html = (
+          '<div class="bubble-row ai"><div class="bubble-wrapper">'
+          + '<div class="tool-card">'
+          + '<div class="tool-card-header">'
+          + '<span class="tool-card-icon">⚡</span>'
+          + '<span class="tool-card-title">' + ChemAPI.escapeHtml(label) + '</span>'
+          + '</div>'
+          + '<div class="tool-card-body"><div class="skeleton"><div class="skeleton-line" style="width:80%"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:60%"></div></div></div>'
+          + '</div>'
+          + '<div class="bubble-time">' + _formatTime(new Date()) + '</div>'
+          + '</div></div>'
+        );
+        chatScroll.insertAdjacentHTML('beforeend', html);
+        return chatScroll.lastElementChild.querySelector('.tool-card');
+      }
+
+      /** 审批卡片 */
+      function _renderApprovalCard(data) {
+        var msg = (data && data.message) || 'Agent 需要您的确认以继续操作';
+        var html = (
+          '<div class="bubble-row ai"><div class="bubble-wrapper">'
+          + '<div class="approval-card">'
+          + '<div class="approval-text">' + ChemAPI.escapeHtml(msg) + '</div>'
+          + '<div class="approval-actions">'
+          + '<button class="btn-approve" id="btnApprove">确认</button>'
+          + '<button class="btn-cancel-approval" id="btnCancelApproval">取消</button>'
+          + '</div>'
+          + '</div>'
+          + '</div></div>'
+        );
+        chatScroll.insertAdjacentHTML('beforeend', html);
+        scrollToBottom();
+
+        // 绑定按钮（setTimeout 让 DOM 就绪）
+        setTimeout(function () {
+          var approve = document.getElementById('btnApprove');
+          var cancel = document.getElementById('btnCancelApproval');
+          if (approve) approve.addEventListener('click', function () {
+            // POST 恢复执行（后端从 checkpointer 恢复）
+            ChemAPI.apiPost('/chat/resume', { thread_id: threadId, approved: true })
+              .catch(function () {});
+          });
+          if (cancel) cancel.addEventListener('click', function () {
+            ChemAPI.apiPost('/chat/resume', { thread_id: threadId, approved: false })
+              .catch(function () {});
+          });
+        }, 100);
+      }
+
+      /** 兜底渲染 */
+      function _escapeFallback(result) {
+        var text = (typeof result === 'string') ? result : JSON.stringify(result, null, 2);
+        return '<pre class="tool-raw">' + ChemAPI.escapeHtml(text) + '</pre>';
+      }
+
+      /** 文本重叠率 */
+      function _calcOverlap(a, b) {
+        if (!a || !b) return 0;
+        var shorter = a.length < b.length ? a : b;
+        var longer = a.length < b.length ? b : a;
+        if (shorter.length === 0) return 0;
+        var maxOverlap = 0;
+        for (var i = 0; i < shorter.length; i++) {
+          for (var j = shorter.length - i; j > maxOverlap; j--) {
+            if (longer.indexOf(shorter.substring(i, i + j)) !== -1) {
+              maxOverlap = j;
+              break;
+            }
+          }
+        }
+        return maxOverlap / shorter.length;
+      }
+
+      /** 滚动到底部 */
+      function scrollToBottom() {
+        setTimeout(function () {
+          chatScroll.scrollTop = chatScroll.scrollHeight;
+        }, 50);
+      }
+
+      /** 时间格式化 */
+      function _formatTime(d) {
+        return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      }
+
+      function _formatDate(iso) {
+        if (!iso) return '';
+        var d = new Date(iso);
+        var now = new Date();
+        if (d.toDateString() === now.toDateString()) return '今天 ' + _formatTime(d);
+        var yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (d.toDateString() === yesterday.toDateString()) return '昨天 ' + _formatTime(d);
+        return (d.getMonth() + 1) + '月' + d.getDate() + '日';
+      }
+
+      // ════════════════════════════════════════════════════════
+      // Drawer toggle
+      // ════════════════════════════════════════════════════════
+
+      window.toggleDrawer = function () {
+        if (drawer.classList.contains('open')) {
+          closeDrawer();
+        } else {
+          loadConversationList();
+          drawer.classList.add('open');
+          overlay.classList.add('show');
+        }
+      };
+
+      window.closeDrawer = function () {
+        drawer.classList.remove('open');
+        overlay.classList.remove('show');
+      };
+
+      // ════════════════════════════════════════════════════════
+      // 启动
+      // ════════════════════════════════════════════════════════
+      init();
+    })();
   </script>
 </body>
 </html>

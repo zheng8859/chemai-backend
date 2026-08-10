@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from ..models.teaching import (
     PracticeSession,
@@ -146,6 +147,20 @@ class AdaptivePracticeService:
         await db.commit()
         await db.refresh(session)
 
+        # Best-effort 通知写入（不阻塞练习创建）
+        try:
+            from .notification_service import NotificationService
+            await NotificationService.create_notification_best_effort(
+                db,
+                student_id=student_id,
+                type_=NotificationService.TYPE_PRACTICE_ASSIGNED,
+                title="新的自适应练习已布置",
+                body=f"教师为你布置了一份包含 {session.question_count} 道题的练习：{session.title}",
+                related_id=session.id,
+            )
+        except Exception:
+            pass  # best-effort, already logged in service
+
         return {
             "practice_id": practice_id,
             "title": session.title,
@@ -173,41 +188,70 @@ class AdaptivePracticeService:
                 "completed": [...],
             }
         """
-        # 待完成
+        # 待完成（预加载关联题目）
         pending_result = await db.execute(
             select(PracticeSession)
+            .options(selectinload(PracticeSession.session_questions)
+                     .selectinload(PracticeSessionQuestion.question))
             .where(
                 PracticeSession.student_id == student_id,
                 PracticeSession.status == PracticeSessionStatus.in_progress.value,
             )
             .order_by(PracticeSession.created_at.desc())
         )
-        pending = pending_result.scalars().all()
+        pending = pending_result.unique().scalars().all()
 
-        # 已完成
+        # 已完成（预加载关联题目）
         completed_result = await db.execute(
             select(PracticeSession)
+            .options(selectinload(PracticeSession.session_questions)
+                     .selectinload(PracticeSessionQuestion.question))
             .where(
                 PracticeSession.student_id == student_id,
                 PracticeSession.status == PracticeSessionStatus.completed.value,
             )
             .order_by(PracticeSession.created_at.desc())
         )
-        completed = completed_result.scalars().all()
+        completed = completed_result.unique().scalars().all()
 
-        def _format_session(s):
+        async def _format_session(s: PracticeSession) -> dict:
+            questions = []
+            for sq in sorted(s.session_questions, key=lambda x: x.sort_order):
+                q = sq.question
+                if q:
+                    questions.append({
+                        "id": q.id,
+                        "content": q.content,
+                        "options": q.options or [],
+                        "question_type": q.question_type,
+                        "answer": q.answer,
+                        "analysis": q.analysis,
+                        "difficulty": q.difficulty,
+                    })
             return {
+                "id": s.id,
                 "practice_id": s.practice_id,
                 "title": s.title,
                 "question_count": s.question_count,
+                "answered_count": s.questions_served,
                 "status": s.status,
+                "barrier_type": s.barrier_type,
+                "knowledge_point_tags": s.knowledge_point_tags or [],
+                "questions": questions,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
                 "deadline": s.deadline.isoformat() if s.deadline else None,
             }
 
+        import asyncio
+        pending_formatted = await asyncio.gather(
+            *[_format_session(s) for s in pending]
+        )
+        completed_formatted = await asyncio.gather(
+            *[_format_session(s) for s in completed]
+        )
         return {
-            "pending": [_format_session(s) for s in pending],
-            "completed": [_format_session(s) for s in completed],
+            "pending": list(pending_formatted),
+            "completed": list(completed_formatted),
         }
 
     # ═══════════════════════════════════════════════════════════
@@ -219,6 +263,7 @@ class AdaptivePracticeService:
         db: AsyncSession,
         practice_id: str,
         answers: list[dict],
+        current_user_id: int | None = None,
     ) -> dict:
         """提交练习答案。
 
@@ -229,6 +274,7 @@ class AdaptivePracticeService:
                 {"question_id": int, "answer": str},
                 ...
             ]
+            current_user_id: 当前认证用户的 Account.id，用于校验练习归属
 
         Returns:
             {
@@ -239,7 +285,7 @@ class AdaptivePracticeService:
             }
 
         Raises:
-            AdaptivePracticeError: 练习不存在或已提交
+            AdaptivePracticeError: 练习不存在、已提交、或不属于该学生
         """
         session = (await db.execute(
             select(PracticeSession).where(
@@ -250,6 +296,18 @@ class AdaptivePracticeService:
             raise AdaptivePracticeError(f"练习不存在: {practice_id}")
         if session.status == PracticeSessionStatus.completed.value:
             raise AdaptivePracticeError("该练习已提交，不能重复提交", "DUPLICATE_SUBMIT")
+
+        # 校验练习归属：session.student_id 必须匹配当前认证用户
+        if current_user_id is not None:
+            from ..models.user import Student
+            student_result = await db.execute(
+                select(Student).where(Student.account_id == current_user_id)
+            )
+            student = student_result.scalar_one_or_none()
+            if student is None or student.id != session.student_id:
+                raise AdaptivePracticeError(
+                    "该练习不属于当前用户", "PRACTICE_NOT_OWNED"
+                )
 
         # 取关联题目
         psq_result = await db.execute(
@@ -543,27 +601,13 @@ class AdaptivePracticeService:
             difficulty, "中等"
         )
 
-        # 从策略中推导题型分布偏好
-        type_hint = ""
-        if strategy and "question_type_weights" in strategy:
-            weights = strategy["question_type_weights"]
-            dominant = sorted(weights.items(), key=lambda x: -x[1])
-            type_names = {
-                "choice": "选择题", "fill_blank": "填空题",
-                "calculation": "计算题", "experiment": "实验题",
-                "inference": "推断题",
-            }
-            parts = [
-                f"{type_names.get(t, t)}{int(w * 100)}%"
-                for t, w in dominant if w > 0
-            ]
-            type_hint = f"\n- **题型分布**：{'、'.join(parts)}"
-
-        prompt = f"""你是一位经验丰富的中学化学教师，请生成 {count} 道化学题目。
+        # v1.0 仅选择题型，后续版本按策略矩阵启用多题型
+        prompt = f"""你是一位经验丰富的中学化学教师，请生成 {count} 道化学选择题。
 
 **要求：**
 - 知识点：{kp_str}
-- 难度：{difficulty_cn}（{difficulty}）{type_hint}
+- 难度：{difficulty_cn}（{difficulty}）
+- 题型：选择题（4 个选项 A/B/C/D）
 - 每道题必须包含完整题面、4 个选项（A/B/C/D）、正确答案、简要解析（1-2 句）
 - 题面使用 LaTeX（$...$）书写化学式和方程式
 - 确保题目科学准确，知识点明确
@@ -607,11 +651,34 @@ class AdaptivePracticeService:
         if not isinstance(parsed, list):
             parsed = [parsed]
 
-        # 写入 Question 表
+        # 四维审核引擎校验（科学性 / 方程式配平 / 物质稳定性 / 反应条件）
+        from chem_skills.chemistry_parser.engine import audit_equation, extract_equations
+
+        # 写入 Question 表（跳过审核不通过的题目）
         generated = []
+        skipped = 0
         for item in parsed[:count]:
+            content = item.get("content", "")
+
+            # 提取并审核化学方程式
+            equations = extract_equations(content)
+            audit_failed = False
+            for eq in equations:
+                report = audit_equation(eq)
+                if report.has_errors:
+                    logger.warning(
+                        "LLM 生成题目审核不通过，跳过: equation=%s, errors=%s",
+                        eq, [e.message for e in report.errors],
+                    )
+                    audit_failed = True
+                    break
+
+            if audit_failed:
+                skipped += 1
+                continue
+
             q = Question(
-                content=item.get("content", ""),
+                content=content,
                 question_type=item.get("question_type", "choice"),
                 options=item.get("options", []),
                 answer=item.get("answer", ""),
@@ -633,5 +700,8 @@ class AdaptivePracticeService:
                 "knowledge_point_tags": q.knowledge_point_tags,
             })
 
-        logger.info(f"LLM 成功生成 {len(generated)} 道题目")
+        if skipped > 0:
+            logger.info(f"LLM 生成题目：{len(generated)} 道通过审核，{skipped} 道被跳过")
+        else:
+            logger.info(f"LLM 成功生成 {len(generated)} 道题目")
         return generated

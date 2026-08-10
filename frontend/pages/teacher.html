@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- prompt: prompts/2026-07-31-teacher.md -->
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -24,12 +23,16 @@
       --radius-card: 8px;
       --radius-chip: 16px;
 
-      --tag-concept-bg: #f3e8ff;
-      --tag-concept-text: #7c3aed;
-      --tag-exam-bg: #dbeafe;
-      --tag-exam-text: #2563eb;
-      --tag-express-bg: #cffafe;
-      --tag-express-text: #0891b2;
+      --concept-purple: #7c3aed;
+      --reading-blue: #2563eb;
+      --expression-cyan: #06b6d4;
+      --concept-bg: #f3e8ff;
+      --reading-bg: #dbeafe;
+      --expression-bg: #cffafe;
+
+      --severity-severe: #ef4444;
+      --severity-warning: #f59e0b;
+      --severity-info: #3b82f6;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -63,462 +66,201 @@
       flex-shrink: 0;
     }
 
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
 
     .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      display: flex; align-items: center; gap: 10px;
       font-family: 'Cormorant Garamond', serif;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--oxford-blue);
-      text-decoration: none;
+      font-size: 20px; font-weight: 700;
+      color: var(--oxford-blue); text-decoration: none;
     }
 
     .brand-icon { width: 28px; height: 28px; flex-shrink: 0; }
 
     .breadcrumb {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: var(--text-muted);
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--text-muted);
     }
-
-    .breadcrumb a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s ease; }
+    .breadcrumb a { color: var(--text-secondary); text-decoration: none; }
     .breadcrumb a:hover { color: var(--teal); }
     .breadcrumb .sep { color: var(--border-color); }
     .breadcrumb .current { color: var(--text-primary); font-weight: 500; }
 
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    /* ── Nav ── */
+    .header-nav { display: flex; gap: 4px; }
+    .header-nav a {
+      color: var(--text-secondary); text-decoration: none;
+      padding: 6px 14px; border-radius: var(--radius-card);
+      font-size: 13px; transition: all 0.2s ease;
+    }
+    .header-nav a:hover, .header-nav a.active {
+      color: var(--oxford-blue); background: var(--teal-light);
     }
 
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
     .user-avatar {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      background: var(--oxford-blue);
-      color: var(--white);
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--oxford-blue); color: var(--white);
       display: flex; align-items: center; justify-content: center;
       font-size: 13px; font-weight: 600;
     }
 
     /* ── Toolbar ── */
     .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 12px 32px;
-      background: var(--white);
-      border-bottom: 1px solid var(--border-color);
-      flex-shrink: 0;
+      display: flex; align-items: center; gap: 16px;
+      padding: 12px 32px; background: var(--white);
+      border-bottom: 1px solid var(--border-color); flex-shrink: 0;
     }
-
-    .toolbar-label {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      flex-shrink: 0;
-    }
+    .toolbar-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); flex-shrink: 0; }
 
     .form-select {
-      padding: 8px 14px;
+      padding: 8px 36px 8px 14px;
       border: 1px solid var(--border-color);
       border-radius: var(--radius-card);
       font-family: 'IBM Plex Sans', sans-serif;
-      font-size: 14px;
-      color: var(--text-primary);
-      background: var(--white);
-      outline: none;
-      cursor: pointer;
-      transition: border-color 0.2s ease;
+      font-size: 14px; color: var(--text-primary);
+      background: var(--white); outline: none; cursor: pointer;
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      padding-right: 36px;
+      background-repeat: no-repeat; background-position: right 12px center;
     }
-
     .form-select:focus { border-color: var(--teal); }
 
     /* ── Scrollable Main ── */
     .main-scroll {
-      flex: 1;
-      overflow-y: auto;
+      flex: 1; overflow-y: auto;
       padding: 24px 32px 32px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
+      display: flex; flex-direction: column; gap: 24px;
     }
 
     /* ── KPI Cards ── */
     .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
     }
-
     .kpi-card {
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .kpi-value {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 28px;
-      font-weight: 700;
-      color: var(--oxford-blue);
-      line-height: 1;
-    }
-
-    .kpi-label {
-      font-size: 14px;
-      color: var(--text-secondary);
-    }
-
-    .kpi-change {
-      font-size: 12px;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .kpi-change.up { color: #16a34a; }
-    .kpi-change.down { color: #dc2626; }
-
-    /* ── Section Card Wrapper ── */
-    .section-card {
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      padding: 24px;
-    }
-
-    .section-title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 20px;
-    }
-
-    /* ── Row 2: Two Column ── */
-    .row-two-col {
-      display: grid;
-      grid-template-columns: 3fr 2fr;
-      gap: 16px;
-    }
-
-    /* ── Bar Chart (Knowledge Error Rates) ── */
-    .bar-chart {
-      position: relative;
-      height: 260px;
-      display: flex;
-      align-items: flex-end;
-      gap: 0;
-      padding: 0 0 32px 48px;
-    }
-
-    .bar-chart .grid-lines {
-      position: absolute;
-      inset: 0 0 32px 48px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      pointer-events: none;
-    }
-
-    .grid-line {
-      border-top: 1px dashed #e5e5e5;
-      height: 0;
-      position: relative;
-    }
-
-    .grid-line-label {
-      position: absolute;
-      left: -44px;
-      top: -10px;
-      font-size: 11px;
-      color: var(--text-muted);
-      width: 36px;
-      text-align: right;
-    }
-
-    .bar-group {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      z-index: 1;
-      min-width: 0;
-    }
-
-    .bar-fill {
-      width: 36px;
-      max-width: 44px;
-      background: var(--teal);
-      border-radius: 4px 4px 0 0;
-      transition: height 0.4s ease;
-      position: relative;
-      min-height: 4px;
-    }
-
-    .bar-fill:hover {
-      background: var(--teal-hover);
-    }
-
-    .bar-value {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    .bar-label {
-      font-size: 12px;
-      color: var(--text-muted);
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    /* ── Obstacle Type Horizontal Bars ── */
-    .obstacle-bars {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .obstacle-item {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .obstacle-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .obstacle-header .name { color: var(--text-primary); }
-    .obstacle-header .pct { font-weight: 600; }
-
-    .obstacle-track {
-      height: 24px;
-      background: #f1f5f9;
-      border-radius: 12px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .obstacle-fill {
-      height: 100%;
-      border-radius: 12px;
-      transition: width 0.4s ease;
-      display: flex;
-      align-items: center;
-      padding-left: 12px;
-    }
-
-    .obstacle-fill.concept  { background: #a78bfa; } /* purple */
-    .obstacle-fill.exam     { background: #60a5fa; } /* blue */
-    .obstacle-fill.express  { background: #22d3ee; } /* cyan */
-
-    .obstacle-tag {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: var(--radius-chip);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .obstacle-tag.concept  { background: var(--tag-concept-bg); color: var(--tag-concept-text); }
-    .obstacle-tag.exam     { background: var(--tag-exam-bg);     color: var(--tag-exam-text); }
-    .obstacle-tag.express  { background: var(--tag-express-bg);  color: var(--tag-express-text); }
-
-    /* ── Trend Chart ── */
-    .trend-chart-wrapper {
-      position: relative;
-      height: 260px;
-      padding: 0 12px 40px 52px;
-    }
-
-    .trend-grid {
-      position: absolute;
-      inset: 12px 12px 40px 52px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      pointer-events: none;
-    }
-
-    .trend-grid-line {
-      border-top: 1px dashed #e5e5e5;
-      height: 0;
-      position: relative;
-    }
-
-    .trend-y-label {
-      position: absolute;
-      left: -44px;
-      top: -10px;
-      font-size: 11px;
-      color: var(--text-muted);
-      width: 36px;
-      text-align: right;
-    }
-
-    .trend-plot-area {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
-
-    .trend-dot {
-      position: absolute;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      border: 2px solid;
-      background: var(--white);
-      z-index: 3;
-      transform: translate(-50%, -50%);
-    }
-
-    .trend-dot.class { border-color: var(--oxford-blue); }
-    .trend-dot.grade { border-color: var(--teal); }
-
-    .trend-segment {
-      position: absolute;
-      height: 2px;
-      z-index: 2;
-      transform-origin: 0 50%;
-    }
-
-    .trend-segment.class { background: var(--oxford-blue); }
-    .trend-segment.grade { background: var(--teal); }
-
-    .trend-segment.dashed { background: none; border-top: 2px dashed; }
-
-    .trend-x-labels {
-      position: absolute;
-      bottom: 0;
-      left: 52px;
-      right: 12px;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .trend-x-label {
-      font-size: 12px;
-      color: var(--text-muted);
-      text-align: center;
-      width: 40px;
-    }
-
-    .trend-legend {
-      display: flex;
-      gap: 24px;
-      margin-top: 8px;
-      padding-left: 52px;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    .legend-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-    }
-
-    .legend-dot.class { background: var(--oxford-blue); }
-    .legend-dot.grade { background: var(--teal); }
-
-    /* ── Student Concern Cards ── */
-    .student-scroll {
-      overflow-x: auto;
-      display: flex;
-      gap: 16px;
-      padding-bottom: 8px;
-    }
-
-    .student-card {
-      min-width: 200px;
-      max-width: 200px;
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-card);
-      padding: 20px 16px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      flex-shrink: 0;
+      background: var(--white); border: 1px solid var(--border-color);
+      border-radius: var(--radius-card); padding: 24px;
+      display: flex; flex-direction: column; gap: 8px;
       transition: box-shadow 0.2s ease;
     }
+    .kpi-card.clickable { cursor: pointer; }
+    .kpi-card.clickable:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .kpi-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px; font-weight: 700; color: var(--oxford-blue); line-height: 1;
+    }
+    .kpi-value.concern { color: var(--severity-severe); }
+    .kpi-label { font-size: 14px; color: var(--text-secondary); }
+    .kpi-placeholder { font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--text-muted); }
 
-    .student-card:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    /* ── Section Card ── */
+    .section-card {
+      background: var(--white); border: 1px solid var(--border-color);
+      border-radius: var(--radius-card); padding: 24px;
+    }
+    .section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 20px;
     }
 
+    /* ── Row layout ── */
+    .row-two-col { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; }
+
+    /* ── Bar Chart ── */
+    .bar-chart {
+      position: relative; height: 260px;
+      display: flex; align-items: flex-end;
+      padding: 0 0 32px 48px;
+    }
+    .bar-chart .grid-lines {
+      position: absolute; inset: 0 0 32px 48px;
+      display: flex; flex-direction: column; justify-content: space-between; pointer-events: none;
+    }
+    .grid-line { border-top: 1px dashed #e5e5e5; height: 0; position: relative; }
+    .grid-line-label {
+      position: absolute; left: -44px; top: -10px;
+      font-size: 11px; color: var(--text-muted); width: 36px; text-align: right;
+    }
+    .bar-group {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 1; min-width: 0;
+    }
+    .bar-fill {
+      width: 36px; max-width: 44px; background: var(--teal);
+      border-radius: 4px 4px 0 0; transition: height 0.4s ease; min-height: 4px;
+    }
+    .bar-value { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+    .bar-label { font-size: 12px; color: var(--text-muted); text-align: center; white-space: nowrap; }
+
+    /* ── Donut Chart ── */
+    .donut-container {
+      display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 10px 0;
+    }
+    .donut-chart {
+      width: 200px; height: 200px; border-radius: 50%;
+      position: relative;
+    }
+    .donut-center {
+      position: absolute; inset: 40px; background: var(--white); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--text-secondary);
+    }
+    .donut-legend { display: flex; gap: 24px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+    /* ── Trend Chart wrapper ── */
+    .trend-container { position: relative; }
+
+    /* ── Concern Students ── */
+    .student-scroll {
+      overflow-x: auto; display: flex; gap: 16px; padding-bottom: 8px;
+    }
+    .student-card {
+      min-width: 200px; max-width: 200px;
+      background: var(--white); border: 1px solid var(--border-color);
+      border-radius: var(--radius-card); padding: 20px 16px;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 12px; flex-shrink: 0; transition: box-shadow 0.2s ease; cursor: pointer;
+    }
+    .student-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .student-avatar {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      background: #d4d0c8;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      flex-shrink: 0;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: #d4d0c8; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 600; color: var(--text-secondary); flex-shrink: 0;
+    }
+    .student-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .student-tag {
+      display: inline-block; padding: 3px 10px; border-radius: var(--radius-chip);
+      font-size: 12px; font-weight: 500;
     }
 
-    .student-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
+    /* ── Error / Empty state ── */
+    .state-msg {
+      display: flex; align-items: center; justify-content: center;
+      height: 200px; color: var(--text-muted); font-size: 14px; gap: 12px;
     }
-
-    .student-trend {
-      display: flex;
-      gap: 3px;
-      align-items: flex-end;
+    .retry-btn {
+      padding: 4px 12px; border: 1px solid var(--border-color);
+      border-radius: var(--radius-card); background: var(--white);
+      color: var(--text-secondary); cursor: pointer; font-size: 12px;
+      font-family: 'IBM Plex Sans', sans-serif;
     }
-
-    .trend-block {
-      width: 8px;
-      border-radius: 2px;
-      background: var(--oxford-blue);
-    }
-
-    .trend-block.faded { opacity: 0.2; }
+    .retry-btn:hover { border-color: var(--teal); color: var(--teal); }
 
     /* ── Scrollbar ── */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 24px; height: 24px; border: 3px solid var(--border-color);
+      border-top-color: var(--teal); border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -544,330 +286,360 @@
           <span class="current">班级学情</span>
         </div>
       </div>
+      <nav class="header-nav">
+        <a href="index.html">对话</a>
+        <a href="teacher.html" class="active">班级学情</a>
+        <a href="students.html">学生管理</a>
+        <a href="warnings.html">预警中心</a>
+      </nav>
       <div class="header-right">
-        <span style="font-size:13px;color:var(--text-secondary)">李老师</span>
-        <div class="user-avatar">李</div>
+        <span id="headerUserName" style="font-size:13px;color:var(--text-secondary)"></span>
+        <div class="user-avatar" id="headerAvatar"></div>
       </div>
     </header>
 
     <!-- Toolbar -->
     <div class="toolbar">
       <span class="toolbar-label">📘 班级</span>
-      <select class="form-select">
-        <option>高一(1)班</option>
-        <option>高一(2)班</option>
-        <option selected>高一(3)班</option>
-        <option>高一(4)班</option>
-        <option>高一(5)班</option>
-      </select>
-      <span class="toolbar-label">📅 时间范围</span>
-      <select class="form-select">
-        <option selected>本学期</option>
-        <option>上学期</option>
-        <option>本学年</option>
-        <option>全部</option>
+      <select class="form-select" id="classSelector" onchange="onClassChange()">
+        <option value="">加载中...</option>
       </select>
     </div>
 
     <!-- Scrollable Content -->
-    <div class="main-scroll">
+    <div class="main-scroll" id="mainContent">
 
-      <!-- Row 1: KPI Cards -->
-      <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-value">12</div>
-          <div class="kpi-label">考试次数</div>
-          <div class="kpi-change up">↑ 2 较上学期</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-value">5人</div>
-          <div class="kpi-label">关注学生</div>
-          <div class="kpi-change down">↓ 3 较上学期</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-value">78.5</div>
-          <div class="kpi-label">班级平均分</div>
-          <div class="kpi-change up">↑ 3.2 较上学期</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-value">73%</div>
-          <div class="kpi-label">知识点掌握率</div>
-          <div class="kpi-change up">↑ 5% 较上学期</div>
-        </div>
+      <!-- KPI Grid -->
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card"><div class="kpi-placeholder">--</div><div class="kpi-label">考试次数</div></div>
+        <div class="kpi-card clickable" id="kpiConcern" onclick="goWarnings()"><div class="kpi-placeholder">--</div><div class="kpi-label">需关注学生</div></div>
+        <div class="kpi-card"><div class="kpi-placeholder">--</div><div class="kpi-label">班级人数</div></div>
+        <div class="kpi-card"><div class="kpi-placeholder">--</div><div class="kpi-label">班级均分</div></div>
       </div>
 
-      <!-- Row 2: Two Column -->
+      <!-- Charts Row -->
       <div class="row-two-col">
 
-        <!-- Left: Knowledge Error Rate Bar Chart -->
-        <div class="section-card">
-          <h2 class="section-title">知识点错误率</h2>
-          <div class="bar-chart">
-            <!-- Grid lines with labels -->
-            <div class="grid-lines">
-              <div class="grid-line"><span class="grid-line-label">100%</span></div>
-              <div class="grid-line"><span class="grid-line-label">80%</span></div>
-              <div class="grid-line"><span class="grid-line-label">60%</span></div>
-              <div class="grid-line"><span class="grid-line-label">40%</span></div>
-              <div class="grid-line"><span class="grid-line-label">20%</span></div>
-              <div class="grid-line"><span class="grid-line-label">0%</span></div>
-            </div>
-
-            <div class="bar-group">
-              <div class="bar-value">45%</div>
-              <div class="bar-fill" style="height:117px"></div>
-              <div class="bar-label">氧化还原</div>
-            </div>
-            <div class="bar-group">
-              <div class="bar-value">38%</div>
-              <div class="bar-fill" style="height:99px"></div>
-              <div class="bar-label">离子反应</div>
-            </div>
-            <div class="bar-group">
-              <div class="bar-value">52%</div>
-              <div class="bar-fill" style="height:135px"></div>
-              <div class="bar-label">化学键</div>
-            </div>
-            <div class="bar-group">
-              <div class="bar-value">28%</div>
-              <div class="bar-fill" style="height:73px"></div>
-              <div class="bar-label">元素周期律</div>
-            </div>
-            <div class="bar-group">
-              <div class="bar-value">61%</div>
-              <div class="bar-fill" style="height:159px"></div>
-              <div class="bar-label">化学平衡</div>
-            </div>
-            <div class="bar-group">
-              <div class="bar-value">35%</div>
-              <div class="bar-fill" style="height:91px"></div>
-              <div class="bar-label">电化学</div>
-            </div>
-          </div>
+        <!-- Bar Chart -->
+        <div class="section-card" id="barChartSection">
+          <h2 class="section-title">知识点错误率 Top 5</h2>
+          <div id="barChartContent"></div>
         </div>
 
-        <!-- Right: Obstacle Type Chart -->
-        <div class="section-card">
+        <!-- Donut Chart -->
+        <div class="section-card" id="donutSection">
           <h2 class="section-title">障碍类型分布</h2>
-          <div class="obstacle-bars">
-            <div class="obstacle-item">
-              <div class="obstacle-header">
-                <span class="name">
-                  <span class="obstacle-tag concept">概念</span>
-                  概念理解障碍
-                </span>
-                <span class="pct" style="color:#7c3aed">30%</span>
-              </div>
-              <div class="obstacle-track">
-                <div class="obstacle-fill concept" style="width:30%"></div>
-              </div>
-            </div>
-            <div class="obstacle-item">
-              <div class="obstacle-header">
-                <span class="name">
-                  <span class="obstacle-tag exam">审题</span>
-                  审题障碍
-                </span>
-                <span class="pct" style="color:#2563eb">50%</span>
-              </div>
-              <div class="obstacle-track">
-                <div class="obstacle-fill exam" style="width:50%"></div>
-              </div>
-            </div>
-            <div class="obstacle-item">
-              <div class="obstacle-header">
-                <span class="name">
-                  <span class="obstacle-tag express">表述</span>
-                  表述障碍
-                </span>
-                <span class="pct" style="color:#0891b2">20%</span>
-              </div>
-              <div class="obstacle-track">
-                <div class="obstacle-fill express" style="width:20%"></div>
-              </div>
-            </div>
-          </div>
+          <div id="donutContent"></div>
         </div>
-      </div><!-- /row-two-col -->
+      </div>
 
-      <!-- Row 3: Full-Width Trend Chart -->
-      <div class="section-card">
+      <!-- Trend Chart -->
+      <div class="section-card" id="trendSection">
         <h2 class="section-title">成绩趋势</h2>
-        <div class="trend-chart-wrapper">
-          <!-- Grid lines -->
-          <div class="trend-grid">
-            <div class="trend-grid-line"><span class="trend-y-label">90</span></div>
-            <div class="trend-grid-line"><span class="trend-y-label">80</span></div>
-            <div class="trend-grid-line"><span class="trend-y-label">70</span></div>
-            <div class="trend-grid-line"><span class="trend-y-label">60</span></div>
-          </div>
-
-          <!-- Plot Area -->
-          <div class="trend-plot-area">
-            <!--
-              Chart math (plot area ~660×215px):
-              Y range 60-90 over 215px → 1 point = 7.17px, score 60 = bottom (y=215)
-              y = 215 - (score-60)*7.17
-              X positions (6 cols at 0, 132, 264, 396, 528, 660)
-
-              Class avg (72,75,73,80,78,82):
-                Sep 72: x=0    y=129    Oct 75: x=132  y=107
-                Nov 73: x=264  y=122    Dec 80: x=396  y=72
-                Jan 78: x=528  y=86     Jun 82: x=660  y=57
-
-              Grade avg (70,72,71,75,74,76):
-                Sep 70: x=0    y=143    Oct 72: x=132  y=129
-                Nov 71: x=264  y=136    Dec 75: x=396  y=107
-                Jan 74: x=528  y=115    Jun 76: x=660  y=100
-            -->
-
-            <!-- Class Average Dots -->
-            <div class="trend-dot class" style="left:0px;   top:129px;"></div>
-            <div class="trend-dot class" style="left:132px; top:107px;"></div>
-            <div class="trend-dot class" style="left:264px; top:122px;"></div>
-            <div class="trend-dot class" style="left:396px; top:72px;"></div>
-            <div class="trend-dot class" style="left:528px; top:86px;"></div>
-            <div class="trend-dot class" style="left:660px; top:57px;"></div>
-
-            <!-- Grade Average Dots -->
-            <div class="trend-dot grade" style="left:0px;   top:143px;"></div>
-            <div class="trend-dot grade" style="left:132px; top:129px;"></div>
-            <div class="trend-dot grade" style="left:264px; top:136px;"></div>
-            <div class="trend-dot grade" style="left:396px; top:107px;"></div>
-            <div class="trend-dot grade" style="left:528px; top:115px;"></div>
-            <div class="trend-dot grade" style="left:660px; top:100px;"></div>
-
-            <!-- Class Avg Line Segments (from left dot center to right dot center) -->
-            <!-- Sep(0,131) to Oct(132,109): dx=132, dy=-22, len=133.8, angle=-9.5° -->
-            <div class="trend-segment class" style="left:5px; top:129px; width:133.8px; transform:rotate(-9.5deg);"></div>
-            <!-- Oct(137,107) to Nov(269,122): dx=132, dy=15, len=132.8, angle=6.5° -->
-            <div class="trend-segment class" style="left:137px; top:107px; width:132.8px; transform:rotate(6.5deg);"></div>
-            <!-- Nov(269,122) to Dec(401,72): dx=132, dy=-50, len=141.2, angle=-20.7° -->
-            <div class="trend-segment class" style="left:269px; top:122px; width:141.2px; transform:rotate(-20.7deg);"></div>
-            <!-- Dec(401,72) to Jan(533,86): dx=132, dy=14, len=132.7, angle=6.1° -->
-            <div class="trend-segment class" style="left:401px; top:72px; width:132.7px; transform:rotate(6.1deg);"></div>
-            <!-- Jan(533,86) to Jun(665,57): dx=132, dy=-29, len=135.1, angle=-12.4° -->
-            <div class="trend-segment class" style="left:533px; top:86px; width:135.1px; transform:rotate(-12.4deg);"></div>
-
-            <!-- Grade Avg Line Segments -->
-            <!-- Sep(0,145) to Oct(132,131): dx=132, dy=-14, len=132.7, angle=-6.1° -->
-            <div class="trend-segment grade" style="left:5px; top:143px; width:132.7px; transform:rotate(-6.1deg);"></div>
-            <!-- Oct(137,129) to Nov(269,136): dx=132, dy=7, len=132.2, angle=3.0° -->
-            <div class="trend-segment grade" style="left:137px; top:129px; width:132.2px; transform:rotate(3.0deg);"></div>
-            <!-- Nov(269,136) to Dec(401,107): dx=132, dy=-29, len=135.1, angle=-12.4° -->
-            <div class="trend-segment grade" style="left:269px; top:136px; width:135.1px; transform:rotate(-12.4deg);"></div>
-            <!-- Dec(401,107) to Jan(533,115): dx=132, dy=8, len=132.2, angle=3.5° -->
-            <div class="trend-segment grade" style="left:401px; top:107px; width:132.2px; transform:rotate(3.5deg);"></div>
-            <!-- Jan(533,115) to Jun(665,100): dx=132, dy=-15, len=132.8, angle=-6.5° -->
-            <div class="trend-segment grade" style="left:533px; top:115px; width:132.8px; transform:rotate(-6.5deg);"></div>
-          </div>
-
-          <!-- X-axis labels -->
-          <div class="trend-x-labels">
-            <span class="trend-x-label">9月</span>
-            <span class="trend-x-label">10月</span>
-            <span class="trend-x-label">11月</span>
-            <span class="trend-x-label">12月</span>
-            <span class="trend-x-label">1月</span>
-            <span class="trend-x-label">6月</span>
-          </div>
-        </div>
-
-        <!-- Legend -->
-        <div class="trend-legend">
-          <div class="legend-item">
-            <div class="legend-dot class"></div>
-            <span>班级平均分</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-dot grade"></div>
-            <span>年级平均分</span>
-          </div>
-        </div>
+        <div id="trendContent"></div>
       </div>
 
-      <!-- Row 4: Concern Students -->
-      <div class="section-card">
+      <!-- Concern Students -->
+      <div class="section-card hidden" id="concernSection">
         <h2 class="section-title">关注学生</h2>
-        <div class="student-scroll">
-          <!-- Student 1 -->
-          <div class="student-card">
-            <div class="student-avatar">张</div>
-            <div class="student-name">张明</div>
-            <span class="obstacle-tag concept">概念理解</span>
-            <div class="student-trend">
-              <div class="trend-block" style="height:8px"></div>
-              <div class="trend-block" style="height:12px"></div>
-              <div class="trend-block" style="height:10px"></div>
-              <div class="trend-block" style="height:14px"></div>
-              <div class="trend-block" style="height:16px"></div>
-            </div>
-            <span style="font-size:11px;color:var(--text-muted)">近期有进步 ↑</span>
-          </div>
-
-          <!-- Student 2 -->
-          <div class="student-card">
-            <div class="student-avatar">李</div>
-            <div class="student-name">李华</div>
-            <span class="obstacle-tag exam">审题障碍</span>
-            <div class="student-trend">
-              <div class="trend-block" style="height:16px"></div>
-              <div class="trend-block" style="height:14px"></div>
-              <div class="trend-block" style="height:12px"></div>
-              <div class="trend-block" style="height:10px"></div>
-              <div class="trend-block faded" style="height:8px"></div>
-            </div>
-            <span style="font-size:11px;color:var(--text-muted)">持续下降 ↓</span>
-          </div>
-
-          <!-- Student 3 -->
-          <div class="student-card">
-            <div class="student-avatar">王</div>
-            <div class="student-name">王芳</div>
-            <span class="obstacle-tag express">表述障碍</span>
-            <div class="student-trend">
-              <div class="trend-block" style="height:10px"></div>
-              <div class="trend-block" style="height:10px"></div>
-              <div class="trend-block" style="height:12px"></div>
-              <div class="trend-block" style="height:14px"></div>
-              <div class="trend-block" style="height:14px"></div>
-            </div>
-            <span style="font-size:11px;color:var(--text-muted)">略有进步 →</span>
-          </div>
-
-          <!-- Student 4 -->
-          <div class="student-card">
-            <div class="student-avatar">赵</div>
-            <div class="student-name">赵磊</div>
-            <span class="obstacle-tag concept">概念理解</span>
-            <div class="student-trend">
-              <div class="trend-block" style="height:14px"></div>
-              <div class="trend-block" style="height:12px"></div>
-              <div class="trend-block" style="height:12px"></div>
-              <div class="trend-block faded" style="height:10px"></div>
-              <div class="trend-block faded" style="height:8px"></div>
-            </div>
-            <span style="font-size:11px;color:var(--text-muted)">波动较大 ~</span>
-          </div>
-
-          <!-- Student 5 -->
-          <div class="student-card">
-            <div class="student-avatar">陈</div>
-            <div class="student-name">陈静</div>
-            <span class="obstacle-tag exam">审题障碍</span>
-            <div class="student-trend">
-              <div class="trend-block" style="height:8px"></div>
-              <div class="trend-block" style="height:10px"></div>
-              <div class="trend-block" style="height:12px"></div>
-              <div class="trend-block" style="height:16px"></div>
-              <div class="trend-block" style="height:18px"></div>
-            </div>
-            <span style="font-size:11px;color:var(--text-muted)">稳步提升 ↑</span>
-          </div>
-        </div>
+        <div class="student-scroll" id="concernScroll"></div>
       </div>
 
-    </div><!-- /main-scroll -->
-  </div><!-- /app-shell -->
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../js/auth.js"></script>
+  <script src="../js/api-client.js"></script>
+  <script src="../js/constants.js"></script>
+  <script src="../js/charts.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    // ═══════════════════════════════════════════════════════
+    // 登录与角色校验
+    // ═══════════════════════════════════════════════════════
+    if (!ChemAuth.isAuthenticated()) {
+      ChemAuth.redirectToLogin();
+      return;
+    }
+    var user = ChemAuth.getCurrentUser();
+    if (!user || (user.role !== 'teacher' && user.role !== 'system_admin')) {
+      window.location.href = 'index.html';
+      return;
+    }
+
+    // 显示教师信息
+    var userName = user ? ('教师' + user.userId) : '教师';
+    var avatarText = '教';
+    document.getElementById('headerUserName').textContent = userName;
+    document.getElementById('headerAvatar').textContent = avatarText;
+
+    // ═══════════════════════════════════════════════════════
+    // 全局状态
+    // ═══════════════════════════════════════════════════════
+    var currentClassId = null;
+    var currentClassList = [];
+
+    // ═══════════════════════════════════════════════════════
+    // 初始化
+    // ═══════════════════════════════════════════════════════
+    loadClassList();
+
+    // ═══════════════════════════════════════════════════════
+    // 班级列表
+    // ═══════════════════════════════════════════════════════
+    function loadClassList() {
+      ChemAPI.apiGet('/panel/classes')
+        .then(function (res) {
+          currentClassList = res.data || [];
+          renderClassSelector();
+          if (currentClassList.length > 0) {
+            currentClassId = currentClassList[0].class_id;
+            loadPanelData();
+          }
+        })
+        .catch(function () {
+          document.getElementById('classSelector').innerHTML = '<option value="">加载失败</option>';
+        });
+    }
+
+    function renderClassSelector() {
+      var sel = document.getElementById('classSelector');
+      if (currentClassList.length === 0) {
+        sel.innerHTML = '<option value="">暂无任教班级</option>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < currentClassList.length; i++) {
+        var c = currentClassList[i];
+        html += '<option value="' + c.class_id + '">' + ChemAPI.escapeHtml(c.class_name) + '</option>';
+      }
+      sel.innerHTML = html;
+      sel.value = currentClassId;
+    }
+
+    function onClassChange() {
+      currentClassId = parseInt(document.getElementById('classSelector').value);
+      loadPanelData();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 面板数据加载（班级概览 + 成绩趋势，独立加载、独立错误处理）
+    // ═══════════════════════════════════════════════════════
+    function loadPanelData() {
+      if (!currentClassId) return;
+
+      // 重置所有模块为加载态
+      setKpiLoading();
+      setChartLoading('barChartContent');
+      setChartLoading('donutContent');
+      setChartLoading('trendContent');
+      document.getElementById('concernSection').classList.add('hidden');
+
+      // 加载班级概览（KPI + 柱状图 + 环形图 + 关注学生）
+      ChemAPI.apiGet('/panel/class/' + currentClassId)
+        .then(function (res) {
+          var overview = res.data || {};
+          renderKpi(overview);
+          renderBarChart(overview.knowledge_points || []);
+          renderDonutChart(overview.barrier_distribution || []);
+          renderConcernStudents(overview.concern_students || []);
+        })
+        .catch(function () {
+          document.getElementById('kpiGrid').innerHTML = '<div class="state-msg">KPI 加载失败，<button class="retry-btn" onclick="loadPanelData()">重试</button></div>';
+          document.getElementById('barChartContent').innerHTML = '<div class="state-msg">图表加载失败，<button class="retry-btn" onclick="loadPanelData()">重试</button></div>';
+          document.getElementById('donutContent').innerHTML = '<div class="state-msg">图表加载失败，<button class="retry-btn" onclick="loadPanelData()">重试</button></div>';
+        });
+
+      // 独立加载成绩趋势
+      ChemAPI.apiGet('/panel/class/' + currentClassId + '/exam-trend')
+        .then(function (res) {
+          renderTrendChart((res.data) || []);
+        })
+        .catch(function () {
+          document.getElementById('trendContent').innerHTML = '<div class="state-msg">趋势加载失败，<button class="retry-btn" onclick="loadPanelData()">重试</button></div>';
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // KPI 概要卡片
+    // ═══════════════════════════════════════════════════════
+    function setKpiLoading() {
+      var cards = document.querySelectorAll('#kpiGrid .kpi-card');
+      for (var i = 0; i < cards.length; i++) {
+        var val = cards[i].querySelector('.kpi-value, .kpi-placeholder');
+        if (val) { val.className = 'kpi-placeholder'; val.textContent = '--'; }
+      }
+    }
+
+    function renderKpi(data) {
+      var grid = document.getElementById('kpiGrid');
+      var examCount = data.exam_count != null ? data.exam_count : 0;
+      var concernCount = data.concern_students ? data.concern_students.length : 0;
+      var studentCount = data.student_count != null ? data.student_count : 0;
+      var avgScore = data.avg_score != null ? data.avg_score : '--';
+
+      grid.innerHTML =
+        '<div class="kpi-card"><div class="kpi-value">' + examCount + '</div><div class="kpi-label">考试次数</div></div>' +
+        '<div class="kpi-card clickable" id="kpiConcern" onclick="goWarnings()"><div class="kpi-value concern">' + concernCount + '人</div><div class="kpi-label">需关注学生</div></div>' +
+        '<div class="kpi-card"><div class="kpi-value">' + studentCount + '</div><div class="kpi-label">班级人数</div></div>' +
+        '<div class="kpi-card"><div class="kpi-value">' + avgScore + '</div><div class="kpi-label">班级加权均分</div></div>';
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // CSS 柱状图（知识点错误率 Top 5）
+    // ═══════════════════════════════════════════════════════
+    function renderBarChart(knowledgePoints) {
+      var container = document.getElementById('barChartContent');
+      if (!knowledgePoints || knowledgePoints.length === 0) {
+        container.innerHTML = '<div class="state-msg">暂无知识点数据</div>';
+        return;
+      }
+
+      // 最多 5 项
+      var items = knowledgePoints.slice(0, 5);
+      var maxError = items[0].error_rate;
+      // Y 轴标签（0% ~ 100%）
+      var gridLabels = ['100%', '80%', '60%', '40%', '20%', '0%'];
+
+      var html = '<div class="bar-chart"><div class="grid-lines">';
+      for (var i = 0; i < gridLabels.length; i++) {
+        html += '<div class="grid-line"><span class="grid-line-label">' + gridLabels[i] + '</span></div>';
+      }
+      html += '</div>';
+
+      for (var j = 0; j < items.length; j++) {
+        var h = Math.max(4, (items[j].error_rate / (maxError || 1)) * 220);
+        var pct = Math.round(items[j].error_rate * 100);
+        html += '<div class="bar-group">' +
+          '<div class="bar-value">' + pct + '%</div>' +
+          '<div class="bar-fill" style="height:' + h + 'px"></div>' +
+          '<div class="bar-label">' + ChemAPI.escapeHtml(items[j].name) + '</div>' +
+          '</div>';
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // CSS 环形图（障碍类型分布）
+    // ═══════════════════════════════════════════════════════
+    function renderDonutChart(barriers) {
+      var container = document.getElementById('donutContent');
+      if (!barriers || barriers.length === 0) {
+        container.innerHTML = '<div class="state-msg">暂无诊断数据</div>';
+        return;
+      }
+
+      var colors = { concept: ChemConst.barrierColor('concept'), reading: ChemConst.barrierColor('reading'), expression: ChemConst.barrierColor('expression') };
+      var labels = { concept: ChemConst.barrierLabel('concept'), reading: ChemConst.barrierLabel('reading'), expression: ChemConst.barrierLabel('expression') };
+
+      // 构建 conic-gradient 扇形段
+      var gradientParts = [];
+      var legendHtml = '';
+      var cumulative = 0;
+      var totalPct = 0;
+
+      for (var i = 0; i < barriers.length; i++) {
+        var b = barriers[i];
+        var pct = b.percentage || 0;
+        totalPct += pct;
+        var color = colors[b.barrier_type] || '#888';
+        gradientParts.push(color + ' ' + cumulative + '% ' + (cumulative + pct) + '%');
+        cumulative += pct;
+        legendHtml += '<div class="legend-item"><div class="legend-dot" style="background:' + color + '"></div>' +
+          '<span>' + (labels[b.barrier_type] || b.barrier_type) + ' ' + Math.round(pct) + '%</span></div>';
+      }
+
+      var gradientCss = gradientParts.join(', ');
+      var html =
+        '<div class="donut-container">' +
+          '<div class="donut-chart" style="background: conic-gradient(' + gradientCss + ')">' +
+            '<div class="donut-center">' + Math.round(totalPct) + '%</div>' +
+          '</div>' +
+          '<div class="donut-legend">' + legendHtml + '</div>' +
+        '</div>';
+      container.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // SVG 折线图（班级考试成绩趋势）
+    // ═══════════════════════════════════════════════════════
+    function renderTrendChart(trendData) {
+      var container = document.getElementById('trendContent');
+      if (!trendData || trendData.length === 0) {
+        container.innerHTML = '<div class="state-msg">暂无考试数据</div>';
+        return;
+      }
+
+      container.innerHTML = '<div id="trendChartEl" class="trend-container"></div>';
+      var chartData = [];
+      for (var i = 0; i < trendData.length; i++) {
+        chartData.push({
+          label: trendData[i].exam_name || '',
+          value: trendData[i].avg_score
+        });
+      }
+
+      Charts.renderTrendChart('trendChartEl', chartData, {
+        width: 660,
+        height: 260,
+        yMin: Math.max(0, Math.min.apply(null, chartData.map(function(d) { return d.value || 60; })) - 10),
+        yMax: 100
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 关注学生横向滚动卡片
+    // ═══════════════════════════════════════════════════════
+    function renderConcernStudents(students) {
+      if (!students || students.length === 0) {
+        document.getElementById('concernSection').classList.add('hidden');
+        return;
+      }
+
+      document.getElementById('concernSection').classList.remove('hidden');
+      var scroll = document.getElementById('concernScroll');
+      var html = '';
+
+      for (var i = 0; i < students.length; i++) {
+        var s = students[i];
+        var type = s.latest_warning_type || '';
+        var typeLabel = ChemConst.warningTypeLabel(type);
+        var typeColor = ChemConst.warningTypeColor(type);
+        var severityColor = ChemConst.warningSeverityColor(s.latest_warning_severity);
+
+        html += '<div class="student-card" onclick="goStudent(' + s.student_id + ')" style="border-left: 3px solid ' + severityColor + '">' +
+          '<div class="student-avatar">' + ChemAPI.escapeHtml((s.name || '?')[0]) + '</div>' +
+          '<div class="student-name">' + ChemAPI.escapeHtml(s.name || '') + '</div>' +
+          '<span class="student-tag" style="background:' + typeColor + '20;color:' + typeColor + '">' + typeLabel + '</span>' +
+          '<span style="font-size:12px;color:var(--text-muted)">' + (s.warning_count || 0) + ' 条预警</span>' +
+          '</div>';
+      }
+
+      scroll.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 辅助函数
+    // ═══════════════════════════════════════════════════════
+    function setChartLoading(elId) {
+      var el = document.getElementById(elId);
+      el.innerHTML = '<div class="state-msg"><div class="spinner"></div></div>';
+    }
+
+    window.goWarnings = function () {
+      window.location.href = 'warnings.html?class_id=' + currentClassId;
+    };
+
+    window.goStudent = function (sid) {
+      window.location.href = 'students.html?class_id=' + currentClassId + '&focus=' + sid;
+    };
+
+    window.onClassChange = onClassChange;
+  })();
+  </script>
 </body>
 </html>

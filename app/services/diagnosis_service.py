@@ -15,9 +15,11 @@ from ..models.diagnosis import (
 )
 from ..models.teaching import StudentAnswer, Question, ExamRecord
 from ..models.user import Student
+from ..models.barrier_profile_history import BarrierProfileHistory
 from ..schemas.diagnosis import (
     BarrierConfigRead, BarrierConfigUpdate,
     KnowledgePointRead, WarningLogRead,
+    BarrierTypeDetail, WeakKnowledgePointItem, StudentDiagnosisResponse,
 )
 from ..core.enums import BarrierType, MisconceptionCategory, DiagnosisSource
 from ..llm.router import llm_chat, LLMError
@@ -404,6 +406,18 @@ class DiagnosisService:
             student.barrier_profile_updated_at = datetime.now(timezone.utc)
             await db.commit()
 
+            # Store 写入（best-effort）
+            try:
+                from ..agent.store import write_diagnosis_snapshot
+                await write_diagnosis_snapshot(
+                    db,
+                    student_id=student_id,
+                    profile=profile.to_dict(),
+                    dominant_barrier=profile.dominant_barrier(),
+                )
+            except Exception:
+                pass  # best-effort, already logged in store module
+
     # ═══════════════════════════════════════════════════════════
     # Teacher Override（新增）
     # ═══════════════════════════════════════════════════════════
@@ -560,3 +574,195 @@ class DiagnosisService:
             "questions": [],
             "estimated_time_minutes": question_count * 3,
         }
+
+    # ═══════════════════════════════════════════════════════════
+    # Student Self-View Diagnosis（学生自查看诊断）
+    # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    async def get_student_diagnosis(
+        db: AsyncSession,
+        student_id: int,  # 数据库 Student.id
+    ) -> StudentDiagnosisResponse:
+        """学生自查看自己的障碍诊断数据。
+
+        返回：
+        - barrier_profile: 三维障碍画像 + 各项趋势
+        - dominant_type: 主导障碍类型
+        - weak_kps: Top 5 薄弱知识点（已诊断作答，考试+练习双源）
+        - last_diagnosis_date: 最近诊断日期
+        """
+        # 查询学生记录
+        student = (await db.execute(
+            select(Student).where(Student.id == student_id)
+        )).scalar_one_or_none()
+
+        if student is None:
+            raise DiagnosisError(f"学生不存在: id={student_id}")
+
+        # ── 1. 障碍画像 + 趋势 ──
+        current_profile: dict = (student.barrier_profile or {}).copy()
+        trend_map = await DiagnosisService._get_trend_map(db, student_id, current_profile)
+        barrier_profile = DiagnosisService._build_barrier_profile_detail(
+            current_profile, trend_map
+        )
+
+        # ── 2. 主导障碍类型 ──
+        dominant_type = DiagnosisService._dominant_barrier(current_profile)
+
+        # ── 3. 薄弱知识点 Top 5 ──
+        weak_kps = await DiagnosisService._aggregate_weak_kps(db, student_id)
+
+        # ── 4. 最近诊断日期 ──
+        last_diagnosis_date = (
+            student.barrier_profile_updated_at.isoformat()
+            if student.barrier_profile_updated_at
+            else None
+        )
+
+        return StudentDiagnosisResponse(
+            barrier_profile=barrier_profile,
+            dominant_type=dominant_type,
+            weak_kps=weak_kps,
+            last_diagnosis_date=last_diagnosis_date,
+        )
+
+    @staticmethod
+    def _build_barrier_profile_detail(
+        current_profile: dict,
+        trend_map: dict[str, str],
+    ) -> dict[str, BarrierTypeDetail]:
+        """构建带趋势的三维障碍画像详情。
+
+        current_profile 格式：{"concept": 0.40, "reading": 0.30, "expression": 0.30}
+        trend_map 由 _get_trend_map() 从 BarrierProfileHistory 计算得出。
+        """
+        result = {}
+        for key in ("concept_barrier", "reading_barrier", "expression_barrier"):
+            # 兼容旧数据（旧 key 无 _barrier 后缀）
+            legacy_key = key.replace("_barrier", "")
+            rate = current_profile.get(key) or current_profile.get(legacy_key)
+            trend = trend_map.get(key, "stable")
+            result[key] = BarrierTypeDetail(rate=rate, trend=trend)
+
+        return result
+
+    @staticmethod
+    def _dominant_barrier(profile: dict) -> str | None:
+        """从 profile 中找出比率最高的障碍类型。"""
+        if not profile:
+            return None
+        sorted_items = sorted(profile.items(), key=lambda x: x[1], reverse=True)
+        if not sorted_items:
+            return None
+        key = sorted_items[0][0]
+        # 统一加 _barrier 后缀
+        return key if key.endswith("_barrier") else f"{key}_barrier"
+
+    @staticmethod
+    async def _aggregate_weak_kps(
+        db: AsyncSession,
+        student_id: int,
+        top_n: int = 5,
+    ) -> list[WeakKnowledgePointItem]:
+        """聚合学生薄弱知识点 Top N。
+
+        从所有已诊断作答（exam + practice 双源）中统计每个知识点的错误率，
+        按错误率降序排列，返回 Top N。
+        """
+        # 查询所有已诊断的错误作答
+        result = await db.execute(
+            select(StudentAnswer)
+            .join(Question, Question.id == StudentAnswer.question_id)
+            .where(
+                StudentAnswer.student_id == student_id,
+                StudentAnswer.is_correct == False,
+                StudentAnswer.barrier_type.is_not(None),
+            )
+        )
+        wrong_answers = result.scalars().all()
+
+        # 查询所有已诊断的全部作答（用于计算总次数）
+        all_result = await db.execute(
+            select(StudentAnswer)
+            .join(Question, Question.id == StudentAnswer.question_id)
+            .where(
+                StudentAnswer.student_id == student_id,
+                StudentAnswer.barrier_type.is_not(None),
+            )
+        )
+        all_answers = all_result.scalars().all()
+
+        if not all_answers:
+            return []
+
+        # 按知识点聚合计数
+        kp_total: dict[str, int] = {}
+        kp_wrong: dict[str, int] = {}
+
+        for sa in all_answers:
+            tags = sa.question.knowledge_point_tags if sa.question else None
+            if not tags:
+                continue
+            for tag in tags:
+                tag_str = str(tag)
+                kp_total[tag_str] = kp_total.get(tag_str, 0) + 1
+
+        for sa in wrong_answers:
+            tags = sa.question.knowledge_point_tags if sa.question else None
+            if not tags:
+                continue
+            for tag in tags:
+                tag_str = str(tag)
+                kp_wrong[tag_str] = kp_wrong.get(tag_str, 0) + 1
+
+        # 计算错误率并排序
+        items = []
+        for kp_name, total in kp_total.items():
+            wrong = kp_wrong.get(kp_name, 0)
+            error_rate = wrong / total if total > 0 else 0.0
+            items.append(WeakKnowledgePointItem(name=kp_name, error_rate=round(error_rate, 4)))
+
+        items.sort(key=lambda x: x.error_rate, reverse=True)
+        return items[:top_n]
+
+    @staticmethod
+    async def _get_trend_map(
+        db: AsyncSession,
+        student_id: int,
+        current_profile: dict,
+    ) -> dict[str, str]:
+        """从 BarrierProfileHistory 计算各障碍趋势（异步版）。"""
+        if not current_profile:
+            return {}
+
+        # 取最近一次历史快照
+        result = await db.execute(
+            select(BarrierProfileHistory)
+            .where(BarrierProfileHistory.student_id == student_id)
+            .order_by(BarrierProfileHistory.snapshot_at.desc())
+            .limit(1)
+        )
+        prev_snapshot = result.scalar_one_or_none()
+
+        if prev_snapshot is None or not prev_snapshot.profile:
+            return {}
+
+        prev_profile = prev_snapshot.profile
+        trends = {}
+        for key in ("concept_barrier", "reading_barrier", "expression_barrier"):
+            legacy_key = key.replace("_barrier", "")
+            curr_rate = current_profile.get(key) or current_profile.get(legacy_key)
+            prev_rate = prev_profile.get(key) or prev_profile.get(legacy_key)
+            if curr_rate is None or prev_rate is None:
+                trends[key] = "stable"
+                continue
+            diff = prev_rate - curr_rate
+            if diff > 0.05:
+                trends[key] = "up"    # 比率下降 = 改善
+            elif diff < -0.05:
+                trends[key] = "down"  # 比率上升 = 恶化
+            else:
+                trends[key] = "stable"
+
+        return trends

@@ -411,13 +411,35 @@ class ReviewService:
             max_tokens=3000,
         )
 
-        # Step 3: 解析 LLM 响应并写入 VariantQuestion
+        # Step 3: 解析 LLM 响应并审核，通过后写入 VariantQuestion
+        from chem_skills.chemistry_parser.engine import audit_equation, extract_equations
+
         variants = ReviewService._parse_variant_response(llm_response, count)
         new_variant_ids = []
+        audit_skipped = 0
         for v in variants:
+            content = v.get("content", "")
+
+            # 四维审核：提取并校核化学方程式
+            equations = extract_equations(content)
+            audit_failed = False
+            for eq in equations:
+                report = audit_equation(eq)
+                if report.has_errors:
+                    logger.warning(
+                        "变式题审核不通过，跳过: equation=%s, errors=%s",
+                        eq, [e.message for e in report.errors],
+                    )
+                    audit_failed = True
+                    break
+
+            if audit_failed:
+                audit_skipped += 1
+                continue
+
             variant = VariantQuestion(
                 original_question_id=question_id,
-                content=v.get("content", ""),
+                content=content,
                 question_type=original.question_type,
                 options=v.get("options"),
                 answer=v.get("answer", ""),
@@ -434,6 +456,14 @@ class ReviewService:
             new_variant_ids.append(variant.id)
             # 附加 db id 到变式题数据
             v["id"] = variant.id
+
+        if audit_skipped > 0:
+            logger.info(
+                "变式题审核：%d 道通过，%d 道被跳过",
+                len(new_variant_ids), audit_skipped,
+            )
+            # 从 variants 中移除审核不通过的
+            variants = [v for v in variants if "id" in v]
 
         await db.commit()
 
@@ -666,8 +696,6 @@ class ReviewService:
             variants = json.loads(text)
             if isinstance(variants, list):
                 return variants[:expected_count]
-            elif isinstance(variants, dict) and "variants" in variants:
-                return variants["variants"][:expected_count]
             else:
                 logger.warning("LLM 返回了非预期的格式: %s", text[:200])
                 return []

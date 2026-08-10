@@ -34,7 +34,8 @@ class ParentNotificationRead(ORMBase):
     notification_type: NotificationType
     title: str
     body: str
-    is_read: bool
+    related_id: int | None = None
+    read_at: datetime | None = None
     sent_at: datetime
 
 
@@ -42,6 +43,20 @@ class ParentNotificationListParams(BaseModel):
     parent_id: int
     limit: int = 20
     offset: int = 0
+
+
+# ── WeeklyReport ─────────────────────────────────────────
+class WeeklyReportRead(ORMBase):
+    id: int
+    student_id: int
+    week_start: datetime
+    week_end: datetime
+    summary: str
+    detail: str
+    advice: str
+    no_data: bool
+    generated_at: datetime
+    generated_by: str
 
 
 class ReportSendRequest(BaseModel):

@@ -40,6 +40,20 @@ BAIDU_OCR_SECRET_KEY = os.getenv("BAIDU_OCR_SECRET_KEY", "")
 OCR_SHEET_PROVIDER = os.getenv("OCR_SHEET_PROVIDER", "mineru")  # mineru | baidu
 OCR_POLL_INTERVAL = int(os.getenv("OCR_POLL_INTERVAL", "5"))  # 轮询间隔（秒）
 
+# ── OCR 文件上传配置 ────────────────────────────────────────
+OCR_UPLOAD_DIR = Path(os.getenv("OCR_UPLOAD_DIR", str(DATA_DIR / "ocr_uploads")))
+OCR_MAX_FILE_SIZE_MB = int(os.getenv("OCR_MAX_FILE_SIZE_MB", "10"))
+OCR_MAX_BATCH_SIZE = int(os.getenv("OCR_MAX_BATCH_SIZE", "50"))
+OCR_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".pdf"}
+OCR_ALLOWED_MIME_TYPES = {
+    "image/jpeg", "image/png", "image/bmp", "image/webp",
+    "application/pdf",
+}
+
+# ── VLM 配置 ────────────────────────────────────────────────
+ZHIPU_BASE_URL = os.getenv("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/")
+ZHIPU_VISION_MODEL = os.getenv("ZHIPU_VISION_MODEL", "glm-4v")
+
 # ── Agent 引擎 ─────────────────────────────────────────────
 AGENT_VERSION = os.getenv("AGENT_VERSION", "v2")  # v2 (单 Agent) | v1 (多 Agent 回退)
 AGENT_RECURSION_LIMIT = int(os.getenv("AGENT_RECURSION_LIMIT", "12"))

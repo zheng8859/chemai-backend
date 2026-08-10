@@ -62,10 +62,11 @@ class StudentParentBinding(Base, TimestampMixin):
 
 
 class ParentNotification(Base, TimestampMixin):
-    """家长通知 — 系统推送给家长的消息（34号 §四）。
+    """家长通知 — 系统推送给家长的消息（33号 §九, 34号 §四）。
 
-    通知类型：学习报告 / 预警提醒 / 教师消息。
+    通知类型：weekly_report / score_alert / learning_plan / reminder / daily_report。
     家长端 API 前置验证绑定关系 status=active。
+    保留策略：90 天。
     """
 
     __tablename__ = "parent_notification"
@@ -79,8 +80,11 @@ class ParentNotification(Base, TimestampMixin):
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False, comment="通知标题")
     body: Mapped[str] = mapped_column(Text, nullable=False, comment="通知正文")
-    is_read: Mapped[bool] = mapped_column(
-        default=False, server_default="0", comment="已读状态"
+    related_id: Mapped[Optional[int]] = mapped_column(
+        Integer, comment="关联资源 ID（如 weekly_report_id / warning_log_id）"
+    )
+    read_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), comment="已读时间"
     )
     sent_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
@@ -92,3 +96,54 @@ class ParentNotification(Base, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<ParentNotification id={self.id} parent_id={self.parent_id} type={self.notification_type}>"
+
+
+class WeeklyReport(Base, TimestampMixin):
+    """家长周报 — LLM 生成的缓存报告（33号 §七）。
+
+    同一学生同一周只生成一份（UniqueConstraint）。
+    分为 auto（Cron 自动）和 manual（家长手动）两种生成方式。
+    """
+
+    __tablename__ = "weekly_report"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    student_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("student.id", ondelete="CASCADE"), nullable=False, comment="学生"
+    )
+    week_start: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, comment="本周一日期"
+    )
+    week_end: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, comment="本周日日期"
+    )
+    summary: Mapped[str] = mapped_column(
+        String(200), nullable=False, comment="概述段（≤60字）"
+    )
+    detail: Mapped[str] = mapped_column(
+        Text, nullable=False, comment="具体表现段（≤120字）"
+    )
+    advice: Mapped[str] = mapped_column(
+        Text, nullable=False, comment="家庭建议段（≤80字）"
+    )
+    no_data: Mapped[bool] = mapped_column(
+        default=False, server_default="0", comment="当周无数据时为 True"
+    )
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=datetime.utcnow, comment="生成时间"
+    )
+    generated_by: Mapped[str] = mapped_column(
+        String(20), nullable=False, comment="生成方式：auto / manual"
+    )
+
+    # ── 唯一约束 ──
+    __table_args__ = (
+        UniqueConstraint("student_id", "week_start", name="uq_weekly_report_student_week"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<WeeklyReport id={self.id} student_id={self.student_id} "
+            f"week={self.week_start} generated_by={self.generated_by}>"
+        )

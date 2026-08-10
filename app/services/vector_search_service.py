@@ -322,3 +322,160 @@ async def build_index(
 
     logger.info("Vector index built: %d vectors for %d exams", len(ids), len(exams))
     return {"status": "ok", "count": len(ids)}
+
+
+# ═══════════════════════════════════════════════
+# Question vector search (practice engine)
+# ═══════════════════════════════════════════════
+
+_question_collection = None
+
+
+def _get_question_collection():
+    """Lazy-init ChromaDB collection for Question table."""
+    global _question_collection
+    if _question_collection is not None:
+        return _question_collection
+    try:
+        import chromadb
+        client = chromadb.PersistentClient(path=str(CHROMA_DB_PATH))
+        _question_collection = client.get_or_create_collection(
+            name="chemai_questions",
+            metadata={"hnsw:space": "cosine"},
+        )
+        return _question_collection
+    except Exception as e:
+        logger.warning("ChromaDB questions collection unavailable: %s", e)
+        return None
+
+
+def _build_question_embed_text(q) -> str:
+    """构建 Question 的嵌入文本。"""
+    from ..models.teaching import Question
+    parts = [
+        f"考点: {'、'.join(q.knowledge_point_tags or [])}。",
+        f"题型: {q.question_type or 'choice'}。",
+        f"难度: {q.difficulty or 'medium'}。",
+        f"题目: {(q.content or '')[:500]}。",
+    ]
+    return "".join(parts)
+
+
+async def search_questions_vector(
+    candidates: list,
+    query_kps: list[str],
+    limit: int = 5,
+) -> list:
+    """对 Question 候选集进行向量重排序。
+
+    先用知识点做 embedding 查询 ChromaDB，按语义相似度重排候选题目。
+    ChromaDB 不可用时回退到原始排序。
+
+    Args:
+        candidates: Question ORM 对象列表（已按难度筛选）
+        query_kps: 查询知识点列表
+        limit: 返回数量上限
+
+    Returns:
+        按语义相似度排序的 Question 列表
+    """
+    if not candidates:
+        return []
+
+    coll = _get_question_collection()
+    if coll is None:
+        return candidates[:limit]
+
+    try:
+        # 为候选题目构建 embedding 文本
+        texts = [_build_question_embed_text(q) for q in candidates]
+        embeddings = []
+        for text in texts:
+            emb = _get_embedding(text)
+            if emb:
+                embeddings.append(emb)
+            else:
+                embeddings.append(_fallback_embedding(text))
+
+        # 用知识点构建查询向量
+        query_text = f"考点: {'、'.join(query_kps[:5])}。"
+        query_emb = _get_embedding(query_text) or _fallback_embedding(query_text)
+
+        results = coll.query(
+            query_embeddings=[query_emb],
+            n_results=min(limit * 2, len(embeddings)),
+        )
+
+        if results and results.get("ids") and results["ids"][0]:
+            result_ids = results["ids"][0]
+            result_distances = results.get("distances", [[0]*len(result_ids)])[0]
+
+            dist_map = {}
+            for rid, rd in zip(result_ids, result_distances):
+                try:
+                    qid = int(rid.replace("question_", ""))
+                    if qid not in dist_map or rd < dist_map[qid]:
+                        dist_map[qid] = rd
+                except ValueError:
+                    continue
+
+            reranked = []
+            for q in candidates:
+                distance = dist_map.get(q.id, 1.0)
+                similarity = 1.0 - distance
+                reranked.append((similarity, q))
+
+            reranked.sort(key=lambda x: x[0], reverse=True)
+            return [q for _, q in reranked[:limit]]
+
+    except Exception as e:
+        logger.warning("Question vector rerank failed: %s", e)
+
+    return candidates[:limit]
+
+
+async def index_questions(
+    db: AsyncSession,
+    mode: str = "append",
+) -> dict:
+    """将 Question 表索引导入 ChromaDB。
+
+    Args:
+        db: 数据库会话
+        mode: "append" 追加, "replace" 清空重建
+
+    Returns:
+        {"status": "ok"/"unavailable", "count": N}
+    """
+    from ..models.teaching import Question
+
+    coll = _get_question_collection()
+    if coll is None:
+        return {"status": "unavailable", "count": 0}
+
+    result = await db.execute(select(Question))
+    questions = result.scalars().all()
+
+    if mode == "replace":
+        try:
+            coll.delete(where={})
+        except Exception:
+            pass
+
+    ids, embeddings = [], []
+    for q in questions:
+        chroma_id = f"question_{q.id}"
+        text = _build_question_embed_text(q)
+        emb = _get_embedding(text) or _fallback_embedding(text)
+        ids.append(chroma_id)
+        embeddings.append(emb)
+
+    if ids:
+        try:
+            coll.add(ids=ids, embeddings=embeddings)
+        except Exception as e:
+            logger.warning("Question index write failed: %s", e)
+            return {"status": "write_failed", "count": 0}
+
+    logger.info("Question vector index built: %d questions", len(ids))
+    return {"status": "ok", "count": len(ids)}

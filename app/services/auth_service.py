@@ -17,7 +17,7 @@ from ..core.enums import (
     BindingStatus,
     ParentRelation,
 )
-from ..models.user import Account, Teacher, Student, Parent
+from ..models.user import Account, Teacher, Student, Parent, TeacherApplication
 from ..schemas.auth import LoginRequest, TokenResponse, TeacherApplyRequest, ParentRegisterRequest
 
 
@@ -28,6 +28,11 @@ class AuthError(Exception):
         self.detail = detail
         self.error_code = error_code
         super().__init__(detail)
+
+
+def _enum_value(val):
+    """Extract string value from an enum member or plain string."""
+    return val.value if hasattr(val, "value") else val
 
 
 class AuthService:
@@ -75,14 +80,14 @@ class AuthService:
                 )
 
         tokens = create_token_pair(
-            account.id, str(account.role), school_id, sub_role
+            account.id, _enum_value(account.role), school_id, sub_role
         )
         return TokenResponse(
             token=tokens["token"],
             refresh_token=tokens["refresh_token"],
             user_id=account.id,
             name=profile_name,
-            role=str(account.role),
+            role=_enum_value(account.role),
             sub_role=sub_role,
             school_id=school_id,
         )
@@ -231,7 +236,7 @@ class AuthService:
             student_id=student.id,
             parent_id=parent.id,
             status=BindingStatus.active,
-            relationship=ParentRelation.other,
+            relation=ParentRelation.other,
         )
         db.add(binding)
 
@@ -277,7 +282,7 @@ class AuthService:
         if account.role == AccountRole.teacher:
             teacher = await AuthService._get_teacher(db, account.id)
             if teacher:
-                return teacher.name, teacher.school_id, str(teacher.role)
+                return teacher.name, teacher.school_id, _enum_value(teacher.role)
         elif account.role == AccountRole.student:
             result = await db.execute(
                 select(Student).where(Student.account_id == account.id)

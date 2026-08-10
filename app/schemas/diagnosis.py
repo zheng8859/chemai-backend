@@ -151,3 +151,32 @@ class DiagnosisOverrideResponse(BaseModel):
     success: bool = True
     old: dict
     new: dict
+
+
+# ── Student Self-View Diagnosis ───────────────────────────────
+
+class BarrierTypeDetail(BaseModel):
+    """单个障碍类型的速率和变化趋势。"""
+    rate: float | None = Field(None, ge=0, le=1, description="当前障碍比率")
+    trend: str = Field("stable", description="趋势：up（改善）/ down（恶化）/ stable（稳定）")
+
+
+class WeakKnowledgePointItem(BaseModel):
+    """薄弱知识点项。"""
+    name: str = Field(..., description="知识点名称")
+    error_rate: float = Field(..., ge=0, le=1, description="错误率")
+
+
+class StudentDiagnosisResponse(BaseModel):
+    """学生自查看诊断数据（GET /diagnosis/student/{student_id}）。
+
+    包含障碍画像三维分布+趋势、主导障碍类型、Top 5 薄弱知识点。
+    """
+    barrier_profile: dict[str, BarrierTypeDetail] = Field(
+        ..., description="三维障碍画像：concept / reading / expression"
+    )
+    dominant_type: str | None = Field(None, description="主导障碍类型")
+    weak_kps: list[WeakKnowledgePointItem] = Field(
+        default_factory=list, description="薄弱知识点 Top 5"
+    )
+    last_diagnosis_date: str | None = Field(None, description="最近诊断日期 ISO 字符串")

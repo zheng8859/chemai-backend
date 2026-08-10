@@ -87,16 +87,13 @@ var ChemAuth = (function () {
 
   function redirectToLogin() {
     clearToken();
-    // 检测当前页在哪一层，构建正确的 login 路径
-    var path = window.location.pathname;
-    var prefix = '';
-    if (path.indexOf('/pages/m/') !== -1) {
-      prefix = '';
-    } else if (path.indexOf('/pages/') !== -1) {
-      prefix = '';
-    } else {
-      prefix = 'pages/m/';
-    }
+    var prefix = window.location.pathname.indexOf('/pages/') !== -1 ? '' : 'pages/m/';
+    window.location.href = prefix + LOGIN_PAGE;
+  }
+
+  function logout() {
+    clearToken();
+    var prefix = window.location.pathname.indexOf('/pages/') !== -1 ? '' : 'pages/m/';
     window.location.href = prefix + LOGIN_PAGE;
   }
 
@@ -130,6 +127,6 @@ var ChemAuth = (function () {
     isAuthenticated: isAuthenticated,
     redirectToLogin: redirectToLogin,
     login: login,
-    TOKEN_KEY: TOKEN_KEY,
+    logout: logout,
   };
 })();

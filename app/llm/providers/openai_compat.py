@@ -42,21 +42,23 @@ class OpenAICompatProvider:
 
     async def chat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         temperature: float = 0.3,
         max_tokens: int = 4096,
         response_format: dict | None = None,
-    ) -> str:
-        """发送 chat completion 请求，返回文本响应。
+        tools: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """发送 chat completion 请求，返回完整 message 对象。
 
         Args:
             messages: [{"role": "system", "content": "..."}, ...]
             temperature: 温度参数
             max_tokens: 最大 token 数
             response_format: 可选，如 {"type": "json_object"}
+            tools: 可选，工具定义列表 (OpenAI function-calling 格式)
 
         Returns:
-            LLM 响应的文本内容
+            {"content": str | None, "tool_calls": list | None}
 
         Raises:
             LLMError: API 调用失败
@@ -72,6 +74,9 @@ class OpenAICompatProvider:
 
         if response_format:
             payload["response_format"] = response_format
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -88,7 +93,11 @@ class OpenAICompatProvider:
                         status_code=resp.status_code,
                     )
                 data = resp.json()
-                return data["choices"][0]["message"]["content"]
+                msg = data["choices"][0]["message"]
+                return {
+                    "content": msg.get("content"),
+                    "tool_calls": msg.get("tool_calls"),
+                }
 
         except httpx.TimeoutException:
             raise LLMError("请求超时", provider=self.name)

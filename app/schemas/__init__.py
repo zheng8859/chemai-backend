@@ -83,6 +83,7 @@ from .homework import (
     ParentNotificationListParams,
     ReportSendRequest,
     ReportSendResponse,
+    WeeklyReportRead,
 )
 
 from .ocr import (
@@ -107,4 +108,18 @@ from .agent import (
     ConversationRead,
     ConversationDelete,
     MemoryRead,
+)
+
+from .parent import (
+    BarrierProfile,
+    BindCodeRequest,
+    BindRequest,
+    ChildInfo,
+    ChildOverviewResponse,
+    WeeklyTimelineItem,
+    ChildTimelineResponse,
+    WeeklyReportResponse,
+    WeeklyReportGenerateRequest,
+    ParentNotificationResponse,
+    ParentAgentRequest,
 )

@@ -1,0 +1,115 @@
+{
+  "meta": {
+    "tool": "run_evals",
+    "version": "0.4.0",
+    "timestamp": "2026-08-07T03:28:07.917730+00:00",
+    "project_root": "D:\\AI\\chemai-project\\chemai-backend",
+    "levels_run": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "mode": "baseline"
+  },
+  "l1_unit": {
+    "label": "L1 单元测试",
+    "total": 479,
+    "passed": 479,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pass_rate": 100.0,
+    "elapsed_s": 8.7,
+    "exit_code": 0
+  },
+  "l1_coverage": {
+    "label": "L1 覆盖率",
+    "coverage_pct": 40.22,
+    "elapsed_s": 11.8
+  },
+  "l1_verdict": {
+    "passed": false,
+    "unit_ok": true,
+    "coverage_ok": false
+  },
+  "l2_integration": {
+    "label": "L2 集成测试",
+    "total": 14,
+    "passed": 14,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pass_rate": 100.0,
+    "elapsed_s": 4.7,
+    "exit_code": 0
+  },
+  "l2_verdict": {
+    "passed": true,
+    "pass_rate": 100.0
+  },
+  "l3_golden": {
+    "label": "L3 Golden 评测",
+    "total": 86,
+    "passed": 86,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pass_rate": 100.0,
+    "elapsed_s": 2.1,
+    "exit_code": 0
+  },
+  "l3_verdict": {
+    "passed": true,
+    "pass_rate": 100.0
+  },
+  "baseline_comparison": {
+    "all_pass": true,
+    "max_degradation_pct": 5.0,
+    "checks": [
+      {
+        "layer": "L1",
+        "metric": "覆盖率",
+        "key": "l1_coverage_pct",
+        "current": 40.22,
+        "baseline": 33.48,
+        "threshold": 95.0,
+        "degradation": -6.74,
+        "degradation_pass": true,
+        "overall_pass": true
+      },
+      {
+        "layer": "L1",
+        "metric": "单元测试通过率",
+        "key": "l1_pass_rate",
+        "current": 100.0,
+        "baseline": 100.0,
+        "threshold": 100.0,
+        "degradation": 0.0,
+        "degradation_pass": true,
+        "overall_pass": true
+      },
+      {
+        "layer": "L2",
+        "metric": "集成测试通过率",
+        "key": "l2_pass_rate",
+        "current": 100.0,
+        "baseline": 100.0,
+        "threshold": 90.0,
+        "degradation": 0.0,
+        "degradation_pass": true,
+        "overall_pass": true
+      },
+      {
+        "layer": "L3",
+        "metric": "Golden 准确率",
+        "key": "l3_pass_rate",
+        "current": 100.0,
+        "baseline": 100.0,
+        "threshold": 70.0,
+        "degradation": 0.0,
+        "degradation_pass": true,
+        "overall_pass": true
+      }
+    ]
+  }
+}

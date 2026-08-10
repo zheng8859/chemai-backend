@@ -9,7 +9,7 @@
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, JSON, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.enums import UploadSessionStatus, OCRTaskStatus
@@ -39,6 +39,58 @@ class UploadSession(Base, TimestampMixin):
         String(20), default=UploadSessionStatus.uploaded,
         server_default="'uploaded'", nullable=False, comment="会话状态"
     )
+
+    # ── 文件元数据 ──
+    original_filename: Mapped[str] = mapped_column(
+        String(500), nullable=False, default="", server_default="''",
+        comment="上传文件的原始文件名"
+    )
+    mime_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="", server_default="''",
+        comment="文件的 MIME 类型"
+    )
+    file_path: Mapped[str] = mapped_column(
+        String(500), nullable=False, default="", server_default="''",
+        comment="文件存储的相对路径"
+    )
+    detected_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="", server_default="''",
+        comment="自动检测的文件类型：PDF / IMAGE"
+    )
+
+    # ── OCR 中间结果 ──
+    ocr_result_json: Mapped[Optional[dict]] = mapped_column(
+        JSON, comment="OCR 识别中间结果"
+    )
+    grading_result_json: Mapped[Optional[dict]] = mapped_column(
+        JSON, comment="批改结果汇总"
+    )
+
+    # ── 进度追踪 ──
+    total_pages: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0",
+        comment="总页数（PDF 多页）"
+    )
+    completed_pages: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0",
+        comment="已完成识别页数"
+    )
+
+    # ── 降级与错误 ──
+    fallback_used: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0",
+        comment="是否触发降级引擎"
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(
+        Text, comment="错误信息"
+    )
+
+    # ── 乐观锁 ──
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1",
+        comment="乐观锁版本号"
+    )
+
     completed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), comment="处理完成时间"
     )
@@ -105,11 +157,26 @@ class OCRTask(Base, TimestampMixin):
     upload_session_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("upload_session.id", ondelete="CASCADE"), nullable=False, comment="所属上传会话"
     )
+    teacher_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("teacher.id", ondelete="CASCADE"), nullable=False, comment="所属教师"
+    )
     status: Mapped[OCRTaskStatus] = mapped_column(
         String(20), default=OCRTaskStatus.pending,
         server_default="'pending'", nullable=False,
         comment="任务状态：pending / processing / done / failed",
     )
+
+    # ── 文件信息 ──
+    image_path: Mapped[str] = mapped_column(
+        String(500), nullable=False, default="", server_default="''",
+        comment="答题卡图片在磁盘上的路径"
+    )
+    title: Mapped[str] = mapped_column(
+        String(200), nullable=False, default="", server_default="''",
+        comment="任务标题（如文件名）"
+    )
+
+    # ── OCR 结果 ──
     ocr_raw_result: Mapped[Optional[dict]] = mapped_column(
         JSON, comment="OCR 原始识别结果"
     )
@@ -117,8 +184,33 @@ class OCRTask(Base, TimestampMixin):
         JSON, comment="批改结果：逐题判定 + 汇总统计"
     )
 
+    # ── 学生信息提取 ──
+    student_id_raw: Mapped[Optional[str]] = mapped_column(
+        String(50), comment="OCR 提取的原始学号"
+    )
+    student_name_raw: Mapped[Optional[str]] = mapped_column(
+        String(50), comment="OCR 提取的原始姓名"
+    )
+
+    # ── 进度与确认 ──
+    progress: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0",
+        comment="处理进度百分比 0-100"
+    )
+    confirmed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0",
+        comment="教师确认标记"
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(
+        Text, comment="错误描述（仅失败时）"
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), comment="处理完成时间"
+    )
+
     # ── 关系 ──
     upload_session: Mapped["UploadSession"] = relationship(back_populates="ocr_tasks")
+    teacher: Mapped["Teacher"] = relationship(back_populates="ocr_tasks")
 
     def __repr__(self) -> str:
         return f"<OCRTask id={self.id} status={self.status}>"

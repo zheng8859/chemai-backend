@@ -272,8 +272,8 @@
       </header>
       <div class="quiz-scroll" id="quizContent"></div>
       <div class="quiz-nav">
-        <button class="btn-nav prev" id="btnPrev" onclick="goToPrev()" disabled>← 上一题</button>
-        <button class="btn-nav next" id="btnNext" onclick="goToNext()">下一题 →</button>
+        <button class="btn-nav prev" id="btnPrev" onclick="nav.goPrev()" disabled>← 上一题</button>
+        <button class="btn-nav next" id="btnNext" onclick="nav.goNext()">下一题 →</button>
       </div>
     </div>
 
@@ -298,8 +298,6 @@
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/mhchem.min.js"></script>
 
   <script>
-    var $ = function(id) { return document.getElementById(id); };
-
     var state = {
       questionId: null,
       count: 3,
@@ -309,6 +307,8 @@
       answers: {},         // { questionId: answer }
       isSubmitting: false,
     };
+
+    var nav = ChemAPI.createQuizNavigator(state, renderCurrentQuestion, 'variants');
 
     // ═══════════════════════════════════════════════════
     // Init
@@ -371,7 +371,6 @@
           state.currentQIndex = 0;
           switchView('quiz');
           renderCurrentQuestion();
-          updateQuizNav();
         })
         .catch(function(err) {
           $('genContent').innerHTML = '<div class="state-msg"><span>创建训练失败: ' + err.message + '</span><button class="btn-retry" onclick="createTrainingSession()">重试</button></div>';
@@ -392,28 +391,8 @@
       var html = '<div class="question-text">' + (q.content || '') + '</div>';
 
       if (hasOptions) {
-        var options = Array.isArray(q.options) ? q.options : q.options;
-        var letters = ['A', 'B', 'C', 'D', 'E', 'F'];
         var selectedAnswer = state.answers[qId];
-
-        if (Array.isArray(options)) {
-          options.forEach(function(opt, idx) {
-            var letter = letters[idx] || '';
-            var isSelected = selectedAnswer === letter;
-            html += '<button class="option-btn' + (isSelected ? ' selected' : '') + '" onclick="selectAnswer(' + qId + ', \'' + letter + '\')">'
-              + '<span class="opt-letter">' + letter + '</span>'
-              + '<span>' + (typeof opt === 'string' ? opt : (opt.label || opt.text || '')) + '</span>'
-              + '</button>';
-          });
-        } else if (typeof options === 'object') {
-          Object.keys(options).forEach(function(letter) {
-            var isSelected = selectedAnswer === letter;
-            html += '<button class="option-btn' + (isSelected ? ' selected' : '') + '" onclick="selectAnswer(' + qId + ', \'' + letter + '\')">'
-              + '<span class="opt-letter">' + letter + '</span>'
-              + '<span>' + options[letter] + '</span>'
-              + '</button>';
-          });
-        }
+        html += ChemAPI.renderOptionsHtml(q.options, qId, selectedAnswer, 'selectAnswer');
       } else {
         var existingAnswer = state.answers[qId] || '';
         html += '<textarea class="fill-input" id="fillInput" placeholder="请输入你的答案..." oninput="saveFillAnswer(' + qId + ', this.value)">' + existingAnswer + '</textarea>';
@@ -422,47 +401,18 @@
       $('quizContent').innerHTML = html;
       ChemAPI.renderLatex($('quizContent'));
       $('quizContent').scrollTop = 0;
+      ChemAPI.updateQuizNav('btnPrev', 'btnNext', state.currentQIndex, state.variants.length, submitTraining, nav.goNext);
     }
 
     function selectAnswer(questionId, letter) {
       state.answers[questionId] = letter;
       renderCurrentQuestion();
-      updateQuizNav();
+      ChemAPI.updateQuizNav('btnPrev', 'btnNext', state.currentQIndex, state.variants.length, submitTraining, nav.goNext);
     }
 
     function saveFillAnswer(questionId, value) {
       state.answers[questionId] = value.trim();
-      updateQuizNav();
-    }
-
-    function goToPrev() {
-      if (state.currentQIndex > 0) {
-        state.currentQIndex--;
-        renderCurrentQuestion();
-        updateQuizNav();
-      }
-    }
-
-    function goToNext() {
-      if (state.currentQIndex < state.variants.length - 1) {
-        state.currentQIndex++;
-        renderCurrentQuestion();
-        updateQuizNav();
-      }
-    }
-
-    function updateQuizNav() {
-      $('btnPrev').disabled = state.currentQIndex === 0;
-      var isLast = state.currentQIndex >= state.variants.length - 1;
-      if (isLast) {
-        $('btnNext').textContent = '提交';
-        $('btnNext').className = 'btn-nav submit';
-        $('btnNext').onclick = submitTraining;
-      } else {
-        $('btnNext').textContent = '下一题 →';
-        $('btnNext').className = 'btn-nav next';
-        $('btnNext').onclick = goToNext;
-      }
+      ChemAPI.updateQuizNav('btnPrev', 'btnNext', state.currentQIndex, state.variants.length, submitTraining, nav.goNext);
     }
 
     // ═══════════════════════════════════════════════════
@@ -489,7 +439,7 @@
         .catch(function(err) {
           state.isSubmitting = false;
           $('btnNext').disabled = false;
-          showToast('提交失败: ' + err.message);
+          ChemAPI.showToast('提交失败: ' + err.message);
         });
     }
 
@@ -550,14 +500,6 @@
       $('viewGen').classList.toggle('active', view === 'gen');
       $('viewQuiz').classList.toggle('active', view === 'quiz');
       $('viewResult').classList.toggle('active', view === 'result');
-    }
-
-    var _toastTimer;
-    function showToast(msg) {
-      $('toast').textContent = msg;
-      $('toast').classList.add('show');
-      clearTimeout(_toastTimer);
-      _toastTimer = setTimeout(function() { $('toast').classList.remove('show'); }, 2500);
     }
   </script>
 </body>

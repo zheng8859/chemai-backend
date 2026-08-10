@@ -70,7 +70,7 @@ async def llm_chat(
     max_tokens: int | None = None,
     json_mode: bool = False,
 ) -> str:
-    """通过 fallback 路由调用 LLM。
+    """通过 fallback 路由调用 LLM（纯文本模式）。
 
     依次尝试已配置的 provider，第一个成功即返回。
     全部失败则抛出 LLMError。
@@ -108,9 +108,60 @@ async def llm_chat(
                 response_format=response_format,
             )
             logger.info(f"LLM success: {provider.name}")
-            return result
+            return result["content"] or ""
         except LLMError as e:
             logger.warning(f"LLM fallback from {provider.name}: {e}")
+            last_error = e
+            continue
+
+    raise LLMError(
+        f"所有 LLM Provider 均调用失败 (共{len(providers)}个)",
+        provider="all",
+    )
+
+
+async def llm_chat_with_tools(
+    messages: list[dict[str, str]],
+    tools: list[dict[str, Any]],
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+) -> dict[str, Any]:
+    """通过 fallback 路由调用 LLM（工具调用模式）。
+
+    Args:
+        messages: 消息列表
+        tools: 工具定义列表 (OpenAI function-calling 格式)
+        temperature: 温度
+        max_tokens: 最大 token
+
+    Returns:
+        {"content": str | None, "tool_calls": list | None}
+
+    Raises:
+        LLMError: 所有 provider 均失败
+    """
+    temp = temperature if temperature is not None else LLM_TEMPERATURE
+    tokens = max_tokens if max_tokens is not None else LLM_MAX_TOKENS
+
+    providers = _get_providers()
+    if not providers:
+        raise LLMError("没有配置任何 LLM Provider", provider="none")
+
+    last_error: LLMError | None = None
+
+    for provider in providers:
+        try:
+            logger.info(f"LLM tool call: {provider.name}")
+            result = await provider.chat(
+                messages,
+                temperature=temp,
+                max_tokens=tokens,
+                tools=tools,
+            )
+            logger.info(f"LLM tool success: {provider.name}")
+            return result
+        except LLMError as e:
+            logger.warning(f"LLM tool fallback from {provider.name}: {e}")
             last_error = e
             continue
 

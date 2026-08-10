@@ -1,0 +1,72 @@
+{
+  "meta": {
+    "tool": "run_evals",
+    "version": "0.4.0",
+    "timestamp": "2026-08-07T04:50:14.155095+00:00",
+    "project_root": "D:\\AI\\chemai-project\\chemai-backend",
+    "levels_run": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "mode": "check"
+  },
+  "l1_unit": {
+    "label": "L1 单元测试",
+    "total": 752,
+    "passed": 752,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pass_rate": 100.0,
+    "elapsed_s": 8.7,
+    "exit_code": 0
+  },
+  "l1_coverage": {
+    "label": "L1 覆盖率",
+    "coverage_pct": 47.59,
+    "elapsed_s": 12.6
+  },
+  "l1_verdict": {
+    "passed": false,
+    "unit_ok": true,
+    "coverage_ok": false
+  },
+  "l2_integration": {
+    "label": "L2 集成测试",
+    "total": 151,
+    "passed": 151,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pass_rate": 100.0,
+    "elapsed_s": 46.5,
+    "exit_code": 0
+  },
+  "l2_verdict": {
+    "passed": true,
+    "pass_rate": 100.0
+  },
+  "l3_golden": {
+    "label": "L3 Golden 评测",
+    "total": 86,
+    "passed": 86,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pass_rate": 100.0,
+    "elapsed_s": 2.9,
+    "exit_code": 0
+  },
+  "l3_verdict": {
+    "passed": true,
+    "pass_rate": 100.0
+  },
+  "verdict": {
+    "passed": false,
+    "failures": [
+      "L1 覆盖率 47.59% < 95.0%"
+    ],
+    "summary": "✗ 1 项未通过"
+  }
+}

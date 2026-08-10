@@ -259,7 +259,7 @@
         throw new Error('服务器未返回令牌');
       }
 
-      localStorage.setItem('access_token', data.token);
+      localStorage.setItem('chemai_token', data.token);
       localStorage.setItem('user_name', data.name || '教师');
       localStorage.setItem('user_role', data.role || 'teacher');
 

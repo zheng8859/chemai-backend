@@ -19,6 +19,7 @@ from ..core.enums import (
     ReviewTaskStatus,
     WarningType,
     WarningSeverity,
+    WarningStatus,
 )
 from .base import Base, TimestampMixin
 
@@ -227,6 +228,7 @@ class WarningLog(Base, TimestampMixin):
     """学情预警 — 四类自动监控预警（34号 §三.4）。
 
     三端通知状态追踪，防止重复发送。
+    生命周期：pending → processing → resolved / dismissed。
     """
 
     __tablename__ = "warning_log"
@@ -241,7 +243,28 @@ class WarningLog(Base, TimestampMixin):
     severity: Mapped[WarningSeverity] = mapped_column(
         String(20), nullable=False, comment="严重级别：info / warning / severe"
     )
+    title: Mapped[str] = mapped_column(
+        String(200), nullable=False, default="", server_default="",
+        comment="预警标题（人类可读摘要）",
+    )
     message: Mapped[str] = mapped_column(Text, nullable=False, comment="预警消息文本")
+    data: Mapped[Optional[dict]] = mapped_column(
+        JSON, comment="预警数据快照 JSON（类型相关，如成绩对比、错误率、障碍变化）"
+    )
+    status: Mapped[WarningStatus] = mapped_column(
+        String(20), default=WarningStatus.pending, server_default="'pending'", nullable=False,
+        comment="预警状态：pending / processing / resolved / dismissed",
+    )
+    processed_by: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("teacher.id", ondelete="SET NULL"),
+        comment="处理人（教师 ID）",
+    )
+    processed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), comment="处理时间"
+    )
+    note: Mapped[Optional[str]] = mapped_column(
+        Text, comment="教师备注（处理说明或误报原因）"
+    )
     notified_teacher: Mapped[bool] = mapped_column(
         default=False, server_default="0", comment="是否已通知教师"
     )
@@ -256,4 +279,7 @@ class WarningLog(Base, TimestampMixin):
     student: Mapped["Student"] = relationship(back_populates="warning_logs")
 
     def __repr__(self) -> str:
-        return f"<WarningLog id={self.id} type={self.warning_type} severity={self.severity}>"
+        return (
+            f"<WarningLog id={self.id} type={self.warning_type}"
+            f" severity={self.severity} status={self.status}>"
+        )

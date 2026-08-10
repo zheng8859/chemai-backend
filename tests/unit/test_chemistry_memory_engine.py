@@ -13,6 +13,7 @@ from chem_skills.chemistry_memory.zpd_engine import (
     identify_dominant_barrier,
 )
 from chem_skills.chemistry_memory.strategy_matrix import apply_strategy
+from app.core.enums import BarrierType
 from chem_skills.chemistry_memory.spaced_repetition import (
     SPIRAL_REVIEW_DAYS,
     MAX_LEVEL,
@@ -184,59 +185,54 @@ class TestApplyStrategy:
 
     def test_concept_strategy_lowers_difficulty(self):
         """概念障碍：hard → medium, medium → easy, easy → easy。"""
-        assert apply_strategy("concept", "hard")["difficulty"] == "medium"
-        assert apply_strategy("concept", "medium")["difficulty"] == "easy"
-        assert apply_strategy("concept", "easy")["difficulty"] == "easy"
+        assert apply_strategy(BarrierType.concept, "hard")["difficulty"] == "medium"
+        assert apply_strategy(BarrierType.concept, "medium")["difficulty"] == "easy"
+        assert apply_strategy(BarrierType.concept, "easy")["difficulty"] == "easy"
 
     def test_concept_strategy_prefers_foundational_kp(self):
         """概念障碍：知识点倾向为基础型。"""
-        result = apply_strategy("concept", "medium")
+        result = apply_strategy(BarrierType.concept, "medium")
         assert result["kp_preference"] == "foundational"
 
-    def test_concept_strategy_weights_favor_choice_and_fill(self):
-        """概念障碍：题型权重偏向选择+填空。"""
-        weights = apply_strategy("concept", "medium")["question_type_weights"]
-        assert weights["choice"] == 0.5
-        assert weights["fill_blank"] == 0.3
-        assert weights["choice"] > weights["calculation"]
+    def test_concept_strategy_weights_choice_only(self):
+        """概念障碍 v1.0：仅选择题型。"""
+        weights = apply_strategy(BarrierType.concept, "medium")["question_type_weights"]
+        assert weights == {"choice": 1.0}
 
     # --- reading barrier ---
 
     def test_reading_strategy_keeps_difficulty(self):
         """审题障碍：保持原始难度不变。"""
-        assert apply_strategy("reading", "hard")["difficulty"] == "hard"
-        assert apply_strategy("reading", "medium")["difficulty"] == "medium"
-        assert apply_strategy("reading", "easy")["difficulty"] == "easy"
+        assert apply_strategy(BarrierType.reading, "hard")["difficulty"] == "hard"
+        assert apply_strategy(BarrierType.reading, "medium")["difficulty"] == "medium"
+        assert apply_strategy(BarrierType.reading, "easy")["difficulty"] == "easy"
 
     def test_reading_strategy_prefers_mixed_kp(self):
         """审题障碍：知识点倾向为混合型。"""
-        result = apply_strategy("reading", "medium")
+        result = apply_strategy(BarrierType.reading, "medium")
         assert result["kp_preference"] == "mixed"
 
-    def test_reading_strategy_weights_favor_inference(self):
-        """审题障碍：题型权重偏向推断题。"""
-        weights = apply_strategy("reading", "medium")["question_type_weights"]
-        assert weights["inference"] > weights["calculation"]
-        assert weights["inference"] == 0.25
+    def test_reading_strategy_weights_choice_only(self):
+        """审题障碍 v1.0：仅选择题型。"""
+        weights = apply_strategy(BarrierType.reading, "medium")["question_type_weights"]
+        assert weights == {"choice": 1.0}
 
     # --- expression barrier ---
 
     def test_expression_strategy_keeps_difficulty(self):
         """表述障碍：保持原始难度不变。"""
-        assert apply_strategy("expression", "hard")["difficulty"] == "hard"
-        assert apply_strategy("expression", "medium")["difficulty"] == "medium"
+        assert apply_strategy(BarrierType.expression, "hard")["difficulty"] == "hard"
+        assert apply_strategy(BarrierType.expression, "medium")["difficulty"] == "medium"
 
     def test_expression_strategy_prefers_equation_kp(self):
         """表述障碍：知识点倾向为方程式型。"""
-        result = apply_strategy("expression", "hard")
+        result = apply_strategy(BarrierType.expression, "hard")
         assert result["kp_preference"] == "equation"
 
-    def test_expression_strategy_weights_favor_calculation(self):
-        """表述障碍：题型权重偏向计算题和实验题。"""
-        weights = apply_strategy("expression", "hard")["question_type_weights"]
-        assert weights["calculation"] == 0.35
-        assert weights["experiment"] == 0.2
-        assert weights["calculation"] > weights["choice"]
+    def test_expression_strategy_weights_choice_only(self):
+        """表述障碍 v1.0：仅选择题型。"""
+        weights = apply_strategy(BarrierType.expression, "hard")["question_type_weights"]
+        assert weights == {"choice": 1.0}
 
     # --- unknown barrier ---
 
