@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "module": "organic",
+    "version": "1.0",
+    "total": 20,
+    "description": "有机化学模块 Golden 样本 — 出题8 + 诊断8 + 辅导4"
+  },
+  "samples": [
+    {
+      "id": "golden_061", "module": "question_generation", "category": "有机化学", "sub_category": "官能团识别",
+      "difficulty": 2, "knowledge_points": ["官能团", "结构式"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成3道关于有机化合物官能团识别的选择题，难度2", "parameters": {"question_type": "choice", "difficulty": 2, "count": 3, "knowledge_point": "官能团"}},
+      "expected_output": {"questions": [{"stem": "CH₃COOH含有什么官能团？", "options": ["羟基", "醛基", "羧基", "酯基"], "correct_answer": "C", "explanation": "乙酸含-COOH羧基"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["官能团", "基础"]
+    },
+    {
+      "id": "golden_062", "module": "question_generation", "category": "有机化学", "sub_category": "同分异构体",
+      "difficulty": 3, "knowledge_points": ["同分异构体", "碳链异构", "位置异构"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成2道关于同分异构体书写和计数的题，难度3", "parameters": {"question_type": "fill", "difficulty": 3, "count": 2, "knowledge_point": "同分异构体"}},
+      "expected_output": {"questions": [{"stem": "C₄H₁₀O有多少种同分异构体？（含醇和醚）", "correct_answer": "7种（4种醇+3种醚）", "explanation": "C₄醇：1-丁醇、2-丁醇、异丁醇、叔丁醇；C₄醚：甲丙醚、异丙甲醚、乙醚"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["同分异构体", "计数"]
+    },
+    {
+      "id": "golden_063", "module": "question_generation", "category": "有机化学", "sub_category": "反应类型",
+      "difficulty": 2, "knowledge_points": ["加成", "取代", "消去", "反应类型"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成3道关于有机反应类型判断的选择题，难度2", "parameters": {"question_type": "choice", "difficulty": 2, "count": 3, "knowledge_point": "反应类型"}},
+      "expected_output": {"questions": [{"stem": "CH₂=CH₂+H₂→CH₃CH₃属于什么反应类型？", "options": ["加成反应", "取代反应", "消去反应", "氧化反应"], "correct_answer": "A", "explanation": "双键断裂加上H₂，是加成反应"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["反应类型", "基础"]
+    },
+    {
+      "id": "golden_064", "module": "question_generation", "category": "有机化学", "sub_category": "IUPAC命名",
+      "difficulty": 3, "knowledge_points": ["IUPAC命名", "选主链", "编号"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成3道关于IUPAC命名的填空题，难度3", "parameters": {"question_type": "fill", "difficulty": 3, "count": 3, "knowledge_point": "命名"}},
+      "expected_output": {"questions": [{"stem": "命名：CH₃CH₂CH(CH₃)CH₂CH₃", "correct_answer": "3-甲基戊烷", "explanation": "最长碳链5个C(戊)，3号位上有甲基取代基"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["命名", "IUPAC"]
+    },
+    {
+      "id": "golden_065", "module": "question_generation", "category": "有机化学", "sub_category": "官能团转化",
+      "difficulty": 3, "knowledge_points": ["官能团转化", "有机合成路线"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成2道关于官能团转化路线的题，难度3", "parameters": {"question_type": "fill", "difficulty": 3, "count": 2, "knowledge_point": "官能团转化"}},
+      "expected_output": {"questions": [{"stem": "写出CH₃CH₂OH→CH₃COOH的转化路线", "correct_answer": "CH₃CH₂OH→(氧化, KMnO₄/H⁺)→CH₃CHO→(氧化)→CH₃COOH", "explanation": "乙醇先氧化为乙醛，再氧化为乙酸"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["转化", "官能团"]
+    },
+    {
+      "id": "golden_066", "module": "question_generation", "category": "有机化学", "sub_category": "合成路线设计",
+      "difficulty": 5, "knowledge_points": ["多步合成", "逆合成分析"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成1道关于有机合成路线设计的多步合成综合题，难度5", "parameters": {"question_type": "comprehensive", "difficulty": 5, "count": 1, "knowledge_point": "合成路线"}},
+      "expected_output": {"questions": [{"stem": "设计由乙烯合成乙酸乙酯的合成路线", "correct_answer": "CH₂=CH₂→(H₂O/H⁺)→C₂H₅OH；CH₂=CH₂→(O₂,催化剂)→CH₃CHO→(O₂)→CH₃COOH；C₂H₅OH+CH₃COOH→(浓H₂SO₄,△)→CH₃COOC₂H₅+H₂O", "explanation": "乙烯→乙醇(加成)，乙烯→乙酸(氧化)，乙醇+乙酸→乙酸乙酯(酯化)"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["合成", "多步"]
+    },
+    {
+      "id": "golden_067", "module": "question_generation", "category": "有机化学", "sub_category": "有机物鉴别",
+      "difficulty": 3, "knowledge_points": ["鉴别", "特征反应"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成2道关于有机物鉴别的题，难度3", "parameters": {"question_type": "choice", "difficulty": 3, "count": 2, "knowledge_point": "鉴别"}},
+      "expected_output": {"questions": [{"stem": "用什么试剂可以鉴别葡萄糖和果糖？", "options": ["溴水", "斐林试剂", "银氨溶液", "无法用化学方法"], "correct_answer": "A", "explanation": "溴水氧化醛基使溴水褪色，葡萄糖有醛基（开链），果糖主要是酮式"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["鉴别", "特征反应"]
+    },
+    {
+      "id": "golden_068", "module": "question_generation", "category": "有机化学", "sub_category": "高聚物与单体",
+      "difficulty": 3, "knowledge_points": ["聚合反应", "单体", "高聚物"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成2道关于高聚物与单体推断的题，难度3", "parameters": {"question_type": "fill", "difficulty": 3, "count": 2, "knowledge_point": "高聚物"}},
+      "expected_output": {"questions": [{"stem": "聚氯乙烯[-CH₂-CHCl-]ₙ的单体是什么？", "correct_answer": "CH₂=CHCl（氯乙烯）", "explanation": "加聚反应，单体双键打开连接成链"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["高聚物", "单体"]
+    },
+    {
+      "id": "golden_069", "module": "diagnosis", "category": "有机化学", "sub_category": "多官能团遗漏",
+      "input": {"question": "阿司匹林（乙酰水杨酸）含有哪些官能团？", "student_answer": "只有羧基(-COOH)", "correct_answer": "羧基(-COOH)和酯基(-COO-)"},
+      "expected_output": {"primary_misconception": "多官能团识别遗漏次要官能团", "error_type": "知识空白", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["多官能团", "遗漏"]
+    },
+    {
+      "id": "golden_070", "module": "diagnosis", "category": "有机化学", "sub_category": "加成取代混淆",
+      "input": {"question": "CH₂=CH₂+H₂→CH₃CH₃是什么反应？", "student_answer": "取代反应，H₂取代了双键", "correct_answer": "加成反应，H₂加在双键两端"},
+      "expected_output": {"primary_misconception": "加成反应与取代反应混淆", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["加成", "取代", "混淆"]
+    },
+    {
+      "id": "golden_071", "module": "diagnosis", "category": "有机化学", "sub_category": "同分异构漏数",
+      "input": {"question": "C₄H₉Cl有多少种同分异构体？", "student_answer": "3种", "correct_answer": "4种（1-氯丁烷、2-氯丁烷、1-氯-2-甲基丙烷、2-氯-2-甲基丙烷）"},
+      "expected_output": {"primary_misconception": "同分异构体漏数", "error_type": "知识空白", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["同分异构", "漏数"]
+    },
+    {
+      "id": "golden_072", "module": "diagnosis", "category": "有机化学", "sub_category": "选主链错误",
+      "input": {"question": "命名：CH₃CH₂CH(CH₂CH₃)CH₂CH₃", "student_answer": "2-乙基丙烷", "correct_answer": "3-甲基戊烷"},
+      "expected_output": {"primary_misconception": "未选最长碳链为主链", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["命名", "主链"]
+    },
+    {
+      "id": "golden_073", "module": "diagnosis", "category": "有机化学", "sub_category": "反应条件遗漏",
+      "input": {"question": "写出苯的硝化反应方程式", "student_answer": "C₆H₆+HNO₃→C₆H₅NO₂+H₂O", "correct_answer": "C₆H₆+HNO₃→(浓H₂SO₄,50-60°C)→C₆H₅NO₂+H₂O，需浓硫酸催化"},
+      "expected_output": {"primary_misconception": "遗漏反应条件", "error_type": "知识空白", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["反应条件", "遗漏"]
+    },
+    {
+      "id": "golden_074", "module": "diagnosis", "category": "有机化学", "sub_category": "马氏规则",
+      "input": {"question": "丙烯(CH₃CH=CH₂)与HBr加成的主要产物是什么？", "student_answer": "CH₃CH₂CH₂Br", "correct_answer": "CH₃CHBrCH₃（马氏规则：H加在含H多的C上）"},
+      "expected_output": {"primary_misconception": "马氏规则应用反——H加在含H少的C上", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["马氏规则", "方向"]
+    },
+    {
+      "id": "golden_075", "module": "diagnosis", "category": "有机化学", "sub_category": "札伊采夫规则",
+      "input": {"question": "2-溴丁烷发生消去反应的主要产物是什么？", "student_answer": "CH₂=CHCH₂CH₃", "correct_answer": "CH₃CH=CHCH₃（札伊采夫规则：主要生成双键上取代基多的烯烃）"},
+      "expected_output": {"primary_misconception": "消去反应忽略札伊采夫规则", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["消去", "札伊采夫"]
+    },
+    {
+      "id": "golden_076", "module": "diagnosis", "category": "有机化学", "sub_category": "缩聚单体判断",
+      "input": {"question": "蛋白质是什么单体通过什么反应生成的？", "student_answer": "葡萄糖通过缩聚反应", "correct_answer": "氨基酸通过缩聚反应（形成肽键）"},
+      "expected_output": {"primary_misconception": "缩聚反应单体判断错误", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["缩聚", "蛋白质"]
+    },
+    {
+      "id": "golden_077", "module": "tutoring", "category": "有机化学", "sub_category": "苯环稳定性",
+      "input": {"student_question": "苯环为什么这么稳定？它和普通的碳碳双键有什么区别？", "context": {"grade_level": "高中二年级", "topic": "芳香烃"}},
+      "expected_output": {"should_contain_keywords": ["离域π键", "大π键", "六个电子", "共轭", "苯不使溴水褪色"], "should_not_contain": ["苯就是三个双键"], "tone": "encouraging", "uses_socratic_method": true},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["苯", "芳香性"]
+    },
+    {
+      "id": "golden_078", "module": "tutoring", "category": "有机化学", "sub_category": "找同分异构方法",
+      "input": {"student_question": "找全所有同分异构体有什么系统方法？我总是漏数。", "context": {"grade_level": "高中二年级", "topic": "同分异构体"}},
+      "expected_output": {"should_contain_keywords": ["碳链异构", "位置异构", "官能团异构", "有序枚举", "系统命名法"], "should_not_contain": [], "tone": "encouraging", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["同分异构", "方法"]
+    },
+    {
+      "id": "golden_079", "module": "tutoring", "category": "有机化学", "sub_category": "IUPAC命名意义",
+      "input": {"student_question": "为什么非要学IUPAC命名法？直接用俗名不行吗？", "context": {"grade_level": "高中二年级", "topic": "命名法"}},
+      "expected_output": {"should_contain_keywords": ["全球统一", "从名称推出结构", "系统化", "唯一对应"], "should_not_contain": [], "tone": "neutral", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["命名", "IUPAC"]
+    },
+    {
+      "id": "golden_080", "module": "tutoring", "category": "有机化学", "sub_category": "塑料与蛋白质",
+      "input": {"student_question": "塑料和蛋白质在化学结构上有什么区别？", "context": {"grade_level": "高中三年级", "topic": "高分子化合物"}},
+      "expected_output": {"should_contain_keywords": ["加成聚合", "缩合聚合", "碳链", "肽键", "酰胺键", "天然高分子", "合成高分子"], "should_not_contain": [], "tone": "neutral", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["高分子", "结构"]
+    }
+  ]
+}

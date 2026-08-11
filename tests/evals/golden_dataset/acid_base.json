@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "module": "acid_base",
+    "version": "1.0",
+    "total": 20,
+    "description": "酸碱盐模块 Golden 样本 — 出题8 + 诊断8 + 辅导4"
+  },
+  "samples": [
+    {
+      "id": "golden_021", "module": "question_generation", "category": "酸碱盐", "sub_category": "弱酸电离",
+      "difficulty": 3, "knowledge_points": ["弱电解质", "电离平衡", "pH近似计算"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成3道关于弱酸电离平衡的选择题，难度3", "parameters": {"question_type": "choice", "difficulty": 3, "count": 3, "knowledge_point": "弱酸电离"}},
+      "expected_output": {"questions": [{"stem": "0.1mol/L HAc溶液中，下列哪种微粒浓度最大？", "options": ["HAc分子", "H⁺", "Ac⁻", "OH⁻"], "correct_answer": "A", "explanation": "弱酸电离度小，主要以分子形式存在"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["弱酸", "电离"]
+    },
+    {
+      "id": "golden_022", "module": "question_generation", "category": "酸碱盐", "sub_category": "盐类水解",
+      "difficulty": 3, "knowledge_points": ["盐类水解", "溶液酸碱性"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成3道关于盐类水解的填空题，判断溶液酸碱性", "parameters": {"question_type": "fill", "difficulty": 3, "count": 3, "knowledge_point": "盐类水解"}},
+      "expected_output": {"questions": [{"stem": "Na₂CO₃溶液呈___性，原因：CO₃²⁻+H₂O⇌HCO₃⁻+OH⁻", "correct_answer": "碱", "explanation": "碳酸根水解产生OH⁻"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["盐类水解", "酸碱性"]
+    },
+    {
+      "id": "golden_023", "module": "question_generation", "category": "酸碱盐", "sub_category": "缓冲溶液",
+      "difficulty": 4, "knowledge_points": ["缓冲溶液", "HAc-NaAc体系", "pH计算"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成2道关于缓冲溶液的计算题，难度4", "parameters": {"question_type": "calculation", "difficulty": 4, "count": 2, "knowledge_point": "缓冲溶液"}},
+      "expected_output": {"questions": [{"stem": "0.1mol/L HAc和0.1mol/L NaAc等体积混合，Ka(HAc)=1.8×10⁻⁵，求pH", "correct_answer": "pH=4.74", "explanation": "缓冲溶液pH=pKa+lg([盐]/[酸])=4.74+lg(1)=4.74"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["缓冲溶液", "pH计算"]
+    },
+    {
+      "id": "golden_024", "module": "question_generation", "category": "酸碱盐", "sub_category": "酸碱滴定",
+      "difficulty": 4, "knowledge_points": ["酸碱滴定", "滴定曲线", "指示剂选择"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成2道关于酸碱滴定曲线的比较题，难度4", "parameters": {"question_type": "comprehensive", "difficulty": 4, "count": 2, "knowledge_point": "酸碱滴定"}},
+      "expected_output": {"questions": [{"stem": "用NaOH滴定HCl和滴定HAc，滴定曲线有何不同？", "correct_answer": "强碱滴强酸：突跃范围大，终点pH=7；强碱滴弱酸：突跃范围小，终点pH>7", "explanation": "弱酸滴定终点因盐类水解呈碱性"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["滴定曲线", "比较"]
+    },
+    {
+      "id": "golden_025", "module": "question_generation", "category": "酸碱盐", "sub_category": "pH综合计算",
+      "difficulty": 4, "knowledge_points": ["pH计算", "混合溶液", "稀释"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成2道关于混合溶液pH的综合计算题，难度4", "parameters": {"question_type": "calculation", "difficulty": 4, "count": 2, "knowledge_point": "pH计算"}},
+      "expected_output": {"questions": [{"stem": "pH=2的盐酸与pH=12的NaOH溶液等体积混合，求混合后pH", "correct_answer": "pH=7", "explanation": "H⁺和OH⁻物质的量相等，恰好完全中和"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["pH", "混合"]
+    },
+    {
+      "id": "golden_026", "module": "question_generation", "category": "酸碱盐", "sub_category": "离子浓度比较",
+      "difficulty": 3, "knowledge_points": ["离子浓度", "电荷守恒", "物料守恒"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成3道关于溶液中离子浓度大小比较的选择题", "parameters": {"question_type": "choice", "difficulty": 3, "count": 3, "knowledge_point": "离子浓度"}},
+      "expected_output": {"questions": [{"stem": "0.1mol/L Na₂CO₃溶液中离子浓度最大的是？", "options": ["Na⁺", "CO₃²⁻", "HCO₃⁻", "OH⁻"], "correct_answer": "A", "explanation": "Na⁺不水解，浓度=0.2mol/L"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["离子浓度", "比较"]
+    },
+    {
+      "id": "golden_027", "module": "question_generation", "category": "酸碱盐", "sub_category": "实际应用",
+      "difficulty": 3, "knowledge_points": ["酸碱中和", "胃酸", "土壤改良"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成2道关于酸碱中和实际应用的选择题", "parameters": {"question_type": "choice", "difficulty": 3, "count": 2, "knowledge_point": "酸碱应用"}},
+      "expected_output": {"questions": [{"stem": "常用什么物质来改良酸性土壤？", "options": ["CaO", "NaCl", "HCl", "NaOH"], "correct_answer": "A", "explanation": "生石灰CaO与水生成Ca(OH)₂中和酸性土壤"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["应用", "中和"]
+    },
+    {
+      "id": "golden_028", "module": "question_generation", "category": "酸碱盐", "sub_category": "同离子效应",
+      "difficulty": 4, "knowledge_points": ["同离子效应", "电离平衡移动"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成2道关于同离子效应的题，难度4", "parameters": {"question_type": "comprehensive", "difficulty": 4, "count": 2, "knowledge_point": "同离子效应"}},
+      "expected_output": {"questions": [{"stem": "向0.1mol/L HAc溶液中加入少量NaAc固体，HAc的电离度如何变化？", "correct_answer": "减小，因为Ac⁻同离子效应抑制HAc电离", "explanation": "加入NaAc增加Ac⁻浓度，平衡向左移动"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["同离子效应"]
+    },
+    {
+      "id": "golden_029", "module": "diagnosis", "category": "酸碱盐", "sub_category": "pH对数尺度",
+      "input": {"question": "pH=3和pH=5的盐酸，哪种酸性更强？强多少倍？", "student_answer": "pH=3的强2倍", "correct_answer": "pH=3的酸浓度是pH=5的100倍（对数尺度）"},
+      "expected_output": {"primary_misconception": "不理解pH对数尺度", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["pH", "对数"]
+    },
+    {
+      "id": "golden_030", "module": "diagnosis", "category": "酸碱盐", "sub_category": "弱酸稀释",
+      "input": {"question": "0.1mol/L HAc溶液稀释10倍后pH如何变化？", "student_answer": "pH从3变到4，因为H⁺浓度变为原来的1/10", "correct_answer": "pH变化小于1（从约2.87到约3.37），因为稀释促进弱酸电离"},
+      "expected_output": {"primary_misconception": "弱酸当强酸处理——忽略稀释促进电离", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["弱酸", "稀释"]
+    },
+    {
+      "id": "golden_031", "module": "diagnosis", "category": "酸碱盐", "sub_category": "水解方向",
+      "input": {"question": "NH₄Cl溶液呈什么性？说明原因", "student_answer": "碱性，因为Cl⁻水解产生OH⁻", "correct_answer": "酸性，因为NH₄⁺水解产生H⁺"},
+      "expected_output": {"primary_misconception": "盐类水解方向判断反", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["水解", "方向"]
+    },
+    {
+      "id": "golden_032", "module": "diagnosis", "category": "酸碱盐", "sub_category": "缓冲原理",
+      "input": {"question": "什么是缓冲溶液？为什么它有缓冲能力？", "student_answer": "缓冲溶液就是pH不变的溶液", "correct_answer": "缓冲溶液由弱酸-弱酸盐（或弱碱-弱碱盐）组成，能抵抗少量酸碱的pH变化"},
+      "expected_output": {"primary_misconception": "误认为缓冲溶液pH绝对不变", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["缓冲溶液", "误解"]
+    },
+    {
+      "id": "golden_033", "module": "diagnosis", "category": "酸碱盐", "sub_category": "滴定终点pH",
+      "input": {"question": "用NaOH滴定HAc，化学计量点时溶液pH是多少？", "student_answer": "pH=7，因为酸碱恰好中和", "correct_answer": "pH>7，因为生成NaAc水解呈碱性"},
+      "expected_output": {"primary_misconception": "忽略盐类水解——滴定终点pH≠7", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["滴定", "终点"]
+    },
+    {
+      "id": "golden_034", "module": "diagnosis", "category": "酸碱盐", "sub_category": "质子守恒",
+      "input": {"question": "写出Na₂CO₃溶液的质子守恒式", "student_answer": "[H⁺]=[OH⁻]", "correct_answer": "[H⁺]+[HCO₃⁻]+2[H₂CO₃]=[OH⁻]"},
+      "expected_output": {"primary_misconception": "质子守恒书写错误", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["质子守恒"]
+    },
+    {
+      "id": "golden_035", "module": "diagnosis", "category": "酸碱盐", "sub_category": "Kw与温度",
+      "input": {"question": "100°C时Kw是多少？此时中性溶液的pH是多少？", "student_answer": "Kw=1×10⁻¹⁴，pH=7", "correct_answer": "100°C时Kw≈1×10⁻¹²，中性pH=6"},
+      "expected_output": {"primary_misconception": "忽略Kw是温度函数", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["Kw", "温度"]
+    },
+    {
+      "id": "golden_036", "module": "diagnosis", "category": "酸碱盐", "sub_category": "指示剂",
+      "input": {"question": "用盐酸滴定NaOH应选用什么指示剂？", "student_answer": "酚酞，因为滴定终点pH>7", "correct_answer": "甲基橙或酚酞均可，强酸强碱滴定突跃范围大"},
+      "expected_output": {"primary_misconception": "指示剂选择仅凭直觉", "error_type": "知识空白", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["指示剂", "选择"]
+    },
+    {
+      "id": "golden_037", "module": "tutoring", "category": "酸碱盐", "sub_category": "中和热",
+      "input": {"student_question": "为什么酸碱混在一起会变热？", "context": {"grade_level": "高中二年级", "topic": "中和热"}},
+      "expected_output": {"should_contain_keywords": ["中和反应", "放热", "H⁺+OH⁻→H₂O", "键的形成释放能量"], "should_not_contain": [], "tone": "encouraging", "uses_socratic_method": true},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["中和热", "放热"]
+    },
+    {
+      "id": "golden_038", "module": "tutoring", "category": "酸碱盐", "sub_category": "pH测量",
+      "input": {"student_question": "pH试纸和pH计哪个更好用？有什么区别？", "context": {"grade_level": "高中二年级", "topic": "pH测量"}},
+      "expected_output": {"should_contain_keywords": ["试纸粗略", "pH计精确", "比色卡", "精确到小数点"], "should_not_contain": [], "tone": "neutral", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["pH", "测量"]
+    },
+    {
+      "id": "golden_039", "module": "tutoring", "category": "酸碱盐", "sub_category": "缓冲在人体",
+      "input": {"student_question": "缓冲溶液在人体里有什么用？", "context": {"grade_level": "高中三年级", "topic": "缓冲溶液"}},
+      "expected_output": {"should_contain_keywords": ["血液", "HCO₃⁻/H₂CO₃", "pH稳定", "7.35-7.45"], "should_not_contain": [], "tone": "encouraging", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["缓冲", "人体"]
+    },
+    {
+      "id": "golden_040", "module": "tutoring", "category": "酸碱盐", "sub_category": "强酸弱酸本质",
+      "input": {"student_question": "强酸和弱酸的本质区别是什么？", "context": {"grade_level": "高中二年级", "topic": "电解质"}},
+      "expected_output": {"should_contain_keywords": ["电离程度", "完全电离", "部分电离", "电离平衡常数"], "should_not_contain": ["强酸就是浓度大"], "tone": "neutral", "uses_socratic_method": true},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["强酸", "弱酸", "本质"]
+    }
+  ]
+}

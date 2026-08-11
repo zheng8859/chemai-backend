@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chemai.dev/evals/golden-dataset.schema.json",
+  "title": "ChemAI Golden Dataset Schema",
+  "description": "AI 内容质量评测 Golden 样本的结构定义，覆盖出题/诊断/对话辅导三类样本",
+  "type": "object",
+  "required": ["meta", "samples"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["module", "version", "total"],
+      "properties": {
+        "module": {
+          "type": "string",
+          "enum": ["chemical_equilibrium", "acid_base", "redox", "organic", "stoichiometry"]
+        },
+        "version": { "type": "string" },
+        "total": { "type": "integer", "minimum": 20, "maximum": 20 },
+        "description": { "type": "string" }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/questionGeneration" },
+          { "$ref": "#/$defs/diagnosis" },
+          { "$ref": "#/$defs/tutoring" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "baseSample": {
+      "type": "object",
+      "required": ["id", "module", "category", "eval_type"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^golden_\\d{3}$" },
+        "module": {
+          "type": "string",
+          "enum": ["question_generation", "diagnosis", "tutoring"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["化学平衡", "酸碱盐", "氧化还原", "有机化学", "化学计量"]
+        },
+        "eval_type": { "type": "string", "const": "l3" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "questionGeneration": {
+      "allOf": [
+        { "$ref": "#/$defs/baseSample" },
+        {
+          "type": "object",
+          "required": ["difficulty", "knowledge_points", "grade_level", "input", "expected_output", "tolerance"],
+          "properties": {
+            "module": { "const": "question_generation" },
+            "sub_category": { "type": "string" },
+            "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "knowledge_points": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1
+            },
+            "grade_level": { "type": "string" },
+            "input": {
+              "type": "object",
+              "required": ["prompt", "parameters"],
+              "properties": {
+                "prompt": { "type": "string", "minLength": 1 },
+                "parameters": {
+                  "type": "object",
+                  "required": ["question_type", "difficulty", "count"],
+                  "properties": {
+                    "question_type": {
+                      "type": "string",
+                      "enum": ["choice", "fill", "calculation", "comprehensive"]
+                    },
+                    "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+                    "count": { "type": "integer", "minimum": 1 },
+                    "knowledge_point": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "expected_output": {
+              "type": "object",
+              "required": ["questions", "quality_checks"],
+              "properties": {
+                "questions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["stem", "correct_answer"],
+                    "properties": {
+                      "stem": { "type": "string" },
+                      "options": { "type": "array", "items": { "type": "string" } },
+                      "correct_answer": { "type": "string" },
+                      "explanation": { "type": "string" }
+                    }
+                  }
+                },
+                "quality_checks": {
+                  "type": "object",
+                  "required": ["scientific_accuracy", "options_have_one_correct", "distractors_are_plausible", "no_ambiguous_language"],
+                  "properties": {
+                    "scientific_accuracy": { "type": "boolean" },
+                    "options_have_one_correct": { "type": "boolean" },
+                    "distractors_are_plausible": { "type": "boolean" },
+                    "no_ambiguous_language": { "type": "boolean" }
+                  }
+                }
+              }
+            },
+            "tolerance": {
+              "type": "object",
+              "required": ["scientific_accuracy_min", "difficulty_match"],
+              "properties": {
+                "scientific_accuracy_min": { "type": "number" },
+                "difficulty_match": { "type": "string" },
+                "response_time_max_seconds": { "type": "number" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "diagnosis": {
+      "allOf": [
+        { "$ref": "#/$defs/baseSample" },
+        {
+          "type": "object",
+          "required": ["input", "expected_output", "tolerance"],
+          "properties": {
+            "module": { "const": "diagnosis" },
+            "sub_category": { "type": "string" },
+            "input": {
+              "type": "object",
+              "required": ["question", "student_answer"],
+              "properties": {
+                "question": { "type": "string", "minLength": 1 },
+                "student_answer": { "type": "string", "minLength": 1 },
+                "correct_answer": { "type": "string" }
+              }
+            },
+            "expected_output": {
+              "type": "object",
+              "required": ["primary_misconception", "error_type", "confidence_min"],
+              "properties": {
+                "primary_misconception": { "type": "string", "minLength": 1 },
+                "error_type": {
+                  "type": "string",
+                  "enum": ["概念错误", "计算错误", "知识空白", "推理错误"]
+                },
+                "confidence_min": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            },
+            "tolerance": {
+              "type": "object",
+              "required": ["misconception_match", "confidence_range"],
+              "properties": {
+                "misconception_match": { "type": "string", "const": "semantic" },
+                "confidence_range": { "type": "number" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "tutoring": {
+      "allOf": [
+        { "$ref": "#/$defs/baseSample" },
+        {
+          "type": "object",
+          "required": ["input", "expected_output", "tolerance"],
+          "properties": {
+            "module": { "const": "tutoring" },
+            "sub_category": { "type": "string" },
+            "input": {
+              "type": "object",
+              "required": ["student_question", "context"],
+              "properties": {
+                "student_question": { "type": "string", "minLength": 1 },
+                "context": {
+                  "type": "object",
+                  "required": ["grade_level", "topic"],
+                  "properties": {
+                    "grade_level": { "type": "string" },
+                    "topic": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "expected_output": {
+              "type": "object",
+              "required": ["should_contain_keywords", "tone", "uses_socratic_method"],
+              "properties": {
+                "should_contain_keywords": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "minItems": 1
+                },
+                "should_not_contain": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "tone": {
+                  "type": "string",
+                  "enum": ["encouraging", "neutral", "challenging"]
+                },
+                "uses_socratic_method": { "type": "boolean" }
+              }
+            },
+            "tolerance": {
+              "type": "object",
+              "required": ["keyword_match_ratio"],
+              "properties": {
+                "keyword_match_ratio": { "type": "number" }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

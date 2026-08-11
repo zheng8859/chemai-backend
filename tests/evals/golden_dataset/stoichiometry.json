@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "module": "stoichiometry",
+    "version": "1.0",
+    "total": 20,
+    "description": "化学计量模块 Golden 样本 — 出题8 + 诊断8 + 辅导4"
+  },
+  "samples": [
+    {
+      "id": "golden_081", "module": "question_generation", "category": "化学计量", "sub_category": "摩尔基本计算",
+      "difficulty": 2, "knowledge_points": ["物质的量", "摩尔质量", "n=m/M"], "grade_level": "高中一年级",
+      "input": {"prompt": "生成3道关于摩尔基本计算的选择题，难度2", "parameters": {"question_type": "choice", "difficulty": 2, "count": 3, "knowledge_point": "摩尔计算"}},
+      "expected_output": {"questions": [{"stem": "56g Fe的物质的量是多少？(Fe摩尔质量56g/mol)", "options": ["0.5mol", "1mol", "2mol", "56mol"], "correct_answer": "B", "explanation": "n=m/M=56g/(56g/mol)=1mol"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["摩尔", "基础"]
+    },
+    {
+      "id": "golden_082", "module": "question_generation", "category": "化学计量", "sub_category": "气体摩尔体积",
+      "difficulty": 2, "knowledge_points": ["气体摩尔体积", "标准状况", "Vm=22.4L/mol"], "grade_level": "高中一年级",
+      "input": {"prompt": "生成3道关于气体物质的量计算的选择题，难度2", "parameters": {"question_type": "choice", "difficulty": 2, "count": 3, "knowledge_point": "气体摩尔体积"}},
+      "expected_output": {"questions": [{"stem": "标准状况下，44.8L CO₂的物质的量是多少？", "options": ["0.5mol", "1mol", "2mol", "4mol"], "correct_answer": "C", "explanation": "n=V/Vm=44.8L/(22.4L/mol)=2mol"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["气体", "标准状况"]
+    },
+    {
+      "id": "golden_083", "module": "question_generation", "category": "化学计量", "sub_category": "方程式计算",
+      "difficulty": 3, "knowledge_points": ["化学方程式", "物质的量关系"], "grade_level": "高中一年级",
+      "input": {"prompt": "生成2道根据化学方程式进行计算的题，难度3", "parameters": {"question_type": "calculation", "difficulty": 3, "count": 2, "knowledge_point": "方程式计算"}},
+      "expected_output": {"questions": [{"stem": "2H₂+O₂→2H₂O，若有4mol H₂完全反应，需要O₂多少mol？生成H₂O多少mol？", "correct_answer": "需O₂ 2mol，生成H₂O 4mol", "explanation": "n(H₂):n(O₂):n(H₂O)=2:1:2"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["方程式", "比例"]
+    },
+    {
+      "id": "golden_084", "module": "question_generation", "category": "化学计量", "sub_category": "过量计算",
+      "difficulty": 3, "knowledge_points": ["过量判断", "限量试剂"], "grade_level": "高中一年级",
+      "input": {"prompt": "生成2道关于过量计算的题，难度3", "parameters": {"question_type": "calculation", "difficulty": 3, "count": 2, "knowledge_point": "过量计算"}},
+      "expected_output": {"questions": [{"stem": "2mol H₂与3mol O₂反应，谁过量？生成H₂O多少mol？", "correct_answer": "O₂过量(剩2mol)，生成H₂O 2mol", "explanation": "按H₂:O₂=2:1，2mol H₂只需1mol O₂，所以O₂过量"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["过量", "限量"]
+    },
+    {
+      "id": "golden_085", "module": "question_generation", "category": "化学计量", "sub_category": "产率计算",
+      "difficulty": 3, "knowledge_points": ["产率", "理论产量", "实际产量"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成2道关于产率计算的题，难度3", "parameters": {"question_type": "calculation", "difficulty": 3, "count": 2, "knowledge_point": "产率"}},
+      "expected_output": {"questions": [{"stem": "理论上应生成CaO 56g，实际得到50.4g，求产率", "correct_answer": "90%", "explanation": "产率=实际/理论×100%=50.4/56×100%=90%"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["产率", "计算"]
+    },
+    {
+      "id": "golden_086", "module": "question_generation", "category": "化学计量", "sub_category": "溶液浓度",
+      "difficulty": 2, "knowledge_points": ["物质的量浓度", "稀释公式"], "grade_level": "高中一年级",
+      "input": {"prompt": "生成3道关于溶液浓度配制与稀释的选择题，难度2", "parameters": {"question_type": "choice", "difficulty": 2, "count": 3, "knowledge_point": "溶液浓度"}},
+      "expected_output": {"questions": [{"stem": "配制0.5mol/L NaCl溶液500mL，需NaCl多少克？(NaCl M=58.5g/mol)", "options": ["14.625g", "29.25g", "58.5g", "5.85g"], "correct_answer": "A", "explanation": "m=n×M=c×V×M=0.5×0.5×58.5=14.625g"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["浓度", "配制"]
+    },
+    {
+      "id": "golden_087", "module": "question_generation", "category": "化学计量", "sub_category": "多步反应计算",
+      "difficulty": 4, "knowledge_points": ["多步反应", "关系式法"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成1道关于多步反应综合计算的题，难度4", "parameters": {"question_type": "comprehensive", "difficulty": 4, "count": 1, "knowledge_point": "多步计算"}},
+      "expected_output": {"questions": [{"stem": "工业上以硫铁矿(FeS₂)为原料制硫酸：4FeS₂+11O₂→2Fe₂O₃+8SO₂，2SO₂+O₂→2SO₃，SO₃+H₂O→H₂SO₄。1mol FeS₂理论上可制得H₂SO₄多少mol？", "correct_answer": "2mol", "explanation": "FeS₂→2SO₂→2SO₃→2H₂SO₄，S守恒"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["多步", "综合"]
+    },
+    {
+      "id": "golden_088", "module": "question_generation", "category": "化学计量", "sub_category": "物料守恒",
+      "difficulty": 4, "knowledge_points": ["原子守恒", "物料衡算", "工业生产"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成1道关于工业流程物料守恒的综合题，难度4", "parameters": {"question_type": "comprehensive", "difficulty": 4, "count": 1, "knowledge_point": "物料守恒"}},
+      "expected_output": {"questions": [{"stem": "含FeS₂ 80%的硫铁矿1吨，理论上可制得98%浓硫酸多少吨？（原子利用率考虑）", "correct_answer": "约1.33吨", "explanation": "FeS₂中S→H₂SO₄，n(S)=2n(FeS₂)，逐级计算"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["工业", "守恒"]
+    },
+    {
+      "id": "golden_089", "module": "diagnosis", "category": "化学计量", "sub_category": "摩尔公式用反",
+      "input": {"question": "56g铁的物质的量是多少？(M=56g/mol)", "student_answer": "56g×56g/mol=3136mol，即56mol", "correct_answer": "n=m/M=56/56=1mol"},
+      "expected_output": {"primary_misconception": "物质的量公式用反", "error_type": "计算错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["摩尔", "公式"]
+    },
+    {
+      "id": "golden_090", "module": "diagnosis", "category": "化学计量", "sub_category": "离子化合物分子",
+      "input": {"question": "1mol NaCl中含有多少个NaCl分子？", "student_answer": "6.02×10²³个NaCl分子", "correct_answer": "NaCl是离子晶体，不含分子，含1mol Na⁺和1mol Cl⁻"},
+      "expected_output": {"primary_misconception": "离子化合物说成含分子", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["离子化合物", "分子"]
+    },
+    {
+      "id": "golden_091", "module": "diagnosis", "category": "化学计量", "sub_category": "配平影响计算",
+      "input": {"question": "Fe+O₂→Fe₃O₄，16g O₂可生成Fe₃O₄多少克？", "student_answer": "用未配平的方程式Fe+O₂→Fe₃O₄计算", "correct_answer": "先配平：3Fe+2O₂→Fe₃O₄，n(Fe₃O₄)=n(O₂)/2"},
+      "expected_output": {"primary_misconception": "配平错误导致后续计算全错", "error_type": "计算错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["配平", "计算"]
+    },
+    {
+      "id": "golden_092", "module": "diagnosis", "category": "化学计量", "sub_category": "过量比判断",
+      "input": {"question": "3mol H₂和2mol O₂反应，判断哪种物质过量", "student_answer": "H₂过量，因为3>2", "correct_answer": "O₂过量。按2H₂+O₂→2H₂O，需O₂=3/2=1.5mol，实际2mol所以O₂过量"},
+      "expected_output": {"primary_misconception": "不考虑化学计量比直接比较物质的量", "error_type": "计算错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["过量", "计量比"]
+    },
+    {
+      "id": "golden_093", "module": "diagnosis", "category": "化学计量", "sub_category": "产率公式颠倒",
+      "input": {"question": "理论产量100g，实际得到80g，产率是多少？", "student_answer": "100/80=125%，产率125%", "correct_answer": "产率=80/100×100%=80%"},
+      "expected_output": {"primary_misconception": "产率公式分子分母颠倒", "error_type": "计算错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["产率", "颠倒"]
+    },
+    {
+      "id": "golden_094", "module": "diagnosis", "category": "化学计量", "sub_category": "阿伏伽德罗常数泛化",
+      "input": {"question": "1mol任何物质都含有6.02×10²³个分子，对吗？", "student_answer": "对，阿伏伽德罗常数就是这样定义的", "correct_answer": "不对。离子晶体和原子晶体不含分子，只对分子晶体和气体适用"},
+      "expected_output": {"primary_misconception": "阿伏伽德罗常数误用于所有物质类型", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["NA", "泛化"]
+    },
+    {
+      "id": "golden_095", "module": "diagnosis", "category": "化学计量", "sub_category": "22.4L泛化",
+      "input": {"question": "1mol CO₂在标准状况下的体积是多少？1mol水蒸气呢？1mol水呢？", "student_answer": "都是22.4L，因为1mol任何气体都是22.4L", "correct_answer": "CO₂和水蒸气在标准状况下是22.4L；水在标准状况下是液体，不能用22.4L/mol"},
+      "expected_output": {"primary_misconception": "忽略标准状况条件和非气体状态", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["22.4L", "条件"]
+    },
+    {
+      "id": "golden_096", "module": "diagnosis", "category": "化学计量", "sub_category": "稀释公式用反",
+      "input": {"question": "将10mL 2mol/L溶液稀释到100mL，求稀释后浓度", "student_answer": "c₁V₁=c₂V₂→2×100=c₂×10，c₂=20mol/L", "correct_answer": "c₂=c₁V₁/V₂=2×10/100=0.2mol/L"},
+      "expected_output": {"primary_misconception": "稀释公式c₁V₁=c₂V₂代入反", "error_type": "计算错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["稀释", "公式"]
+    },
+    {
+      "id": "golden_097", "module": "tutoring", "category": "化学计量", "sub_category": "摩尔概念",
+      "input": {"student_question": "摩尔到底是什么？为什么化学非要引入这个单位不可？", "context": {"grade_level": "高中一年级", "topic": "物质的量"}},
+      "expected_output": {"should_contain_keywords": ["微观粒子与宏观质量的桥梁", "6.02×10²³", "化学计量比", "方便计算"], "should_not_contain": [], "tone": "encouraging", "uses_socratic_method": true},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["摩尔", "概念"]
+    },
+    {
+      "id": "golden_098", "module": "tutoring", "category": "化学计量", "sub_category": "过量判断套路",
+      "input": {"student_question": "做过量计算的题目有什么套路？我总是判断错谁过量。", "context": {"grade_level": "高中一年级", "topic": "过量计算"}},
+      "expected_output": {"should_contain_keywords": ["先配平", "求物质的量", "按计量比比较", "用限量试剂计算"], "should_not_contain": [], "tone": "encouraging", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["过量", "方法"]
+    },
+    {
+      "id": "golden_099", "module": "tutoring", "category": "化学计量", "sub_category": "产率上限",
+      "input": {"student_question": "产率为什么不能超过100%？", "context": {"grade_level": "高中二年级", "topic": "产率"}},
+      "expected_output": {"should_contain_keywords": ["实际产量≤理论产量", "副反应", "损失", "可逆反应不完全", "分离损耗"], "should_not_contain": ["产率可以超过100%"], "tone": "neutral", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["产率", "上限"]
+    },
+    {
+      "id": "golden_100", "module": "tutoring", "category": "化学计量", "sub_category": "22.4L条件",
+      "input": {"student_question": "所有气体都符合22.4L/mol吗？如果不在标准状况下呢？", "context": {"grade_level": "高中一年级", "topic": "气体摩尔体积"}},
+      "expected_output": {"should_contain_keywords": ["标准状况0°C 101kPa", "理想气体状态方程PV=nRT", "温度压强影响体积"], "should_not_contain": ["总是22.4L"], "tone": "neutral", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["22.4L", "条件"]
+    }
+  ]
+}

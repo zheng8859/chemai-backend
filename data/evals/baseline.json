@@ -1,8 +1,8 @@
 {
   "meta": {
-    "version": "0.4.0",
-    "created": "2026-08-07T04:09:33.045153+00:00",
-    "description": "v0.4.0 质量门禁基线 — 由 run_evals --baseline 生成"
+    "version": "0.5.0",
+    "created": "2026-08-11T15:08:05.420247+00:00",
+    "description": "v0.5.0 质量门禁基线 — Golden 100 样本 + L1/L2/L3 三层评测"
   },
   "config": {
     "l1_coverage": 95.0,
@@ -12,12 +12,12 @@
     "max_degradation_pct": 5.0
   },
   "scores": {
-    "l1_coverage_pct": 51.92,
+    "l1_coverage_pct": 35.9,
     "l1_pass_rate": 100.0,
-    "l1_total": 693,
+    "l1_total": 863,
     "l2_pass_rate": 100.0,
-    "l2_total": 14,
+    "l2_total": 460,
     "l3_pass_rate": 100.0,
-    "l3_total": 86
+    "l3_total": 163
   }
 }

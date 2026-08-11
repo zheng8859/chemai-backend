@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "module": "redox",
+    "version": "1.0",
+    "total": 20,
+    "description": "氧化还原模块 Golden 样本 — 出题8 + 诊断8 + 辅导4"
+  },
+  "samples": [
+    {
+      "id": "golden_041", "module": "question_generation", "category": "氧化还原", "sub_category": "化合价判断",
+      "difficulty": 2, "knowledge_points": ["化合价", "氧化数"], "grade_level": "高中一年级",
+      "input": {"prompt": "生成3道关于化合价判断的基础选择题，难度2", "parameters": {"question_type": "choice", "difficulty": 2, "count": 3, "knowledge_point": "化合价"}},
+      "expected_output": {"questions": [{"stem": "H₂O₂中氧元素的化合价是多少？", "options": ["-1", "-2", "0", "+1"], "correct_answer": "A", "explanation": "过氧化物中氧为-1价"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["化合价", "基础"]
+    },
+    {
+      "id": "golden_042", "module": "question_generation", "category": "氧化还原", "sub_category": "配平",
+      "difficulty": 3, "knowledge_points": ["氧化还原配平", "化合价升降法"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成3道关于氧化还原反应配平的填空题，难度3", "parameters": {"question_type": "fill", "difficulty": 3, "count": 3, "knowledge_point": "配平"}},
+      "expected_output": {"questions": [{"stem": "配平：__KMnO₄+__HCl→__KCl+__MnCl₂+__Cl₂+__H₂O", "correct_answer": "2,16,2,2,5,8", "explanation": "Mn降5价×2, Cl升1价×10"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["配平", "化合价升降法"]
+    },
+    {
+      "id": "golden_043", "module": "question_generation", "category": "氧化还原", "sub_category": "氧化剂还原剂判断",
+      "difficulty": 2, "knowledge_points": ["氧化剂", "还原剂"], "grade_level": "高中一年级",
+      "input": {"prompt": "生成3道关于氧化剂和还原剂判断的选择题，难度2", "parameters": {"question_type": "choice", "difficulty": 2, "count": 3, "knowledge_point": "氧化剂还原剂"}},
+      "expected_output": {"questions": [{"stem": "反应2Fe+3Cl₂→2FeCl₃中，氧化剂是什么？", "options": ["Fe", "Cl₂", "FeCl₃", "无法判断"], "correct_answer": "B", "explanation": "Cl₂中Cl从0价降到-1价，得电子，是氧化剂"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["氧化剂", "还原剂"]
+    },
+    {
+      "id": "golden_044", "module": "question_generation", "category": "氧化还原", "sub_category": "电子转移数",
+      "difficulty": 3, "knowledge_points": ["电子转移", "物质的量"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成2道关于电子转移数计算的填空题，难度3", "parameters": {"question_type": "calculation", "difficulty": 3, "count": 2, "knowledge_point": "电子转移"}},
+      "expected_output": {"questions": [{"stem": "1mol Fe与足量Cl₂反应，转移电子多少mol？", "correct_answer": "3mol", "explanation": "Fe→Fe³⁺，1mol Fe失去3mol电子"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["电子转移", "计算"]
+    },
+    {
+      "id": "golden_045", "module": "question_generation", "category": "氧化还原", "sub_category": "原电池",
+      "difficulty": 3, "knowledge_points": ["原电池", "正负极", "电极反应"], "grade_level": "高中二年级",
+      "input": {"prompt": "生成3道关于原电池的选择题，难度3", "parameters": {"question_type": "choice", "difficulty": 3, "count": 3, "knowledge_point": "原电池"}},
+      "expected_output": {"questions": [{"stem": "铜锌原电池(Zn|ZnSO₄||CuSO₄|Cu)中，负极反应是什么？", "options": ["Zn→Zn²⁺+2e⁻", "Cu²⁺+2e⁻→Cu", "Zn²⁺+2e⁻→Zn", "Cu→Cu²⁺+2e⁻"], "correct_answer": "A", "explanation": "负极发生氧化反应，Zn失电子"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["原电池", "电极"]
+    },
+    {
+      "id": "golden_046", "module": "question_generation", "category": "氧化还原", "sub_category": "电解池",
+      "difficulty": 4, "knowledge_points": ["电解池", "阴阳极", "放电顺序"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成2道关于电解池产物判断的题，难度4", "parameters": {"question_type": "comprehensive", "difficulty": 4, "count": 2, "knowledge_point": "电解池"}},
+      "expected_output": {"questions": [{"stem": "电解饱和NaCl溶液，阴阳极分别产生什么？", "correct_answer": "阳极：Cl₂，阴极：H₂和NaOH", "explanation": "阳极Cl⁻放电产生Cl₂，阴极H⁺放电产生H₂，剩下Na⁺和OH⁻"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["电解池", "产物"]
+    },
+    {
+      "id": "golden_047", "module": "question_generation", "category": "氧化还原", "sub_category": "金属活动性",
+      "difficulty": 2, "knowledge_points": ["金属活动性顺序", "置换反应"], "grade_level": "高中一年级",
+      "input": {"prompt": "生成3道关于金属活动性顺序应用的选择题，难度2", "parameters": {"question_type": "choice", "difficulty": 2, "count": 3, "knowledge_point": "金属活动性"}},
+      "expected_output": {"questions": [{"stem": "下列哪个反应能自发进行？", "options": ["Cu+FeSO₄→", "Fe+CuSO₄→", "Ag+CuSO₄→", "Au+HCl→"], "correct_answer": "B", "explanation": "Fe比Cu活泼，可置换Cu²⁺"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["金属活动性", "置换"]
+    },
+    {
+      "id": "golden_048", "module": "question_generation", "category": "氧化还原", "sub_category": "氧化还原滴定",
+      "difficulty": 4, "knowledge_points": ["氧化还原滴定", "KMnO₄", "等量关系"], "grade_level": "高中三年级",
+      "input": {"prompt": "生成2道关于KMnO₄滴定Fe²⁺的计算题，难度4", "parameters": {"question_type": "calculation", "difficulty": 4, "count": 2, "knowledge_point": "氧化还原滴定"}},
+      "expected_output": {"questions": [{"stem": "用0.02mol/L KMnO₄溶液滴定25.00mL FeSO₄溶液，消耗KMnO₄ 20.00mL，求FeSO₄浓度", "correct_answer": "0.08mol/L", "explanation": "MnO₄⁻+5Fe²⁺+8H⁺→Mn²⁺+5Fe³⁺+4H₂O，n(Fe²⁺)=5n(MnO₄⁻)"}], "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}},
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"}, "eval_type": "l3", "tags": ["滴定", "KMnO₄"]
+    },
+    {
+      "id": "golden_049", "module": "diagnosis", "category": "氧化还原", "sub_category": "过氧化物化合价",
+      "input": {"question": "H₂O₂中O的化合价是多少？", "student_answer": "-2价，因为氧一般都是-2价", "correct_answer": "-1价，过氧化物中氧为-1价"},
+      "expected_output": {"primary_misconception": "过氧化物中氧化合价记为-2", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["过氧化物", "化合价"]
+    },
+    {
+      "id": "golden_050", "module": "diagnosis", "category": "氧化还原", "sub_category": "氧化剂还原剂混淆",
+      "input": {"question": "反应2Fe+3Cl₂→2FeCl₃中，Fe是什么角色？", "student_answer": "Fe是氧化剂，因为Fe参与了反应", "correct_answer": "Fe是还原剂，失电子被氧化"},
+      "expected_output": {"primary_misconception": "氧化剂/还原剂角色混淆", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["氧化剂", "还原剂", "混淆"]
+    },
+    {
+      "id": "golden_051", "module": "diagnosis", "category": "氧化还原", "sub_category": "电子转移方向",
+      "input": {"question": "MnO₄⁻→Mn²⁺的反应中，Mn的电子如何变化？", "student_answer": "MnO₄⁻失去5个电子变成Mn²⁺", "correct_answer": "MnO₄⁻得到5个电子被还原为Mn²⁺"},
+      "expected_output": {"primary_misconception": "电子转移方向说反", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["电子转移", "方向"]
+    },
+    {
+      "id": "golden_052", "module": "diagnosis", "category": "氧化还原", "sub_category": "配平不完整",
+      "input": {"question": "配平：MnO₄⁻+Fe²⁺+H⁺→Mn²⁺+Fe³⁺+H₂O", "student_answer": "MnO₄⁻+5Fe²⁺→Mn²⁺+5Fe³⁺，未配H⁺和H₂O", "correct_answer": "MnO₄⁻+5Fe²⁺+8H⁺→Mn²⁺+5Fe³⁺+4H₂O"},
+      "expected_output": {"primary_misconception": "只配原子不配电荷和H⁺/H₂O", "error_type": "计算错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["配平", "不完整"]
+    },
+    {
+      "id": "golden_053", "module": "diagnosis", "category": "氧化还原", "sub_category": "电极电势混淆",
+      "input": {"question": "标准电极电势E°越正，该电对的氧化型物质的氧化能力如何？", "student_answer": "越弱，因为电势越正越稳定", "correct_answer": "越强，E°越正氧化能力越强"},
+      "expected_output": {"primary_misconception": "电极电势正负号含义混淆", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["电极电势", "符号"]
+    },
+    {
+      "id": "golden_054", "module": "diagnosis", "category": "氧化还原", "sub_category": "电解产物误判",
+      "input": {"question": "电解NaCl水溶液，阴极产生什么？", "student_answer": "金属钠Na", "correct_answer": "氢气H₂，因为H⁺比Na⁺更容易放电"},
+      "expected_output": {"primary_misconception": "电解NaCl溶液产物判断错误——误以为阴极出Na", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["电解", "产物"]
+    },
+    {
+      "id": "golden_055", "module": "diagnosis", "category": "氧化还原", "sub_category": "电子流向",
+      "input": {"question": "原电池中电子在外电路的流向是什么？", "student_answer": "电子从正极流向负极", "correct_answer": "电子从负极流向正极（电流从正极流向负极）"},
+      "expected_output": {"primary_misconception": "原电池电子流向记反", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["原电池", "电子流向"]
+    },
+    {
+      "id": "golden_056", "module": "diagnosis", "category": "氧化还原", "sub_category": "Fe²⁺/Fe³⁺检验与Fe(OH)₂变化",
+      "input": {"question": "检验Fe²⁺时加入NaOH溶液，最初产生白色沉淀，放置后变为灰绿色最后变为红褐色，解释原因", "student_answer": "Fe(OH)₂分解了", "correct_answer": "Fe(OH)₂被空气中O₂氧化为Fe(OH)₃：4Fe(OH)₂+O₂+2H₂O→4Fe(OH)₃"},
+      "expected_output": {"primary_misconception": "不理解Fe(OH)₂的氧化变色过程", "error_type": "概念错误", "confidence_min": 0.7},
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15}, "eval_type": "l3", "tags": ["Fe(OH)₂", "氧化"]
+    },
+    {
+      "id": "golden_057", "module": "tutoring", "category": "氧化还原", "sub_category": "记忆口诀",
+      "input": {"student_question": "怎么快速记住氧化剂和还原剂的区别？有什么口诀吗？", "context": {"grade_level": "高中一年级", "topic": "氧化还原"}},
+      "expected_output": {"should_contain_keywords": ["升失氧还", "降得还氧", "化合价升高失去电子被氧化是还原剂"], "should_not_contain": [], "tone": "encouraging", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["口诀", "记忆"]
+    },
+    {
+      "id": "golden_058", "module": "tutoring", "category": "氧化还原", "sub_category": "铁生锈",
+      "input": {"student_question": "铁生锈是电化学腐蚀吗？怎么发生的？", "context": {"grade_level": "高中二年级", "topic": "电化学腐蚀"}},
+      "expected_output": {"should_contain_keywords": ["吸氧腐蚀", "原电池", "负极Fe失电子", "正极O₂得电子", "Fe₂O₃·xH₂O"], "should_not_contain": [], "tone": "neutral", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["腐蚀", "电化学"]
+    },
+    {
+      "id": "golden_059", "module": "tutoring", "category": "氧化还原", "sub_category": "锂电池vs铅酸",
+      "input": {"student_question": "锂电池和铅酸电池有什么区别？", "context": {"grade_level": "高中三年级", "topic": "化学电源"}},
+      "expected_output": {"should_contain_keywords": ["锂离子电池", "铅酸蓄电池", "能量密度", "二次电池", "充放电"], "should_not_contain": [], "tone": "neutral", "uses_socratic_method": false},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["电池", "比较"]
+    },
+    {
+      "id": "golden_060", "module": "tutoring", "category": "氧化还原", "sub_category": "歧化反应",
+      "input": {"student_question": "歧化反应是什么意思？能举个例子吗？", "context": {"grade_level": "高中二年级", "topic": "歧化反应"}},
+      "expected_output": {"should_contain_keywords": ["同一元素", "既被氧化又被还原", "Cl₂+2NaOH→NaCl+NaClO+H₂O", "中间价态"], "should_not_contain": [], "tone": "encouraging", "uses_socratic_method": true},
+      "tolerance": {"keyword_match_ratio": 0.7}, "eval_type": "l3", "tags": ["歧化", "概念"]
+    }
+  ]
+}

@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
-"""run_evals — ChemAI 质量门禁评测脚本 (v0.4.0)
+"""run_evals — ChemAI 质量门禁评测脚本 (v0.5.0)
 
-三层评测体系：
+三层评测体系 + Golden 数据集：
   L1 — 单元测试 + 覆盖率（目标 ≥ 95%）
-  L2 — 集成测试（目标通过率 ≥ 90%）
-  L3 — Golden 评测（目标准确率 ≥ 70%）
+  L2 — 集成测试 + 数据库 CRUD（目标通过率 ≥ 90%）
+  L3 — Golden 评测 + 回归基线（目标准确率 ≥ 70%）
 
 CI 模式下对比基线，任一指标劣化 > 5% 则阻断。
 
 用法:
-    python scripts/run_evals.py              # 全量运行 L1+L2+L3
-    python scripts/run_evals.py --level L1   # 仅 L1
-    python scripts/run_evals.py --baseline   # 生成/更新基线文件
-    python scripts/run_evals.py --ci         # CI 严格模式（对比基线，失败 exit 1）
-    python scripts/run_evals.py --json       # JSON 格式输出结果
+    python scripts/run_evals.py                  # 全量运行 L1+L2+L3
+    python scripts/run_evals.py --level L1       # 仅 L1
+    python scripts/run_evals.py --baseline       # 生成/更新基线文件
+    python scripts/run_evals.py --save-baseline  # 同上（显式语义）
+    python scripts/run_evals.py --ci             # CI 严格模式（对比基线，失败 exit 1）
+    python scripts/run_evals.py --run-slow       # 启用 L3 @slow 测试（需 LLM API Key）
+    python scripts/run_evals.py --compare <file> # 对比指定基线文件
+    python scripts/run_evals.py --output report.html  # 生成 HTML 报告
+    python scripts/run_evals.py --json           # JSON 格式输出结果
 """
 
 import argparse
@@ -260,9 +264,9 @@ def build_baseline(results: dict) -> dict:
     """从评测结果构建基线文件。"""
     return {
         "meta": {
-            "version": "0.4.0",
+            "version": "0.5.0",
             "created": datetime.now(timezone.utc).isoformat(),
-            "description": "v0.4.0 质量门禁基线 — 由 run_evals --baseline 生成",
+            "description": "v0.5.0 质量门禁基线 — Golden 100 样本 + L1/L2/L3 三层评测",
         },
         "config": THRESHOLDS,
         "scores": extract_scores(results),
@@ -368,7 +372,7 @@ def run_l2(results: dict) -> None:
     print("L2 — 集成测试")
     print("=" * 60)
 
-    integ = run_pytest("tests/integration", "L2 集成测试", timeout=180)
+    integ = run_pytest("tests/integration", "L2 集成测试", timeout=600)
     results["l2_integration"] = integ
     _print_test_result(integ, "集成测试")
 
@@ -381,23 +385,65 @@ def run_l2(results: dict) -> None:
         print(f"  ⚠ L2 未通过: 通过率 {integ['pass_rate']}% < {THRESHOLDS['l2_pass_rate']}%")
 
 
-def run_l3(results: dict) -> None:
-    """L3: Golden 评测。"""
+def run_l3(results: dict, run_slow: bool = False) -> None:
+    """L3: Golden 评测（含 tests/golden + tests/evals/regression + tests/evals/baseline DB）。"""
     print("\n" + "=" * 60)
     print("L3 — Golden 评测")
     print("=" * 60)
 
-    golden = run_pytest("tests/golden", "L3 Golden 评测", timeout=180)
-    results["l3_golden"] = golden
-    _print_test_result(golden, "Golden 评测")
+    extra_args = []
+    if run_slow:
+        extra_args.append("--run-slow")
+        print("  [--run-slow] 启用 L3 @slow 测试")
 
-    l3_ok = golden["pass_rate"] >= THRESHOLDS["l3_pass_rate"]
+    # 先跑原有 tests/golden（不传 --run-slow，旧的 conftest 不支持）
+    golden = run_pytest("tests/golden", "L3 Golden 原有", timeout=180)
+    results["l3_golden_legacy"] = golden
+    _print_test_result(golden, "Golden 原有")
+
+    # 再跑新增 tests/evals/regression (L3 + slow)
+    evals_regression = run_pytest(
+        "tests/evals/regression", "L3 Evals 回归",
+        timeout=300, extra_args=extra_args,
+    )
+    results["l3_evals_regression"] = evals_regression
+    _print_test_result(evals_regression, "Evals 回归")
+
+    # 跑 tests/evals/baseline 中的 L3 DB 测试
+    evals_baseline = run_pytest(
+        "tests/evals/baseline", "L3 Evals DB CRUD",
+        timeout=60, extra_args=extra_args,
+    )
+    results["l3_evals_baseline"] = evals_baseline
+    _print_test_result(evals_baseline, "Evals DB CRUD")
+
+    # 汇总 L3
+    total = (golden.get("total", 0) + evals_regression.get("total", 0)
+             + evals_baseline.get("total", 0))
+    passed = (golden.get("passed", 0) + evals_regression.get("passed", 0)
+              + evals_baseline.get("passed", 0))
+    failed = (golden.get("failed", 0) + evals_regression.get("failed", 0)
+              + evals_baseline.get("failed", 0))
+    errors = (golden.get("errors", 0) + evals_regression.get("errors", 0)
+              + evals_baseline.get("errors", 0))
+
+    total_with_fail = passed + failed + errors
+    pass_rate = round(passed / total_with_fail * 100, 2) if total_with_fail > 0 else 100.0
+
+    combined = {
+        "label": "L3 汇总",
+        "total": total, "passed": passed, "failed": failed,
+        "errors": errors, "pass_rate": pass_rate,
+    }
+    results["l3_golden"] = combined
+
+    l3_ok = pass_rate >= THRESHOLDS["l3_pass_rate"]
     results["l3_verdict"] = {
         "passed": l3_ok,
-        "pass_rate": golden["pass_rate"],
+        "pass_rate": pass_rate,
     }
-    if not l3_ok:
-        print(f"  ⚠ L3 未通过: 准确率 {golden['pass_rate']}% < {THRESHOLDS['l3_pass_rate']}%")
+    print(f"  → L3 汇总通过率: {pass_rate}% (目标 ≥ {THRESHOLDS['l3_pass_rate']}%)  "
+          f"{'✓' if l3_ok else '✗ 未达标'}")
 
 
 def _print_test_result(r: dict, tag: str) -> None:
@@ -471,6 +517,160 @@ def compute_verdict(results: dict, baseline_result: dict | None) -> dict:
     }
 
 
+def save_html_report(results: dict, output_path: Path) -> Path:
+    """生成单文件 HTML 评测报告（内嵌 CSS，颜色编码绿/黄/红）。"""
+    verdict = results.get("verdict", {})
+    passed = verdict.get("passed", False)
+    baseline = results.get("baseline_comparison", {})
+
+    status_color = "#22c55e" if passed else "#ef4444"
+    status_text = "✓ 通过" if passed else "✗ 未通过"
+
+    # 构建各层结果 HTML
+    def _layer_row(label, data, threshold=None):
+        if not data:
+            return ""
+        pr = data.get("pass_rate", data.get("coverage_pct", 0))
+        t = data.get("total", 0)
+        p = data.get("passed", 0)
+        f = data.get("failed", 0)
+        e = data.get("errors", 0)
+        s = data.get("skipped", 0)
+        elapsed = data.get("elapsed_s", 0)
+
+        # 颜色判断
+        if threshold is not None and pr >= threshold:
+            color = "#22c55e"
+        elif threshold is not None and pr >= threshold * 0.9:
+            color = "#eab308"
+        elif threshold is not None:
+            color = "#ef4444"
+        else:
+            color = "#94a3b8"
+
+        return f"""
+        <tr>
+          <td>{label}</td>
+          <td>{t}</td><td>{p}</td><td>{f}</td><td>{e}</td><td>{s}</td>
+          <td style="color:{color};font-weight:700">{pr}%</td>
+          <td>{elapsed}s</td>
+        </tr>"""
+
+    layers_html = ""
+    layers_html += _layer_row("L1 单元测试", results.get("l1_unit", {}), THRESHOLDS["l1_pass_rate"])
+    layers_html += _layer_row("L1 覆盖率", results.get("l1_coverage", {}), THRESHOLDS["l1_coverage"])
+    layers_html += _layer_row("L2 集成测试", results.get("l2_integration", {}), THRESHOLDS["l2_pass_rate"])
+    layers_html += _layer_row("L3 Golden 原有", results.get("l3_golden_legacy", {}))
+    layers_html += _layer_row("L3 Evals 回归", results.get("l3_evals_regression", {}))
+    layers_html += _layer_row("L3 Evals DB CRUD", results.get("l3_evals_baseline", {}))
+    layers_html += _layer_row("L3 汇总", results.get("l3_golden", {}), THRESHOLDS["l3_pass_rate"])
+
+    # 基线对比
+    baseline_rows = ""
+    if baseline:
+        for c in baseline.get("checks", []):
+            icon = "✓" if c["degradation_pass"] else "✗"
+            bg = "#dcfce7" if c["degradation_pass"] else "#fee2e2"
+            baseline_rows += f"""
+            <tr style="background:{bg}">
+              <td>{c['layer']}</td><td>{c['metric']}</td>
+              <td>{c['current']}%</td><td>{c['baseline']}%</td>
+              <td>{c['degradation']}%</td>
+              <td>{icon}</td>
+            </tr>"""
+
+    # 失败项
+    failures_html = ""
+    for f_text in verdict.get("failures", []):
+        failures_html += f"<li>{f_text}</li>"
+
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChemAI 质量门禁报告 — v0.5.0</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       background:#f8fafc; color:#1e293b; padding:2rem; }}
+.container {{ max-width:960px; margin:0 auto; }}
+.header {{ background:#fff; border-radius:12px; padding:2rem; margin-bottom:1.5rem;
+          box-shadow: 0 1px 3px rgba(0,0,0,.1); }}
+.header h1 {{ font-size:1.5rem; margin-bottom:.5rem; }}
+.status {{ display:inline-block; padding:.25rem .75rem; border-radius:999px;
+          color:#fff; background:{status_color}; font-size:.875rem; }}
+.meta {{ color:#64748b; font-size:.875rem; margin-top:.5rem; }}
+.card {{ background:#fff; border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,.1); }}
+.card h2 {{ font-size:1.1rem; margin-bottom:1rem; color:#334155; }}
+table {{ width:100%; border-collapse:collapse; }}
+th, td {{ text-align:left; padding:.5rem .75rem; border-bottom:1px solid #e2e8f0;
+         font-size:.875rem; }}
+th {{ background:#f1f5f9; font-weight:600; color:#475569; }}
+.failures {{ background:#fef2f2; border-left:3px solid #ef4444; padding:1rem;
+            border-radius:8px; margin-top:1rem; }}
+.failures h3 {{ color:#dc2626; margin-bottom:.5rem; }}
+.failures li {{ margin-left:1.5rem; margin-bottom:.25rem; color:#7f1d1d; }}
+.footer {{ text-align:center; color:#94a3b8; font-size:.75rem; margin-top:2rem; }}
+@media (max-width:640px) {{ body {{ padding:1rem; }} table {{ font-size:.75rem; }} }}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+  <h1>ChemAI 质量门禁评测报告</h1>
+  <span class="status">{status_text}</span>
+  <div class="meta">
+    版本 v0.5.0 &nbsp;|&nbsp;
+    时间 {results.get('meta', {}).get('timestamp', '')} &nbsp;|&nbsp;
+    模式 {results.get('meta', {}).get('mode', '')}
+  </div>
+</div>
+
+<div class="card">
+  <h2>测试结果</h2>
+  <table>
+    <thead><tr>
+      <th>层级</th><th>总数</th><th>通过</th><th>失败</th><th>错误</th><th>跳过</th><th>通过率</th><th>耗时</th>
+    </tr></thead>
+    <tbody>{layers_html}
+    </tbody>
+  </table>
+</div>
+{""
+if not baseline_rows else f'''
+<div class="card">
+  <h2>基线对比</h2>
+  <table>
+    <thead><tr>
+      <th>层级</th><th>指标</th><th>当前</th><th>基线</th><th>劣化</th><th>判定</th>
+    </tr></thead>
+    <tbody>{baseline_rows}
+    </tbody>
+  </table>
+</div>
+'''}
+{""
+if not failures_html else f'''
+<div class="failures">
+  <h3>未通过项</h3>
+  <ul>{failures_html}</ul>
+</div>
+'''}
+
+<div class="footer">
+  ChemAI Evals v0.5.0 · Golden 100 样本 · L1/L2/L3 三层门禁 ·
+  Generated by run_evals.py
+</div>
+</div>
+</body>
+</html>"""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html, encoding="utf-8")
+    return output_path
+
+
 def save_report(results: dict) -> Path:
     """保存评测报告到 data/evals/reports/。"""
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -505,14 +705,18 @@ def _slim_results(results: dict) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="ChemAI 质量门禁评测脚本 (v0.4.0)",
+        description="ChemAI 质量门禁评测脚本 (v0.5.0)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python scripts/run_evals.py              全量运行 L1+L2+L3
-  python scripts/run_evals.py --level L1   仅运行 L1
-  python scripts/run_evals.py --baseline   生成基线文件
-  python scripts/run_evals.py --ci         严格 CI 模式
+  python scripts/run_evals.py                     全量运行 L1+L2+L3
+  python scripts/run_evals.py --level L1          仅运行 L1
+  python scripts/run_evals.py --baseline          生成基线文件
+  python scripts/run_evals.py --save-baseline     生成基线文件（显式语义）
+  python scripts/run_evals.py --ci                严格 CI 模式
+  python scripts/run_evals.py --run-slow          启用 L3 @slow 测试
+  python scripts/run_evals.py --compare baseline.json  对比指定基线
+  python scripts/run_evals.py --output report.html     生成 HTML 报告
         """,
     )
     parser.add_argument(
@@ -525,8 +729,24 @@ def main() -> None:
         help="生成/更新基线文件 data/evals/baseline.json",
     )
     parser.add_argument(
+        "--save-baseline", action="store_true",
+        help="同 --baseline，显式语义别名",
+    )
+    parser.add_argument(
         "--ci", action="store_true",
         help="CI 严格模式：必须对比基线通过才 exit 0",
+    )
+    parser.add_argument(
+        "--run-slow", action="store_true",
+        help="启用 L3 @slow 标记测试（需设置 LLM API Key 环境变量）",
+    )
+    parser.add_argument(
+        "--compare", type=str, metavar="FILE",
+        help="对比指定的基线 JSON 文件（而非默认 data/evals/baseline.json）",
+    )
+    parser.add_argument(
+        "--output", type=str, metavar="PATH",
+        help="生成 HTML 单文件报告到指定路径",
     )
     parser.add_argument(
         "--json", action="store_true",
@@ -534,21 +754,27 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # --save-baseline 是 --baseline 的别名
+    save_baseline_mode = args.baseline or args.save_baseline
+
     # 确定要运行的层级
     levels = {"L1", "L2", "L3"} if args.level == "all" else {args.level}
 
-    print(f"\n  ChemAI 质量门禁评测 — v0.4.0")
+    print(f"\n  ChemAI 质量门禁评测 — v0.5.0")
     print(f"  层级: {args.level}  |  项目: {PROJECT_ROOT.name}")
+    if args.run_slow:
+        print(f"  [--run-slow] L3 @slow 已启用")
     print(f"  时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     results: dict = {
         "meta": {
             "tool": "run_evals",
-            "version": "0.4.0",
+            "version": "0.5.0",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "project_root": str(PROJECT_ROOT),
             "levels_run": sorted(levels),
-            "mode": "baseline" if args.baseline else ("ci" if args.ci else "check"),
+            "mode": "baseline" if save_baseline_mode else ("ci" if args.ci else "check"),
+            "run_slow": args.run_slow,
         },
     }
 
@@ -560,12 +786,21 @@ def main() -> None:
         run_l2(results)
 
     if "L3" in levels:
-        run_l3(results)
+        run_l3(results, run_slow=args.run_slow)
 
     # 基线对比 (CI 或 baseline 模式)
     baseline_comparison = None
-    if args.ci or args.baseline:
-        baseline = load_baseline()
+    compare_path = None
+    if args.compare:
+        compare_path = Path(args.compare)
+        if not compare_path.is_absolute():
+            compare_path = PROJECT_ROOT / compare_path
+
+    if args.ci or save_baseline_mode or args.compare:
+        if compare_path and compare_path.exists():
+            baseline = json.loads(compare_path.read_text(encoding="utf-8"))
+        else:
+            baseline = load_baseline()
         if baseline:
             current_scores = extract_scores(results)
             baseline_comparison = compare_to_baseline(current_scores, baseline)
@@ -589,14 +824,13 @@ def main() -> None:
                     if not c["degradation_pass"]
                 ]
                 print(f"  ✗ 基线对比未通过 ({len(failed_checks)} 项)")
-        elif args.ci:
+        elif args.ci and not compare_path:
             print("\n  ⚠ 基线文件不存在，CI 模式无法对比。"
                   "请先运行 --baseline 生成基线。")
-            # 没有基线时 CI 模式降级为仅阈值检查
             results["meta"]["baseline_fallback"] = True
 
-    # --baseline 模式：保存基线（总是成功退出，仅记录状态）
-    if args.baseline:
+    # --baseline / --save-baseline 模式：保存基线
+    if save_baseline_mode:
         bl = build_baseline(results)
         if baseline_comparison:
             bl["scores"] = extract_scores(results)
@@ -604,6 +838,12 @@ def main() -> None:
         print(f"\n  ✓ 基线已保存 → {BASELINE_PATH}")
         report_path = save_report(results)
         print(f"  报告: {report_path}")
+        if args.output:
+            html_path = Path(args.output)
+            if not html_path.is_absolute():
+                html_path = PROJECT_ROOT / html_path
+            save_html_report(results, html_path)
+            print(f"  HTML 报告: {html_path}")
         # baseline 模式不判定通过/失败，只是快照
         results["verdict"] = {
             "passed": True,
@@ -619,8 +859,17 @@ def main() -> None:
     verdict = compute_verdict(results, baseline_comparison)
     results["verdict"] = verdict
 
-    # 保存报告
+    # 保存 JSON 报告
     report_path = save_report(results)
+    results["report_path"] = str(report_path)
+
+    # 生成 HTML 报告（如果指定 --output）
+    if args.output:
+        html_path = Path(args.output)
+        if not html_path.is_absolute():
+            html_path = PROJECT_ROOT / html_path
+        save_html_report(results, html_path)
+        results["html_report_path"] = str(html_path)
 
     # ── 输出 ──
     print(f"\n{'=' * 60}")
@@ -628,7 +877,9 @@ def main() -> None:
     if verdict["failures"]:
         for f in verdict["failures"]:
             print(f"  • {f}")
-    print(f"报告: {report_path}")
+    print(f"JSON 报告: {report_path}")
+    if args.output:
+        print(f"HTML 报告: {results.get('html_report_path', '')}")
 
     if args.json:
         print("\n--- JSON ---")

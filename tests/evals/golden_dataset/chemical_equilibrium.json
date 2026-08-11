@@ -1,0 +1,412 @@
+{
+  "meta": {
+    "module": "chemical_equilibrium",
+    "version": "1.0",
+    "total": 20,
+    "description": "化学平衡模块 Golden 样本 — 出题8 + 诊断8 + 辅导4"
+  },
+  "samples": [
+    {
+      "id": "golden_001",
+      "module": "question_generation",
+      "category": "化学平衡",
+      "sub_category": "基础概念",
+      "difficulty": 2,
+      "knowledge_points": ["可逆反应", "化学平衡状态", "动态平衡"],
+      "grade_level": "高中二年级",
+      "input": {
+        "prompt": "生成3道关于化学平衡基础概念的选择题，难度2",
+        "parameters": {"question_type": "choice", "difficulty": 2, "count": 3, "knowledge_point": "化学平衡基础"}
+      },
+      "expected_output": {
+        "questions": [
+          {"stem": "化学平衡状态的标志是什么？", "options": ["正反应速率>逆反应速率", "正反应速率=逆反应速率", "正反应速率<逆反应速率", "反应停止"], "correct_answer": "B", "explanation": "化学平衡时正逆反应速率相等，各组分浓度不变"}
+        ],
+        "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}
+      },
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"},
+      "eval_type": "l3",
+      "tags": ["基础概念", "选择题"]
+    },
+    {
+      "id": "golden_002",
+      "module": "question_generation",
+      "category": "化学平衡",
+      "sub_category": "勒夏特列原理",
+      "difficulty": 3,
+      "knowledge_points": ["勒夏特列原理", "温度影响", "压强影响"],
+      "grade_level": "高中二年级",
+      "input": {
+        "prompt": "生成3道关于勒夏特列原理的选择题，难度3",
+        "parameters": {"question_type": "choice", "difficulty": 3, "count": 3, "knowledge_point": "勒夏特列原理"}
+      },
+      "expected_output": {
+        "questions": [
+          {"stem": "对于放热反应N₂+3H₂⇌2NH₃，升温时平衡如何移动？", "options": ["正向移动", "逆向移动", "不移动", "无法判断"], "correct_answer": "B", "explanation": "放热反应升温，平衡向吸热方向（逆向）移动"}
+        ],
+        "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}
+      },
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"},
+      "eval_type": "l3",
+      "tags": ["勒夏特列原理", "温度", "压强"]
+    },
+    {
+      "id": "golden_003",
+      "module": "question_generation",
+      "category": "化学平衡",
+      "sub_category": "平衡常数",
+      "difficulty": 4,
+      "knowledge_points": ["平衡常数K", "浓度商Q", "平衡方向判断"],
+      "grade_level": "高中二年级",
+      "input": {
+        "prompt": "生成2道关于平衡常数K的计算题，难度4",
+        "parameters": {"question_type": "calculation", "difficulty": 4, "count": 2, "knowledge_point": "平衡常数"}
+      },
+      "expected_output": {
+        "questions": [
+          {"stem": "反应CO+H₂O⇌CO₂+H₂在某温度下K=1.0，若起始时c(CO)=2mol/L, c(H₂O)=3mol/L，求平衡时各物质浓度", "correct_answer": "c(CO)=0.8, c(H₂O)=1.8, c(CO₂)=1.2, c(H₂)=1.2 mol/L", "explanation": "设CO转化x，列三行式求解"}
+        ],
+        "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}
+      },
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"},
+      "eval_type": "l3",
+      "tags": ["平衡常数", "计算"]
+    },
+    {
+      "id": "golden_004",
+      "module": "question_generation",
+      "category": "化学平衡",
+      "sub_category": "平衡移动综合分析",
+      "difficulty": 5,
+      "knowledge_points": ["勒夏特列原理", "温度", "压强", "浓度", "多因素"],
+      "grade_level": "高中三年级",
+      "input": {
+        "prompt": "生成2道关于平衡移动综合分析题（温度和压强同时变化），难度5",
+        "parameters": {"question_type": "comprehensive", "difficulty": 5, "count": 2, "knowledge_point": "平衡移动多因素"}
+      },
+      "expected_output": {
+        "questions": [
+          {"stem": "合成氨反应N₂+3H₂⇌2NH₃(ΔH<0)，同时升温和加压，平衡如何移动？", "correct_answer": "需分别分析：升温向逆向（吸热），加压向正向（分子数减少），最终方向取决于两者相对大小", "explanation": "温度↑→逆向，压强↑→正向，需用K值计算判断"}
+        ],
+        "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}
+      },
+      "tolerance": {"scientific_accuracy_min": 0.95, "difficulty_match": "+-1级"},
+      "eval_type": "l3",
+      "tags": ["多变量", "综合", "难点"]
+    },
+    {
+      "id": "golden_005",
+      "module": "question_generation",
+      "category": "化学平衡",
+      "sub_category": "工业应用",
+      "difficulty": 3,
+      "knowledge_points": ["合成氨工业", "勒夏特列原理应用", "催化剂"],
+      "grade_level": "高中二年级",
+      "input": {
+        "prompt": "生成3道关于工业合成氨原理的选择题，难度3",
+        "parameters": {"question_type": "choice", "difficulty": 3, "count": 3, "knowledge_point": "合成氨工业"}
+      },
+      "expected_output": {
+        "questions": [
+          {"stem": "工业合成氨采用高温高压，加入催化剂的作用是什么？", "options": ["提高平衡产率", "加快反应速率不改变平衡", "增大平衡常数", "降低活化能使平衡正向移动"], "correct_answer": "B", "explanation": "催化剂只改变速率不改变平衡位置和平衡常数"}
+        ],
+        "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}
+      },
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"},
+      "eval_type": "l3",
+      "tags": ["工业应用", "合成氨"]
+    },
+    {
+      "id": "golden_006",
+      "module": "question_generation",
+      "category": "化学平衡",
+      "sub_category": "催化剂作用",
+      "difficulty": 3,
+      "knowledge_points": ["催化剂", "活化能", "平衡"],
+      "grade_level": "高中二年级",
+      "input": {
+        "prompt": "生成2道关于催化剂对化学平衡影响的判断题，难度3",
+        "parameters": {"question_type": "choice", "difficulty": 3, "count": 2, "knowledge_point": "催化剂与平衡"}
+      },
+      "expected_output": {
+        "questions": [
+          {"stem": "催化剂能提高放热反应的平衡产率。这个说法正确吗？", "options": ["正确", "错误"], "correct_answer": "B", "explanation": "催化剂同等程度改变正逆反应速率，不改变平衡位置"}
+        ],
+        "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}
+      },
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"},
+      "eval_type": "l3",
+      "tags": ["催化剂", "平衡"]
+    },
+    {
+      "id": "golden_007",
+      "module": "question_generation",
+      "category": "化学平衡",
+      "sub_category": "转化率计算",
+      "difficulty": 4,
+      "knowledge_points": ["平衡转化率", "三段式", "K计算"],
+      "grade_level": "高中二年级",
+      "input": {
+        "prompt": "生成2道关于平衡转化率的计算题，难度4",
+        "parameters": {"question_type": "calculation", "difficulty": 4, "count": 2, "knowledge_point": "平衡转化率"}
+      },
+      "expected_output": {
+        "questions": [
+          {"stem": "2SO₂+O₂⇌2SO₃，起始SO₂=2mol, O₂=1mol，平衡时SO₂=0.4mol，求SO₂的转化率", "correct_answer": "80%", "explanation": "SO₂转化率=(2-0.4)/2×100%=80%"}
+        ],
+        "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}
+      },
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"},
+      "eval_type": "l3",
+      "tags": ["转化率", "计算"]
+    },
+    {
+      "id": "golden_008",
+      "module": "question_generation",
+      "category": "化学平衡",
+      "sub_category": "边界测试",
+      "difficulty": 3,
+      "knowledge_points": ["出题数量边界"],
+      "grade_level": "高中二年级",
+      "input": {
+        "prompt": "生成50道关于化学平衡的选择题",
+        "parameters": {"question_type": "choice", "difficulty": 3, "count": 50, "knowledge_point": "化学平衡"}
+      },
+      "expected_output": {
+        "questions": [],
+        "quality_checks": {"scientific_accuracy": true, "options_have_one_correct": true, "distractors_are_plausible": true, "no_ambiguous_language": true}
+      },
+      "tolerance": {"scientific_accuracy_min": 0.9, "difficulty_match": "+-1级"},
+      "eval_type": "l3",
+      "tags": ["边界测试", "大批量请求"]
+    },
+    {
+      "id": "golden_009",
+      "module": "diagnosis",
+      "category": "化学平衡",
+      "sub_category": "勒夏特列温度方向",
+      "input": {
+        "question": "对于放热反应N₂+3H₂⇌2NH₃，升高温度后平衡如何移动？",
+        "student_answer": "正向移动，因为温度升高反应更快",
+        "correct_answer": "逆向移动，因为升温平衡向吸热方向移动"
+      },
+      "expected_output": {
+        "primary_misconception": "勒夏特列原理温度方向混淆",
+        "error_type": "概念错误",
+        "confidence_min": 0.7
+      },
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15},
+      "eval_type": "l3",
+      "tags": ["勒夏特列原理", "温度", "方向误判"]
+    },
+    {
+      "id": "golden_010",
+      "module": "diagnosis",
+      "category": "化学平衡",
+      "sub_category": "勒夏特列压强方向",
+      "input": {
+        "question": "反应2NO₂⇌N₂O₄，增大压强后平衡如何移动？",
+        "student_answer": "逆向移动，因为压强增大了",
+        "correct_answer": "正向移动，因为正向反应分子数减少"
+      },
+      "expected_output": {
+        "primary_misconception": "勒夏特列原理压强方向混淆",
+        "error_type": "概念错误",
+        "confidence_min": 0.7
+      },
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15},
+      "eval_type": "l3",
+      "tags": ["勒夏特列原理", "压强", "方向误判"]
+    },
+    {
+      "id": "golden_011",
+      "module": "diagnosis",
+      "category": "化学平衡",
+      "sub_category": "平衡常数表达式",
+      "input": {
+        "question": "写出反应2SO₂+O₂⇌2SO₃的平衡常数K表达式",
+        "student_answer": "K=[SO₂]²[O₂]/[SO₃]²",
+        "correct_answer": "K=[SO₃]²/([SO₂]²[O₂])"
+      },
+      "expected_output": {
+        "primary_misconception": "平衡常数表达式书写颠倒",
+        "error_type": "概念错误",
+        "confidence_min": 0.7
+      },
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15},
+      "eval_type": "l3",
+      "tags": ["平衡常数", "表达式", "颠倒"]
+    },
+    {
+      "id": "golden_012",
+      "module": "diagnosis",
+      "category": "化学平衡",
+      "sub_category": "恒容条件",
+      "input": {
+        "question": "恒容容器中加入惰性气体，对反应2HI⇌H₂+I₂的平衡有何影响？",
+        "student_answer": "正向移动，因为压强增大了",
+        "correct_answer": "无影响，因为各物质浓度不变"
+      },
+      "expected_output": {
+        "primary_misconception": "恒容条件下压强变化与平衡关系混淆",
+        "error_type": "概念错误",
+        "confidence_min": 0.7
+      },
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15},
+      "eval_type": "l3",
+      "tags": ["恒容", "惰性气体"]
+    },
+    {
+      "id": "golden_013",
+      "module": "diagnosis",
+      "category": "化学平衡",
+      "sub_category": "浓度与物质的量混淆",
+      "input": {
+        "question": "2L容器中0.4mol N₂和1.2mol H₂反应达平衡，求平衡常数",
+        "student_answer": "K=0.4×1.2³/平衡量，直接使用物质的量计算",
+        "correct_answer": "应先除以体积2L得浓度再代入K表达式"
+      },
+      "expected_output": {
+        "primary_misconception": "物质的量与浓度混淆",
+        "error_type": "计算错误",
+        "confidence_min": 0.7
+      },
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15},
+      "eval_type": "l3",
+      "tags": ["浓度", "物质的量", "单位换算"]
+    },
+    {
+      "id": "golden_014",
+      "module": "diagnosis",
+      "category": "化学平衡",
+      "sub_category": "固体/纯液体在K中",
+      "input": {
+        "question": "写出反应CaCO₃(s)⇌CaO(s)+CO₂(g)的平衡常数表达式",
+        "student_answer": "K=[CaO][CO₂]/[CaCO₃]",
+        "correct_answer": "K=[CO₂]，固体不写入平衡常数表达式"
+      },
+      "expected_output": {
+        "primary_misconception": "固体/纯液体放入K表达式",
+        "error_type": "概念错误",
+        "confidence_min": 0.7
+      },
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15},
+      "eval_type": "l3",
+      "tags": ["平衡常数", "固体"]
+    },
+    {
+      "id": "golden_015",
+      "module": "diagnosis",
+      "category": "化学平衡",
+      "sub_category": "无过程不可诊断",
+      "input": {
+        "question": "恒温恒压下，反应H₂+I₂⇌2HI达平衡后加入H₂，平衡如何移动？",
+        "student_answer": "正向",
+        "correct_answer": "正向移动"
+      },
+      "expected_output": {
+        "primary_misconception": "只写答案无推理过程",
+        "error_type": "知识空白",
+        "confidence_min": 0.5
+      },
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15},
+      "eval_type": "l3",
+      "tags": ["无过程", "不可靠诊断"]
+    },
+    {
+      "id": "golden_016",
+      "module": "diagnosis",
+      "category": "化学平衡",
+      "sub_category": "完全放弃",
+      "input": {
+        "question": "催化剂对化学平衡有什么影响？为什么？",
+        "student_answer": "不会",
+        "correct_answer": "催化剂不影响平衡，因为同等程度改变正逆反应速率"
+      },
+      "expected_output": {
+        "primary_misconception": "知识空白——完全未掌握催化剂与平衡关系",
+        "error_type": "知识空白",
+        "confidence_min": 0.7
+      },
+      "tolerance": {"misconception_match": "semantic", "confidence_range": 0.15},
+      "eval_type": "l3",
+      "tags": ["放弃", "知识空白"]
+    },
+    {
+      "id": "golden_017",
+      "module": "tutoring",
+      "category": "化学平衡",
+      "sub_category": "动态平衡概念",
+      "input": {
+        "student_question": "化学平衡是不是就是反应停止了？",
+        "context": {"grade_level": "高中二年级", "topic": "化学平衡状态"}
+      },
+      "expected_output": {
+        "should_contain_keywords": ["动态平衡", "正逆反应", "速率相等", "浓度不变"],
+        "should_not_contain": ["反应停止", "不再进行"],
+        "tone": "encouraging",
+        "uses_socratic_method": true
+      },
+      "tolerance": {"keyword_match_ratio": 0.7},
+      "eval_type": "l3",
+      "tags": ["动态平衡", "概念澄清"]
+    },
+    {
+      "id": "golden_018",
+      "module": "tutoring",
+      "category": "化学平衡",
+      "sub_category": "K与速率关系",
+      "input": {
+        "student_question": "平衡常数K值越大反应就越快吗？",
+        "context": {"grade_level": "高中二年级", "topic": "平衡常数"}
+      },
+      "expected_output": {
+        "should_contain_keywords": ["热力学", "动力学", "无直接关系", "平衡常数反映限度", "速率由活化能决定"],
+        "should_not_contain": ["K大反应快"],
+        "tone": "neutral",
+        "uses_socratic_method": false
+      },
+      "tolerance": {"keyword_match_ratio": 0.7},
+      "eval_type": "l3",
+      "tags": ["K与速率", "热力学vs动力学"]
+    },
+    {
+      "id": "golden_019",
+      "module": "tutoring",
+      "category": "化学平衡",
+      "sub_category": "催化剂与平衡",
+      "input": {
+        "student_question": "催化剂为什么能加快反应但又不影响平衡？",
+        "context": {"grade_level": "高中二年级", "topic": "催化剂"}
+      },
+      "expected_output": {
+        "should_contain_keywords": ["活化能", "同等程度", "正逆反应速率", "不改变平衡常数"],
+        "should_not_contain": [],
+        "tone": "encouraging",
+        "uses_socratic_method": true
+      },
+      "tolerance": {"keyword_match_ratio": 0.7},
+      "eval_type": "l3",
+      "tags": ["催化剂", "活化能"]
+    },
+    {
+      "id": "golden_020",
+      "module": "tutoring",
+      "category": "化学平衡",
+      "sub_category": "勒夏特列原理边界",
+      "input": {
+        "student_question": "勒夏特列原理总有例外吗？",
+        "context": {"grade_level": "高中三年级", "topic": "勒夏特列原理"}
+      },
+      "expected_output": {
+        "should_contain_keywords": ["经验规律", "热力学推导", "大多数情况适用", "需要具体计算"],
+        "should_not_contain": ["总是对的", "永远成立"],
+        "tone": "neutral",
+        "uses_socratic_method": false
+      },
+      "tolerance": {"keyword_match_ratio": 0.7},
+      "eval_type": "l3",
+      "tags": ["勒夏特列", "边界", "批判思维"]
+    }
+  ]
+}
