@@ -1031,10 +1031,10 @@
       document.getElementById('chatMessages').appendChild(aiBubble);
 
       // SSE connect
-      ChemSSE.connect('/api/v1/parent/agent/chat', {
+      ChemSSE.connect('/api/v1/chat/stream', {
         message: message,
         thread_id: state.threadId || null,
-        student_id: state.currentChild.student_id
+        context: { role: 'parent', student_id: state.currentChild.student_id }
       }, {
         phase: function(data) {
           if (data.phase === 'tool_call') {
@@ -1123,8 +1123,8 @@
         + '</div>'
         + '<div class="conv-list" id="convList"><div class="tab-placeholder">加载中...</div></div>';
 
-      ChemAPI.apiGet('/parent/agent/conversations').then(function(res) {
-        var list = res.data || [];
+      ChemAPI.apiGet('/chat/conversations', { prefix: 'p-' }).then(function(res) {
+        var list = res.conversations || [];
         var container = document.getElementById('convList');
         if (list.length === 0) {
           container.innerHTML = '<div class="tab-placeholder">暂无对话</div>';
@@ -1143,7 +1143,7 @@
             state.aiMessages = [];
             showAiChatView();
             // Load and render history messages
-            ChemAPI.apiGet('/parent/agent/history/' + c.thread_id).then(function(hr) {
+            ChemAPI.apiGet('/chat/history/' + c.thread_id).then(function(hr) {
               // Checkpoints wrap messages as: {checkpoint_data: {messages: [{role, content}, ...]}}
               var checkpoints = (hr.data || []);
               var allMsgs = [];
@@ -1170,7 +1170,7 @@
           delBtn.textContent = '🗑';
           delBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            fetch('/api/v1/parent/agent/conversations/' + c.thread_id, {
+            fetch('/api/v1/chat/conversations/' + c.thread_id, {
               method: 'DELETE',
               headers: { 'Authorization': 'Bearer ' + ChemAuth.getToken() }
             }).then(function() {
@@ -1185,8 +1185,8 @@
     }
 
     function newConversation() {
-      ChemAPI.apiPost('/parent/agent/new').then(function(res) {
-        state.threadId = (res.data && res.data.thread_id) || null;
+      ChemAPI.apiPost('/chat/new', { prefix: 'p-' }).then(function(res) {
+        state.threadId = res.thread_id || null;
         state.aiMessages = [];
         showAiChatView();
         ChemAPI.showToast('已创建新对话');

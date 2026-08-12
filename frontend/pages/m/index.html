@@ -571,8 +571,8 @@
         var body = {
           message: text,
           thread_id: threadId,
-          persona: 'student',
           context: {
+            role: 'student',
             student_id: ChemAuth.getUserId(),
             student_name: user.student_name || user.name || '',
             class_name: user.class_name || '',

@@ -1,4 +1,8 @@
-"""9.2: 批改触发工具 — 触发批次批改（逐题判定）。"""
+"""grade_answer_sheets — 批改触发工具。
+
+触发批次批改（逐题判定），对比 OCR 识别结果与标准答案。
+注册给 Teacher persona。
+"""
 
 import logging
 
@@ -10,10 +14,18 @@ from app.core.enums import OCRTaskStatus
 from app.services.grading_service import GradingService, AnswerKey
 from app.infrastructure.database import MainSession
 
+from .tool_meta import register_tool
+
 logger = logging.getLogger(__name__)
 
 
-async def trigger_grading(
+@register_tool(
+    name="grade_answer_sheets",
+    persona=["teacher"],
+    call_limit=10,
+    description="批改答题卡。传入 session_id 对已 OCR 完成的答题卡进行逐题批改，返回每道题的得分和需人工复核的题目。",
+)
+async def grade_answer_sheets(
     teacher_id: int,
     session_id: int | None = None,
     exam_paper_id: int | None = None,
@@ -31,14 +43,12 @@ async def trigger_grading(
         批改结果摘要
     """
     async with MainSession() as db:
-        # 解析答案源
         answer_key = await GradingService.resolve_answer_source(
             db,
             exam_paper_id=exam_paper_id,
             teacher_answers=teacher_answers,
         )
 
-        # 查询已完成 OCR 但未批改的 task
         if session_id:
             result = await db.execute(
                 select(OCRTask)
@@ -65,7 +75,7 @@ async def trigger_grading(
         for task in tasks:
             if task.grading_result:
                 graded += 1
-                continue  # 已批改，跳过
+                continue
 
             try:
                 grad_result = await GradingService.grade_task(db, task.id, answer_key)

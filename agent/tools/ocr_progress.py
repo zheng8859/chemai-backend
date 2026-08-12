@@ -1,17 +1,29 @@
-"""9.1: OCR 进度查询工具 — 查询批次 OCR 处理进度。"""
+"""query_ocr_progress — OCR 进度查询工具。
+
+查询批次 OCR 处理进度，返回各状态任务数量和完成百分比。
+注册给 Teacher persona。
+"""
 
 import logging
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.ocr import UploadSession, OCRTask
+from app.models.ocr import OCRTask
 from app.core.enums import OCRTaskStatus
 from app.infrastructure.database import MainSession
+
+from .tool_meta import register_tool
 
 logger = logging.getLogger(__name__)
 
 
+@register_tool(
+    name="query_ocr_progress",
+    persona=["teacher"],
+    call_limit=10,
+    description="查询 OCR 识别进度。传入 session_id 查看特定批次，不传则查看教师所有 OCR 任务。返回各状态（pending/processing/done/failed）的任务数量。",
+)
 async def query_ocr_progress(
     teacher_id: int,
     session_id: int | None = None,
@@ -26,7 +38,6 @@ async def query_ocr_progress(
         批次进度摘要
     """
     async with MainSession() as db:
-        # 按 session_id 或 teacher_id 查询
         if session_id:
             result = await db.execute(
                 select(OCRTask)

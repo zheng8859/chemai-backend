@@ -123,6 +123,8 @@ v1_router.include_router(stats_router)
 v1_router.include_router(learning_plan_router)
 v1_router.include_router(notification_router)
 v1_router.include_router(parent_router)
+from .api.v1.chat import router as chat_router
+v1_router.include_router(chat_router)
 
 app.include_router(v1_router)
 

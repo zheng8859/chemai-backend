@@ -1,4 +1,8 @@
-"""9.3: 批改保存工具 — 确认保存批改结果并触发诊断。"""
+"""save_grading_results — 批改结果保存工具。
+
+确认保存批改结果并触发诊断管线。
+注册给 Teacher persona。
+"""
 
 import asyncio
 import logging
@@ -6,9 +10,19 @@ import logging
 from app.services.grading_service import GradingService
 from app.infrastructure.database import MainSession
 
+from .tool_meta import register_tool
+
 logger = logging.getLogger(__name__)
 
 
+@register_tool(
+    name="save_grading_results",
+    persona=["teacher"],
+    call_limit=10,
+    requires_approval=True,
+    prerequisites=["session_id"],
+    description="保存批改结果到数据库并触发诊断管线。需教师确认后执行。",
+)
 async def save_grading_results(
     teacher_id: int,
     session_id: int | None = None,
@@ -25,7 +39,6 @@ async def save_grading_results(
         saved_count, skipped_count, diagnosis_triggered
     """
     async with MainSession() as db:
-        # 如果未指定 task_ids，从 session 查询
         if not task_ids and session_id:
             from sqlalchemy import select
             from app.models.ocr import OCRTask
@@ -51,7 +64,6 @@ async def save_grading_results(
 
         result = await GradingService.save_results(db, task_ids)
 
-        # 触发后保存管线
         if result["diagnosis_triggered"]:
             asyncio.create_task(
                 GradingService._post_save_pipeline(result["saved_count"])
@@ -62,6 +74,5 @@ async def save_grading_results(
             "saved_count": result["saved_count"],
             "skipped_count": result["skipped_count"],
             "diagnosis_triggered": result["diagnosis_triggered"],
-            "message": f"已保存 {result['saved_count']} 条，"
-                       f"跳过 {result['skipped_count']} 条",
+            "message": f"已保存 {result['saved_count']} 条，跳过 {result['skipped_count']} 条",
         }
