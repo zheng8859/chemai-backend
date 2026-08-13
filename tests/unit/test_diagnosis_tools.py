@@ -91,6 +91,11 @@ class TestResolveStudentByIdentity:
         result = await DiagnosisService.resolve_student_by_identity(fake_session, "不存在的学生")
         assert result == []
 
+    @pytest.mark.anyio
+    async def test_empty_input_returns_empty(self, fake_session):
+        result = await DiagnosisService.resolve_student_by_identity(fake_session, "  ")
+        assert result == []
+
 
 # ═══════════════════════════════════════════════════════════════
 # diagnose_barrier — 两级诊断与名称解析
@@ -156,6 +161,30 @@ class TestDiagnoseBarrier:
         result = await dt.diagnose_barrier()
         assert result["scope"] == "error"
 
+    @pytest.mark.anyio
+    async def test_name_not_found_returns_error(self, fake_session):
+        result = await dt.diagnose_barrier(student_name="不存在")
+        assert result["scope"] == "error"
+        assert "不存在" in result["message"]
+
+
+# ═══════════════════════════════════════════════════════════════
+# show_diagnosis — 诊断面板路由
+# ═══════════════════════════════════════════════════════════════
+
+class TestShowDiagnosis:
+    @pytest.mark.anyio
+    async def test_opens_diagnosis_panel(self, fake_session, monkeypatch):
+        async def fake_overview(db, class_id):
+            return {"class_id": class_id, "avg_score": 82.5}
+        monkeypatch.setattr(dt.PanelService, "get_class_overview", fake_overview)
+
+        result = await dt.show_diagnosis(class_id=5)
+        assert result["_component"]["type"] == "diagnosis"
+        assert result["_component"]["action"] == "open"
+        assert result["_component"]["data"]["class_id"] == 5
+        assert result["message"] == "诊断面板已打开。"
+
 
 # ═══════════════════════════════════════════════════════════════
 # assign_adaptive_practice — 班级级批处理 + 单生兜底
@@ -212,6 +241,22 @@ class TestAssignAdaptivePractice:
     async def test_no_identifier_returns_error(self, fake_session):
         result = await dt.assign_adaptive_practice()
         assert result["scope"] == "error"
+
+    @pytest.mark.anyio
+    async def test_create_practice_error_appended(self, fake_session, make_student, monkeypatch):
+        s1 = await make_student(name="甲")
+        cid = s1.class_id
+        await make_student(name="乙", class_id=cid)
+
+        async def fake_create_practice(db, student_id, question_count=10, kp_override=None):
+            raise dt.AdaptivePracticeError("题库为空")
+
+        monkeypatch.setattr(dt.AdaptivePracticeService, "create_practice", fake_create_practice)
+
+        result = await dt.assign_adaptive_practice(class_id=cid, count=3)
+        assert result["scope"] == "class"
+        assert result["total_students"] == 2
+        assert all(p.get("error") == "题库为空" for p in result["practices"])
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -282,6 +327,34 @@ class TestGenerateLearningPlan:
         assert result["_route"]["params"]["action"] == "open_learning_plan"
         # 不写库：无 plan_id，不依赖任何会话
         assert "plan_id" not in result
+
+
+# ═══════════════════════════════════════════════════════════════
+# send_learning_plan — 发送学习计划（审批门控工具）
+# ═══════════════════════════════════════════════════════════════
+
+class TestSendLearningPlan:
+    @pytest.mark.anyio
+    async def test_sends_notification(self, fake_session, monkeypatch):
+        calls = []
+
+        async def fake_create_notification(db, student_id, type_, title, body, related_id=None):
+            calls.append({
+                "student_id": student_id, "type_": type_, "title": title,
+                "body": body, "related_id": related_id,
+            })
+
+        monkeypatch.setattr(dt.NotificationService, "create_notification", fake_create_notification)
+
+        result = await dt.send_learning_plan(plan_id=7, student_id=3)
+        assert result["status"] == "sent"
+        assert result["plan_id"] == 7
+        assert result["student_id"] == 3
+        assert len(calls) == 1
+        assert calls[0]["title"] == "新的学习计划"
+        assert calls[0]["type_"] == "plan_updated"
+        assert calls[0]["related_id"] == 7
+        assert "7" in calls[0]["body"]
 
 
 # ═══════════════════════════════════════════════════════════════
