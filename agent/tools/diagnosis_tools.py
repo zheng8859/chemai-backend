@@ -1,53 +1,124 @@
 """诊断工具集（7 个）— 教师端学情诊断与学习计划。
 
-所有工具通过 @register_tool 注册，调用已有 Service 层。
+所有工具通过 @register_tool 注册，直接调用已有 Service 层的静态方法
+（Service 均为无状态静态方法容器，不实例化）。
+
+对齐设计 30 §3.3：diagnose_barrier / weekly_report 对 teacher 与 parent 可用，
+其余仅 teacher；assign_adaptive_practice / send_learning_plan 需审批门控。
 """
 
+import json
 import logging
 
+from sqlalchemy import select
+
 from app.infrastructure.database import MainSession
-from app.services.diagnosis_service import DiagnosisService
+from app.llm.router import llm_chat
+from app.models.user import Student
+from app.services.diagnosis_service import DiagnosisService, DiagnosisError
 from app.services.panel_service import PanelService
-from app.services.learning_plan_service import LearningPlanService
-from app.services.adaptive_practice_service import AdaptivePracticeService
+from app.services.adaptive_practice_service import (
+    AdaptivePracticeService,
+    AdaptivePracticeError,
+)
 from app.services.notification_service import NotificationService
 
 from .tool_meta import register_tool
 
 logger = logging.getLogger(__name__)
 
+# 班级自适应练习：每批学生数（设计 28 决策三「5 人/批」）
+CLASS_PRACTICE_BATCH_SIZE = 5
+
+# 周报 LLM 系统提示词
+WEEKLY_REPORT_SYSTEM_PROMPT = (
+    "你是 ChemAI 智辅化学的教学助手，负责用通俗语言为学生/家长撰写学习周报。"
+    "要求：200 字左右；以鼓励为主，不制造焦虑；严格基于给定数据，不编造内容。"
+)
+
+
+def _summarize_practice(student_id: int, practice: dict) -> dict:
+    """从 create_practice 返回值抽取每生参数摘要（不含题目明细）。"""
+    return {
+        "student_id": student_id,
+        "practice_id": practice["practice_id"],
+        "zpd_difficulty": practice["zpd_difficulty"],
+        "dominant_barrier": practice["dominant_barrier"],
+        "target_kps": practice["target_kps"],
+        "question_count": practice["question_count"],
+    }
+
 
 @register_tool(
     name="diagnose_barrier",
     persona=["teacher", "parent"],
-    call_limit=10,
-    prerequisites=["student_id"],
-    description="诊断指定学生的学习障碍类型（概念/审题/表述三维度），返回障碍画像。",
+    call_limit=2,
+    description="诊断指定学生的学习障碍类型（概念/审题/表述三维度），返回障碍画像。"
+    "支持纯数字 ID、中文姓名（模糊匹配，多结果返回候选）或班级级统计。",
 )
-async def diagnose_barrier(student_id: int) -> dict:
-    """诊断学生学习障碍。"""
+async def diagnose_barrier(
+    student_id: int = 0,
+    class_id: int = 0,
+    student_name: str = "",
+) -> dict:
+    """诊断学生学习障碍（个体/班级两级，名称解析）。"""
     async with MainSession() as db:
-        svc = DiagnosisService(db)
-        diagnosis = await svc.get_student_diagnosis(db, student_id)
+        # 1. 名称解析优先（支持重名返回候选）
+        if student_name.strip():
+            candidates = await DiagnosisService.resolve_student_by_identity(
+                db, student_name.strip()
+            )
+            if not candidates:
+                return {"scope": "error", "message": f"未找到姓名为「{student_name}」的学生"}
+            if len(candidates) > 1:
+                return {
+                    "scope": "ambiguous",
+                    "candidates": [
+                        {"student_id": s.id, "name": s.name, "class_id": s.class_id}
+                        for s in candidates
+                    ],
+                }
+            sid = candidates[0].id
+        elif student_id:
+            sid = student_id
+        elif class_id:
+            # 2. 班级级：全班障碍分布（各障碍为主导的学生人数与占比）
+            barriers = await PanelService.get_barriers(db, class_id)
+            return {
+                "scope": "class",
+                "class_id": class_id,
+                "barrier_distribution": barriers,
+            }
+        else:
+            return {"scope": "error", "message": "请提供 student_id、class_id 或 student_name 之一"}
+
+        # 3. 个体诊断
+        try:
+            diagnosis = await DiagnosisService.get_student_diagnosis(db, sid)
+        except DiagnosisError:
+            return {"scope": "error", "message": f"学生不存在: id={sid}"}
+
+        data = diagnosis.model_dump()
         return {
-            "student_id": student_id,
-            "barrier_profile": diagnosis.get("barrier_profile", {}),
-            "weak_points": diagnosis.get("weak_knowledge_points", []),
-            "updated_at": diagnosis.get("updated_at"),
+            "scope": "student",
+            "student_id": sid,
+            "barrier_profile": data.get("barrier_profile", {}),
+            "dominant_type": data.get("dominant_type"),
+            "weak_kps": data.get("weak_kps", []),
+            "last_diagnosis_date": data.get("last_diagnosis_date"),
         }
 
 
 @register_tool(
     name="show_diagnosis",
     persona=["teacher"],
-    call_limit=5,
+    call_limit=1,
     description="触发前端诊断面板——展示班级整体障碍分布柱状图、Top5 薄弱知识点、需关注学生列表。",
 )
 async def show_diagnosis(class_id: int) -> dict:
     """打开诊断面板。"""
     async with MainSession() as db:
-        svc = PanelService(db)
-        overview = await svc.get_class_overview(db, class_id)
+        overview = await PanelService.get_class_overview(db, class_id)
         return {
             "_component": {
                 "type": "diagnosis",
@@ -61,17 +132,22 @@ async def show_diagnosis(class_id: int) -> dict:
 @register_tool(
     name="show_students",
     persona=["teacher"],
-    call_limit=5,
+    call_limit=1,
     description="触发前端学生列表面板——展示班级学生列表，可按姓名搜索、按障碍类型筛选。",
 )
-async def show_students(class_id: int = 0, keyword: str = "") -> dict:
-    """打开学生列表面板。"""
+async def show_students(
+    class_id: int = 0,
+    keyword: str = "",
+    barrier: str = "",
+) -> dict:
+    """打开学生列表面板（barrier 透传至前端筛选）。"""
     return {
         "_component": {
             "type": "student-list",
             "action": "open",
             "class_id": class_id,
             "keyword": keyword,
+            "barrier": barrier,
         },
         "message": f"学生列表已打开{'，搜索：' + keyword if keyword else ''}。",
     }
@@ -80,70 +156,122 @@ async def show_students(class_id: int = 0, keyword: str = "") -> dict:
 @register_tool(
     name="weekly_report",
     persona=["teacher", "parent"],
-    call_limit=5,
-    description="生成班级/学生周报。包含练习次数、正确率趋势、薄弱知识点变化。",
+    call_limit=2,
+    description="生成班级/学生周报。基于面板数据调用 LLM 生成 200 字自然语言周报（鼓励为主）。",
 )
 async def weekly_report(student_id: int = 0, class_id: int = 0) -> dict:
-    """生成周报。"""
+    """生成自然语言周报（LLM 失败降级结构化数据）。"""
     async with MainSession() as db:
-        svc = PanelService(db)
+        scope = "student" if student_id else "class"
         if student_id:
-            detail = await svc.get_student_detail(db, class_id or 0, student_id)
-            return {"report": detail, "scope": "student", "student_id": student_id}
+            data = await PanelService.get_student_detail(db, class_id, student_id)
         else:
-            overview = await svc.get_class_overview(db, class_id)
-            return {"report": overview, "scope": "class", "class_id": class_id}
+            data = await PanelService.get_class_overview(db, class_id)
+
+        if data is None:
+            return {
+                "scope": scope,
+                "no_data": True,
+                "message": "暂无足够数据，无法生成周报",
+            }
+
+        messages = [
+            {"role": "system", "content": WEEKLY_REPORT_SYSTEM_PROMPT},
+            {"role": "user", "content": json.dumps(data, ensure_ascii=False, default=str)},
+        ]
+        try:
+            report = (await llm_chat(messages, temperature=0.3, max_tokens=500)).strip()
+        except Exception as exc:  # noqa: BLE001 — LLM 降级不阻断对话
+            logger.warning("周报 LLM 调用失败，降级结构化数据: %s", exc)
+            return {"scope": scope, "report": data, "degraded": True}
+
+        result: dict = {"scope": scope, "report": report}
+        if student_id:
+            result["student_id"] = student_id
+        else:
+            result["class_id"] = class_id
+        return result
 
 
 @register_tool(
     name="assign_adaptive_practice",
     persona=["teacher"],
-    call_limit=10,
+    call_limit=1,
     requires_approval=True,
-    prerequisites=["student_id", "knowledge_point"],
-    description="为学生分配自适应练习题（需教师确认）。基于 ZPD 和间隔复习算法选题。",
+    description="为班级学生批量分配自适应练习题（需教师确认）。基于 ZPD 和间隔复习算法选题，内部每批 5 人。",
 )
 async def assign_adaptive_practice(
-    student_id: int,
-    knowledge_point: str,
+    class_id: int = 0,
+    student_id: int = 0,
+    knowledge_point: str = "",
     count: int = 5,
 ) -> dict:
-    """分配自适应练习。"""
+    """分配自适应练习（班级级为主，单生兜底）。"""
     async with MainSession() as db:
-        svc = AdaptivePracticeService(db)
-        practice = await svc.create_practice(
-            db, student_id, question_count=count, kp_override=knowledge_point
+        kp_override = [knowledge_point] if knowledge_point else None
+
+        # 单生快捷路径
+        if student_id:
+            practice = await AdaptivePracticeService.create_practice(
+                db, student_id, question_count=count, kp_override=kp_override,
+            )
+            return {
+                "scope": "single",
+                "total_students": 1,
+                "practices": [_summarize_practice(student_id, practice)],
+            }
+
+        if not class_id:
+            return {"scope": "error", "message": "请提供 student_id 或 class_id"}
+
+        # 班级级：查学生，每批 5 名顺序生成
+        result = await db.execute(
+            select(Student)
+            .where(Student.class_id == class_id)
+            .order_by(Student.id)
         )
+        students = result.scalars().all()
+
+        practices = []
+        for i in range(0, len(students), CLASS_PRACTICE_BATCH_SIZE):
+            for s in students[i:i + CLASS_PRACTICE_BATCH_SIZE]:
+                try:
+                    p = await AdaptivePracticeService.create_practice(
+                        db, s.id, question_count=count, kp_override=kp_override,
+                    )
+                    practices.append(_summarize_practice(s.id, p))
+                except AdaptivePracticeError as exc:
+                    practices.append({"student_id": s.id, "error": str(exc)})
+
         return {
-            "practice_id": practice.id,
-            "status": practice.status.value if hasattr(practice.status, 'value') else str(practice.status),
+            "scope": "class",
+            "class_id": class_id,
+            "total_students": len(students),
+            "practices": practices,
         }
 
 
 @register_tool(
     name="generate_learning_plan",
     persona=["teacher"],
-    call_limit=10,
-    prerequisites=["student_id"],
-    description="为指定学生生成个性化学习计划。基于障碍画像和薄弱知识点。",
+    call_limit=5,
+    description="为指定学生生成个性化学习计划（预览）。返回跳转指令，持久化由前端抽屉确认后走 REST API。",
 )
-async def generate_learning_plan(student_id: int, teacher_id: int) -> dict:
-    """生成学习计划。"""
-    async with MainSession() as db:
-        svc = LearningPlanService(db)
-        data = {"student_id": student_id, "title": "个性化学习计划"}
-        plan = await svc.create_plan(db, data, teacher_id)
-        return {
-            "plan_id": plan.id,
-            "title": getattr(plan, 'title', ''),
-            "status": str(plan.status) if hasattr(plan, 'status') else 'created',
-        }
+async def generate_learning_plan(student_id: int) -> dict:
+    """生成学习计划预览（返回 _route，不写库）。"""
+    return {
+        "_route": {
+            "page": "students",
+            "params": {"student_id": student_id, "action": "open_learning_plan"},
+        },
+        "message": "已跳转至学生管理页，学习计划抽屉即将打开。",
+    }
 
 
 @register_tool(
     name="send_learning_plan",
     persona=["teacher"],
-    call_limit=10,
+    call_limit=2,
     requires_approval=True,
     prerequisites=["plan_id", "student_id"],
     description="将学习计划发送给学生（需教师确认）。",
@@ -151,8 +279,7 @@ async def generate_learning_plan(student_id: int, teacher_id: int) -> dict:
 async def send_learning_plan(plan_id: int, student_id: int) -> dict:
     """发送学习计划给学生。"""
     async with MainSession() as db:
-        svc = NotificationService(db)
-        await svc.create_notification(
+        await NotificationService.create_notification(
             db, student_id,
             type_="plan_updated",
             title="新的学习计划",

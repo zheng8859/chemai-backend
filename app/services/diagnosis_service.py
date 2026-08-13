@@ -580,6 +580,46 @@ class DiagnosisService:
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
+    async def resolve_student_by_identity(
+        db: AsyncSession,
+        identity: str,
+    ) -> list[Student]:
+        """按数字 ID 或中文姓名解析学生（模糊匹配，多结果按班级排序）。
+
+        匹配策略：
+        - 纯数字 → 按 Student.id 精确查（单结果或空）。
+        - 非数字 → 先按姓名精确匹配；无精确命中再按 name.contains 子串匹配。
+        - 多结果按 (class_id, id) 排序返回，绝不猜测唯一对象。
+
+        Returns:
+            学生对象列表（无命中返回空列表）。
+        """
+        identity = identity.strip()
+        if not identity:
+            return []
+
+        # 纯数字 → 主键精确查
+        if identity.isdigit():
+            result = await db.execute(
+                select(Student).where(Student.id == int(identity))
+            )
+            student = result.scalars().first()
+            return [student] if student else []
+
+        # 非数字 → 姓名精确匹配
+        result = await db.execute(select(Student).where(Student.name == identity))
+        exact = result.scalars().all()
+        if exact:
+            return sorted(exact, key=lambda s: (s.class_id, s.id))
+
+        # 无精确 → 子串匹配
+        result = await db.execute(
+            select(Student).where(Student.name.contains(identity))
+        )
+        sub = result.scalars().all()
+        return sorted(sub, key=lambda s: (s.class_id, s.id))
+
+    @staticmethod
     async def get_student_diagnosis(
         db: AsyncSession,
         student_id: int,  # 数据库 Student.id
