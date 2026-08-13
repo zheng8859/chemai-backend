@@ -19,6 +19,9 @@ from ..config import CHROMA_DB_PATH, CHROMA_COLLECTION, DASHSCOPE_API_KEY
 
 logger = logging.getLogger(__name__)
 
+# 向量相似度阈值 — 相似度低于此值的候选视为不相关，不补充进搜索结果（spec: ≥ 0.6）
+SIMILARITY_THRESHOLD = 0.6
+
 # ═══════════════════════════════════════════════
 # ChromaDB client (lazy init)
 # ═══════════════════════════════════════════════
@@ -216,11 +219,13 @@ async def _vector_rerank(
                 except ValueError:
                     continue
 
-            # Re-rank candidates by vector similarity
+            # Re-rank candidates by vector similarity (低于阈值的不补充)
             reranked = []
             for exam in candidates:
                 distance = dist_map.get(exam.id, 1.0)
                 similarity = 1.0 - distance
+                if similarity < SIMILARITY_THRESHOLD:
+                    continue
                 reranked.append((similarity, exam))
 
             reranked.sort(key=lambda x: x[0], reverse=True)
@@ -423,6 +428,8 @@ async def search_questions_vector(
             for q in candidates:
                 distance = dist_map.get(q.id, 1.0)
                 similarity = 1.0 - distance
+                if similarity < SIMILARITY_THRESHOLD:
+                    continue
                 reranked.append((similarity, q))
 
             reranked.sort(key=lambda x: x[0], reverse=True)

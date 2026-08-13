@@ -3,6 +3,8 @@
 不依赖 ChromaDB 或 dashscope API。
 """
 
+from types import SimpleNamespace
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
@@ -114,3 +116,34 @@ class TestBuildEmbedText:
 
         text = _build_embed_text(exam)
         assert "考点:" in text  # still has the label, just empty content
+
+
+class TestSimilarityThreshold:
+    """向量补充相似度阈值 — 低于 0.6 的候选不补充进结果（spec: ≥ 0.6）。"""
+
+    @pytest.mark.anyio
+    async def test_filters_below_threshold(self, monkeypatch):
+        from app.services import vector_search_service as vss
+
+        q1 = SimpleNamespace(
+            id=1, knowledge_point_tags=["氧化还原"], question_type="choice",
+            difficulty="medium", content="题目1",
+        )
+        q2 = SimpleNamespace(
+            id=2, knowledge_point_tags=["电化学"], question_type="choice",
+            difficulty="medium", content="题目2",
+        )
+
+        class FakeColl:
+            def query(self, query_embeddings, n_results):
+                return {
+                    "ids": [["question_1", "question_2"]],
+                    # sim = 1 - distance：0.9（保留）/ 0.2（过滤）
+                    "distances": [[0.1, 0.8]],
+                }
+
+        monkeypatch.setattr(vss, "_get_question_collection", lambda: FakeColl())
+        monkeypatch.setattr(vss, "_get_embedding", lambda text: [0.1] * 3)
+
+        result = await vss.search_questions_vector([q1, q2], ["氧化还原"], limit=5)
+        assert [q.id for q in result] == [1]

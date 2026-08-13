@@ -23,6 +23,7 @@ CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "exam_questions")
 # 三级 Fallback：MiMo → 通义千问 → DeepSeek
 MIMO_API_KEY = os.getenv("MIMO_API_KEY", "")
 MIMO_BASE_URL = os.getenv("MIMO_BASE_URL", "")
+MIMO_MODEL = os.getenv("MIMO_MODEL", "mimo-v2.5")
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "")

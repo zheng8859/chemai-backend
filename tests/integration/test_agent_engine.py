@@ -115,6 +115,10 @@ class TestPersonaFiltering:
         assert "search_exam_bank" in tools
         assert "web_search" in tools
         assert "balance_equation" in tools
+        assert "save_to_bank" in tools
+        assert "list_banks" in tools
+        assert "delete_bank" in tools
+        assert "generate_questions" in tools
 
     def test_parent_tools(self):
         from agent.tools.tool_meta import get_tool_names_for_persona
@@ -123,6 +127,7 @@ class TestPersonaFiltering:
         assert "diagnose_barrier" in tools
         assert "generate_parent_report" in tools
         assert "send_report_to_parent" in tools
+        assert "web_search" in tools
         # 不应有出题/辅导工具
         assert "generate_questions" not in tools
         assert "chemistry_tutor" not in tools

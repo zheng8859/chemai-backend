@@ -3,6 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
+from ..core.enums import QuestionType, Difficulty, QuestionSource, AuditStatus
 from ..models.question_bank import QuestionSet, QuestionSetItem, HistoricalExam
 from ..models.teaching import Question
 from ..schemas.question_bank import (
@@ -101,6 +102,59 @@ class QuestionBankService:
         await db.commit()
         await db.refresh(item)
         return QuestionSetItemRead.model_validate(item)
+
+    @staticmethod
+    async def save_questions_batch(
+        db: AsyncSession,
+        name: str,
+        questions: list[dict],
+        teacher_id: int | None = None,
+    ) -> dict:
+        """原子批量保存题目：建文件夹 + 逐题入库 + 建关联，单事务提交。
+
+        任一步失败则整体回滚，不残留半套数据。
+        question dict 字段：content / answer / question_type / difficulty /
+        knowledge_points（或 knowledge_point_tags）/ options / analysis。
+
+        Args:
+            db: 数据库会话
+            name: 题库文件夹名称
+            questions: 题目 dict 列表
+            teacher_id: 教师 ID
+
+        Returns:
+            {"bank_id", "bank_name", "saved_count", "question_ids"}
+        """
+        qs = QuestionSet(name=name, teacher_id=teacher_id or 0)
+        db.add(qs)
+        await db.flush()
+
+        saved: list[int] = []
+        for i, q in enumerate(questions, start=1):
+            qobj = Question(
+                content=q.get("content", ""),
+                question_type=q.get("question_type", QuestionType.choice),
+                options=q.get("options") or [],
+                answer=q.get("answer", ""),
+                analysis=q.get("analysis"),
+                knowledge_point_tags=q.get("knowledge_points") or q.get("knowledge_point_tags") or [],
+                difficulty=q.get("difficulty", Difficulty.medium),
+                source=QuestionSource.ai_generated,
+                audit_status=AuditStatus.passed,
+            )
+            db.add(qobj)
+            await db.flush()
+            db.add(QuestionSetItem(question_set_id=qs.id, question_id=qobj.id, sort_order=i))
+            saved.append(qobj.id)
+
+        await db.commit()
+        await db.refresh(qs)
+        return {
+            "bank_id": qs.id,
+            "bank_name": qs.name,
+            "saved_count": len(saved),
+            "question_ids": saved,
+        }
 
     @staticmethod
     async def list_items(

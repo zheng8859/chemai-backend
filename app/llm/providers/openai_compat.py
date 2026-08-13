@@ -47,6 +47,7 @@ class OpenAICompatProvider:
         max_tokens: int = 4096,
         response_format: dict | None = None,
         tools: list[dict[str, Any]] | None = None,
+        enable_search: bool = False,
     ) -> dict[str, Any]:
         """发送 chat completion 请求，返回完整 message 对象。
 
@@ -56,6 +57,7 @@ class OpenAICompatProvider:
             max_tokens: 最大 token 数
             response_format: 可选，如 {"type": "json_object"}
             tools: 可选，工具定义列表 (OpenAI function-calling 格式)
+            enable_search: 可选，是否开启联网搜索（MiMo 等支持 search 的 Provider）
 
         Returns:
             {"content": str | None, "tool_calls": list | None}
@@ -77,6 +79,8 @@ class OpenAICompatProvider:
         if tools:
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
+        if enable_search:
+            payload["enable_search"] = True
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",

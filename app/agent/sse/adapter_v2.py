@@ -164,9 +164,11 @@ async def langgraph_sse_v2(
                     })
 
                 for route in guard_state.stripped_routes:
+                    page, params = _flatten_route(route)
                     await _safe_put(queue, {
                         "type": "navigate",
-                        "route": route,
+                        "page": page,
+                        "params": params,
                         "timestamp": time.time(),
                     })
 
@@ -209,6 +211,17 @@ async def langgraph_sse_v2(
             yield _format_sse(event_data)
         except asyncio.TimeoutError:
             continue
+
+
+def _flatten_route(route: object) -> tuple[str, dict]:
+    """把 `_route` 载荷铺平为 (page, params)。
+
+    前端 navigate handler 读取 data.page / data.params（顶层），
+    因此此处不再把 route 包裹为 `{route: {...}}`。
+    """
+    if isinstance(route, dict):
+        return route.get("page", ""), route.get("params", {})
+    return "", {}
 
 
 async def _safe_put(queue: asyncio.Queue, event: dict) -> None:
