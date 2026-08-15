@@ -21,27 +21,11 @@ from app.core.enums import OCRTaskStatus
 from app.services.grading_service import GradingService
 
 
-class _FakeMainSession:
-    """把工具模块的 MainSession 替换为返回固定测试 session 的伪工厂。"""
-
-    def __init__(self, session):
-        self._session = session
-
-    def __call__(self):
-        return self
-
-    async def __aenter__(self):
-        return self._session
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
 @pytest.fixture
-def fake_session(db_session, monkeypatch):
+def fake_session(db_session, monkeypatch, fake_main_session_cls):
     """让 OCR 三个工具走测试 db_session，而非生产 main_engine。"""
     for mod in (ocr_progress, grading_trigger, grading_save):
-        monkeypatch.setattr(mod, "MainSession", _FakeMainSession(db_session))
+        monkeypatch.setattr(mod, "MainSession", fake_main_session_cls(db_session))
     return db_session
 
 

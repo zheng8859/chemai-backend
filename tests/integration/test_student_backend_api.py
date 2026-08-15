@@ -645,8 +645,7 @@ class TestAgentToolRegistration:
     def test_tool_meta_registry(self):
         """工具元数据注册：periodic_law_tutor + organic_tutor 注册到 student persona。"""
         # 强制导入以触发注册
-        import agent.tools.periodic_law_tutor  # noqa: F401
-        import agent.tools.organic_tutor  # noqa: F401
+        import agent.tools.socratic_tutors  # noqa: F401
         from agent.tools.tool_meta import get_tools_for_persona, get_tool_names_for_persona
 
         student_tools = get_tool_names_for_persona("student")

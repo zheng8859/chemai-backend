@@ -56,6 +56,7 @@ class ChildOverviewResponse(BaseModel):
     total_practice_count: int = Field(default=0, description="累计练习总量")
     weak_knowledge_points: list[str] = Field(default_factory=list, description="薄弱知识点（通俗描述）")
     characteristics: str = Field(default="暂无足够数据进行分析", description="学习特点通俗描述")
+    advice: str = Field(default="暂无建议", description="教师建议（通俗可操作）")
     barriers: BarrierProfile | None = Field(default=None, description="三维障碍画像")
     last_practice_time: datetime | None = None
 

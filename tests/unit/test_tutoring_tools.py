@@ -64,29 +64,22 @@ class TestSimulateExperiment:
 class TestBalanceEquation:
 
     @pytest.mark.anyio
-    async def test_success_when_engine_available(self, monkeypatch):
+    async def test_success_when_engine_available(self):
         """引擎可用时透传配平结果，verified=True。"""
-        from chem_skills.chemistry_parser.engine import equation_parser
-
-        async def fake_parse_and_balance(reactants, products):
-            return {
-                "balanced_equation": "2H2 + O2 → 2H2O",
-                "coefficients": {"H2": 2, "O2": 1, "H2O": 2},
-                "type": "combination",
-            }
-
-        monkeypatch.setattr(
-            equation_parser, "parse_and_balance", fake_parse_and_balance, raising=False,
-        )
-
         result = await tt.balance_equation("H2 + O2", "H2O")
         assert result["verified"] is True
         assert result["balanced"] == "2H2 + O2 → 2H2O"
         assert result["coefficients"]["H2"] == 2
+        assert result["coefficients"]["O2"] == 1
+        assert result["equation_type"] == "irreversible"
 
     @pytest.mark.anyio
-    async def test_engine_unavailable_returns_false(self):
-        """引擎不存在（ImportError）→ verified=False，不抛异常。"""
+    async def test_engine_unavailable_returns_false(self, monkeypatch):
+        """引擎不可用（ImportError）→ verified=False，不抛异常。"""
+        import sys
+        import chem_skills.chemistry_parser.engine.balancer as balancer_mod  # noqa: F401
+
+        monkeypatch.setitem(sys.modules, balancer_mod.__name__, None)
         result = await tt.balance_equation("H2 + O2", "H2O")
         assert result["verified"] is False
         assert "不可用" in result.get("error", "")
@@ -94,15 +87,12 @@ class TestBalanceEquation:
     @pytest.mark.anyio
     async def test_balance_failure_returns_false(self, monkeypatch):
         """引擎抛异常 → verified=False，携带错误信息，不抛未捕获异常。"""
-        from chem_skills.chemistry_parser.engine import equation_parser
+        from chem_skills.chemistry_parser.engine import balancer
 
-        async def fake_fail(reactants, products):
+        def fake_balance(reactants, products):
             raise ValueError("无法配平该方程式")
 
-        monkeypatch.setattr(
-            equation_parser, "parse_and_balance", fake_fail, raising=False,
-        )
-
+        monkeypatch.setattr(balancer, "balance", fake_balance)
         result = await tt.balance_equation("Fe + O2", "Fe3O4")
         assert result["verified"] is False
         assert "无法配平" in result["error"]

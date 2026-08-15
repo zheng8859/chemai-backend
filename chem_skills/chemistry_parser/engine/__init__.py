@@ -14,6 +14,7 @@ from .audit_engine import audit_equation
 
 # ── 四维独立函数 ──
 from .balance_checker import check_balance
+from .balancer import balance
 from .condition_checker import check_conditions
 from .product_checker import check_product_stability
 from .structure_checker import check_structure
@@ -45,6 +46,7 @@ __all__ = [
     "audit_equation",
     # 四维独立
     "check_balance",
+    "balance",
     "check_conditions",
     "check_product_stability",
     "check_structure",

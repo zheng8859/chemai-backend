@@ -8,6 +8,7 @@ import logging
 
 from app.agent.store import (
     read_diagnosis_history,
+    count_diagnosis_history,
     read_learning_plan_summary,
     read_teacher_preference,
 )
@@ -31,33 +32,30 @@ async def memory_student_get(student_id: int) -> dict:
         student_id: 学生 ID
 
     Returns:
-        {"diagnosis_history": [...], "learning_plan": dict | None, "practice_stats": dict}
+        {"diagnosis_history": [...], "learning_plan": dict | None, "diagnosis_count": int}
     """
     try:
         async with MainSession() as db:
             diagnoses = await read_diagnosis_history(db, student_id)
+            diagnosis_count = await count_diagnosis_history(db, student_id)
             plan = await read_learning_plan_summary(db, student_id)
-
-        return {
-            "student_id": student_id,
-            "diagnosis_history": [
-                {"barrier_type": d.get("dominant_barrier"),
-                 "distribution": d.get("profile"),
-                 "timestamp": d.get("recorded_at")}
-                for d in diagnoses
-            ],
-            "active_learning_plan": plan,
-            "diagnosis_count": len(diagnoses),
-        }
     except Exception as e:
         logger.warning("memory_student_get 失败: %s", e)
-        return {
-            "student_id": student_id,
-            "diagnosis_history": [],
-            "active_learning_plan": None,
-            "diagnosis_count": 0,
-            "error": str(e),
-        }
+        diagnoses, diagnosis_count, plan = [], 0, None
+
+    return {
+        "student_id": student_id,
+        "diagnosis_history": [
+            {
+                "barrier_type": d.get("dominant_barrier"),
+                "distribution": d.get("profile"),
+                "timestamp": d.get("recorded_at"),
+            }
+            for d in diagnoses
+        ],
+        "active_learning_plan": plan,
+        "diagnosis_count": diagnosis_count,
+    }
 
 
 @register_tool(
@@ -84,20 +82,18 @@ async def memory_teacher_get(teacher_id: int) -> dict:
     try:
         async with MainSession() as db:
             pref = await read_teacher_preference(db, teacher_id)
-
         pref = pref or {}
-        return {
-            "teacher_id": teacher_id,
-            "teaching_style": pref.get("teaching_style", defaults["teaching_style"]),
-            "difficulty_preference": pref.get("difficulty_preference", defaults["difficulty_preference"]),
-            "class_configuration": pref.get("class_configuration", defaults["class_configuration"]),
-        }
     except Exception as e:
         logger.warning("memory_teacher_get 失败: %s", e)
-        return {
-            "teacher_id": teacher_id,
-            "teaching_style": defaults["teaching_style"],
-            "difficulty_preference": defaults["difficulty_preference"],
-            "class_configuration": defaults["class_configuration"],
-            "error": str(e),
-        }
+        pref = {}
+
+    return {
+        "teacher_id": teacher_id,
+        "teaching_style": pref.get("teaching_style", defaults["teaching_style"]),
+        "difficulty_preference": pref.get(
+            "difficulty_preference", defaults["difficulty_preference"]
+        ),
+        "class_configuration": pref.get(
+            "class_configuration", defaults["class_configuration"]
+        ),
+    }

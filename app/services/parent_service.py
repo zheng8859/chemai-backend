@@ -37,6 +37,31 @@ class ParentError(Exception):
         super().__init__(detail)
 
 
+def _build_advice(barriers: dict | None, weak_kps: list[str]) -> str:
+    """生成通俗可操作的教师建议（确定性，不依赖 LLM）。
+
+    Args:
+        barriers: 三维障碍画像 {concept, reading, expression} 或 None
+        weak_kps: 已通俗化的薄弱知识点列表
+
+    Returns:
+        分号分隔的可操作建议；无可建议内容时返回「暂无建议」
+    """
+    parts: list[str] = []
+    if barriers:
+        if barriers.get("concept", 0) >= 0.5:
+            parts.append("建议先夯实基础概念，回归教材梳理核心定义与原理")
+        if barriers.get("reading", 0) >= 0.4:
+            parts.append("建议培养审题习惯，做题时圈画关键条件与已知量")
+        if barriers.get("expression", 0) >= 0.4:
+            parts.append("建议规范化学用语，注意方程式配平与单位书写")
+    if weak_kps:
+        parts.append(f"重点复习：{'、'.join(weak_kps[:3])}")
+    if not parts:
+        return "暂无建议"
+    return "；".join(parts) + "。"
+
+
 class ParentService:
     """家长端服务 — 所有方法均为 static method。"""
 
@@ -216,6 +241,8 @@ class ParentService:
             if parts:
                 characteristics = "。".join(parts) + "。"
 
+        advice = _build_advice(barriers, weak_kps)
+
         return ChildOverviewResponse(
             student_id=student_db_id,
             student_name=student.name if student else "",
@@ -225,6 +252,7 @@ class ParentService:
             total_practice_count=total_count,
             weak_knowledge_points=weak_kps,
             characteristics=characteristics,
+            advice=advice,
             barriers=barriers,
             last_practice_time=last_practice,
         )

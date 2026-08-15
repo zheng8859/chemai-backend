@@ -9,7 +9,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.agent_memory import LongTermMemory
@@ -117,7 +117,7 @@ async def read_diagnosis_history(
                 LongTermMemory.student_id == student_id,
                 LongTermMemory.memory_type == MemoryType.student_diagnosis_history,
             )
-            .order_by(LongTermMemory.created_at.desc())
+            .order_by(LongTermMemory.created_at.desc(), LongTermMemory.id.desc())
             .limit(limit)
         )
         memories = result.scalars().all()
@@ -128,6 +128,32 @@ async def read_diagnosis_history(
             student_id, exc_info=True,
         )
         return []
+
+
+async def count_diagnosis_history(db: AsyncSession, student_id: int) -> int:
+    """统计学生诊断历史总数（不受 read_diagnosis_history 的 limit 截断）。
+
+    Args:
+        db: 数据库会话
+        student_id: Student 主键
+
+    Returns:
+        诊断记录总数；读取失败时返回 0
+    """
+    try:
+        result = await db.execute(
+            select(func.count(LongTermMemory.id)).where(
+                LongTermMemory.student_id == student_id,
+                LongTermMemory.memory_type == MemoryType.student_diagnosis_history,
+            )
+        )
+        return result.scalar() or 0
+    except Exception:
+        logger.warning(
+            "Store 计数失败: student_id=%d type=diagnosis",
+            student_id, exc_info=True,
+        )
+        return 0
 
 
 async def read_learning_plan_summary(
@@ -150,7 +176,7 @@ async def read_learning_plan_summary(
                 LongTermMemory.student_id == student_id,
                 LongTermMemory.memory_type == MemoryType.student_learning_plan,
             )
-            .order_by(LongTermMemory.created_at.desc())
+            .order_by(LongTermMemory.created_at.desc(), LongTermMemory.id.desc())
             .limit(1)
         )
         memory = result.scalar_one_or_none()

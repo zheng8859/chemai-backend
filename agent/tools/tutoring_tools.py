@@ -82,10 +82,10 @@ async def simulate_experiment(experiment_name: str) -> dict:
     description="化学方程式配平（确定性算法，100% 准确）。传入反应物和生成物，返回配平后的方程式。",
 )
 async def balance_equation(reactants: str, products: str) -> dict:
-    """化学方程式配平。"""
+    """化学方程式配平（确定性算法）。"""
     try:
-        from chem_skills.chemistry_parser.engine.equation_parser import parse_and_balance
-        result = await parse_and_balance(reactants, products)
+        from chem_skills.chemistry_parser.engine.balancer import balance
+        result = balance(reactants, products)
         return {
             "balanced": result.get("balanced_equation", ""),
             "coefficients": result.get("coefficients", {}),

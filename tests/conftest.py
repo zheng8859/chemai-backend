@@ -94,6 +94,36 @@ async def db_session(test_engine):
 
 
 # ═══════════════════════════════════════════════════════════════
+# FakeMainSession — 工具测试专用伪工厂
+# ═══════════════════════════════════════════════════════════════
+
+class FakeMainSession:
+    """把工具模块的 MainSession 替换为返回固定测试 session 的伪工厂。
+
+    工具函数内部通过 `async with MainSession() as db:` 打开会话，
+    本类让该上下文管理器直接返回测试的 db_session。
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    def __call__(self) -> "FakeMainSession":
+        return self
+
+    async def __aenter__(self) -> AsyncSession:
+        return self._session
+
+    async def __aexit__(self, exc_type, exc, tb) -> bool:
+        return False
+
+
+@pytest.fixture
+def fake_main_session_cls() -> type:
+    """返回 FakeMainSession 类，供各工具测试 patch 各自模块的 MainSession。"""
+    return FakeMainSession
+
+
+# ═══════════════════════════════════════════════════════════════
 # HTTP Client — function scope：覆盖 get_db 依赖
 # ═══════════════════════════════════════════════════════════════
 

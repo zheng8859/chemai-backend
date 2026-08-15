@@ -15,26 +15,10 @@ import agent.tools.parent_tools as parent_tools
 from app.models.notification import Notification
 
 
-class _FakeMainSession:
-    """把 parent_tools.MainSession 替换为返回固定测试 session 的伪工厂。"""
-
-    def __init__(self, session):
-        self._session = session
-
-    def __call__(self):
-        return self
-
-    async def __aenter__(self):
-        return self._session
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
 @pytest.fixture
-def fake_session(db_session, monkeypatch):
+def fake_session(db_session, monkeypatch, fake_main_session_cls):
     """让工具走测试 db_session，而非生产 main_engine。"""
-    monkeypatch.setattr(parent_tools, "MainSession", _FakeMainSession(db_session))
+    monkeypatch.setattr(parent_tools, "MainSession", fake_main_session_cls(db_session))
     return db_session
 
 
@@ -57,6 +41,8 @@ class TestGenerateParentReport:
         assert report.student_id == student.id
         assert report.student_name == "测试学生"
         assert isinstance(report.weak_knowledge_points, list)
+        assert report.advice  # 教师建议非空
+        assert "夯实基础概念" in report.advice
 
     @pytest.mark.anyio
     async def test_no_data_returns_explanation(self, fake_session, make_student):
@@ -65,6 +51,7 @@ class TestGenerateParentReport:
 
         result = await parent_tools.generate_parent_report(student.id)
         assert result["report"].characteristics == "暂无足够数据进行分析"
+        assert result["report"].advice == "暂无建议"
 
     @pytest.mark.anyio
     async def test_report_filters_specific_wrong_answers(self, fake_session, make_student):
