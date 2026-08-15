@@ -161,3 +161,36 @@ async def read_learning_plan_summary(
             student_id, exc_info=True,
         )
         return None
+
+
+async def read_teacher_preference(
+    db: AsyncSession,
+    teacher_id: int,
+) -> Optional[dict]:
+    """读取教师最新偏好设置。
+
+    Args:
+        db: 数据库会话
+        teacher_id: Teacher 主键
+
+    Returns:
+        content dict 或 None
+    """
+    try:
+        result = await db.execute(
+            select(LongTermMemory)
+            .where(
+                LongTermMemory.teacher_id == teacher_id,
+                LongTermMemory.memory_type == MemoryType.teacher_preference,
+            )
+            .order_by(LongTermMemory.created_at.desc(), LongTermMemory.id.desc())
+            .limit(1)
+        )
+        memory = result.scalar_one_or_none()
+        return memory.content if memory else None
+    except Exception:
+        logger.warning(
+            "Store 读取失败: teacher_id=%d type=teacher_preference",
+            teacher_id, exc_info=True,
+        )
+        return None

@@ -50,14 +50,22 @@ async def chemistry_tutor(
     description="模拟化学实验并生成实验报告。传入实验名称，返回实验步骤、现象描述、化学方程式和安全注意事项。",
 )
 async def simulate_experiment(experiment_name: str) -> dict:
-    """模拟化学实验。"""
+    """模拟化学实验。
+
+    返回结构化实验骨架（通用步骤 + 现象/方程式/安全注意占位），
+    具体实验细节由 LLM 基于 experiment_name 在对话中补充生成。
+    """
     return {
         "experiment": {
             "name": experiment_name,
-            "steps": [],
-            "phenomena": "",
-            "equations": [],
-            "safety_notes": [],
+            "steps": [
+                "准备实验仪器与试剂，检查装置气密性",
+                "按规范步骤操作，控制反应条件（温度、浓度、催化剂）",
+                "观察并记录实验现象与数据",
+            ],
+            "phenomena": "实验现象由智能体根据具体实验补充描述",
+            "equations": ["化学方程式由智能体根据具体实验补充"],
+            "safety_notes": ["佩戴护目镜与实验服，规范取用化学试剂"],
         },
         "_component": {
             "type": "experiment-card",

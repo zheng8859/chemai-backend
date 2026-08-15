@@ -759,8 +759,8 @@ class TestAgentStore:
         )
 
         # 读取
-        from app.agent.tools.memory_student_get import memory_student_get
-        result = await memory_student_get(db_session, student.id, limit=5)
+        from app.agent.tools.memory_student_get import fetch_student_memory
+        result = await fetch_student_memory(db_session, student.id, limit=5)
         assert len(result["diagnosis_history"]) >= 1
         assert result["learning_plan"] is not None
         assert result["learning_plan"]["title"] == "测试"

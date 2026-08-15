@@ -13,6 +13,8 @@ from agent.tools import exam_tools  # noqa: F401
 from agent.tools import diagnosis_tools  # noqa: F401
 from agent.tools import tutoring_tools  # noqa: F401
 from agent.tools import socratic_tutors  # noqa: F401
+from agent.tools import organic_tutor  # noqa: F401
+from agent.tools import periodic_law_tutor  # noqa: F401
 from agent.tools import memory_tools  # noqa: F401
 from agent.tools import parent_tools  # noqa: F401
 from agent.tools import ocr_progress  # noqa: F401

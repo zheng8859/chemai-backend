@@ -6,6 +6,13 @@
 
 import logging
 
+from app.agent.store import (
+    read_diagnosis_history,
+    read_learning_plan_summary,
+    read_teacher_preference,
+)
+from app.infrastructure.database import MainSession
+
 from .tool_meta import register_tool
 
 logger = logging.getLogger(__name__)
@@ -26,18 +33,17 @@ async def memory_student_get(student_id: int) -> dict:
     Returns:
         {"diagnosis_history": [...], "learning_plan": dict | None, "practice_stats": dict}
     """
-    from app.agent.store import read_diagnosis_snapshots, read_learning_plan
-
     try:
-        diagnoses = await read_diagnosis_snapshots(student_id)
-        plan = await read_learning_plan(student_id)
+        async with MainSession() as db:
+            diagnoses = await read_diagnosis_history(db, student_id)
+            plan = await read_learning_plan_summary(db, student_id)
 
         return {
             "student_id": student_id,
             "diagnosis_history": [
-                {"barrier_type": d.get("barrier_type"),
-                 "distribution": d.get("distribution"),
-                 "timestamp": d.get("timestamp")}
+                {"barrier_type": d.get("dominant_barrier"),
+                 "distribution": d.get("profile"),
+                 "timestamp": d.get("recorded_at")}
                 for d in diagnoses
             ],
             "active_learning_plan": plan,
@@ -69,10 +75,29 @@ async def memory_teacher_get(teacher_id: int) -> dict:
     Returns:
         {"teaching_style": str, "difficulty_preference": str, "class_config": dict}
     """
-    # TODO: 从 teacher_preferences 表或 Store 读取
-    return {
-        "teacher_id": teacher_id,
+    defaults = {
         "teaching_style": "balanced",
         "difficulty_preference": "auto",
         "class_configuration": {},
     }
+
+    try:
+        async with MainSession() as db:
+            pref = await read_teacher_preference(db, teacher_id)
+
+        pref = pref or {}
+        return {
+            "teacher_id": teacher_id,
+            "teaching_style": pref.get("teaching_style", defaults["teaching_style"]),
+            "difficulty_preference": pref.get("difficulty_preference", defaults["difficulty_preference"]),
+            "class_configuration": pref.get("class_configuration", defaults["class_configuration"]),
+        }
+    except Exception as e:
+        logger.warning("memory_teacher_get 失败: %s", e)
+        return {
+            "teacher_id": teacher_id,
+            "teaching_style": defaults["teaching_style"],
+            "difficulty_preference": defaults["difficulty_preference"],
+            "class_configuration": defaults["class_configuration"],
+            "error": str(e),
+        }

@@ -24,8 +24,7 @@ logger = logging.getLogger(__name__)
 async def generate_parent_report(student_id: int) -> dict:
     """生成家长报告。"""
     async with MainSession() as db:
-        svc = ParentService(db)
-        overview = await svc.get_child_overview(db, student_id)
+        overview = await ParentService.get_child_overview(db, student_id)
         return {
             "student_id": student_id,
             "report": overview,
@@ -44,8 +43,7 @@ async def generate_parent_report(student_id: int) -> dict:
 async def send_report_to_parent(student_id: int) -> dict:
     """推送报告至家长端。"""
     async with MainSession() as db:
-        svc = NotificationService(db)
-        await svc.create_notification(
+        await NotificationService.create_notification(
             db, student_id,
             type_="report_ready",
             title="学习报告已生成",
