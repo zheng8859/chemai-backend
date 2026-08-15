@@ -112,6 +112,7 @@ async def _all_questions(db: AsyncSession, question_type: str, difficulty: str) 
     name="search_exam_bank",
     persona=["teacher", "tutor"],
     call_limit=3,
+    prerequisite_min_length={"keyword": 3},
     description="三级搜索题库：关键词 → 向量 → 联网兜底。传入 keyword 和可选的 knowledge_point、question_type、difficulty。",
 )
 async def search_exam_bank(

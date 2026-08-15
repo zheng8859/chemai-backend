@@ -22,7 +22,10 @@ import asyncio
 import json
 import logging
 import time
-from typing import AsyncGenerator, Optional
+from types import SimpleNamespace
+from typing import Any, AsyncGenerator, Optional
+
+from langgraph.types import Command
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +40,7 @@ async def langgraph_sse_v2(
     config: dict,
     guard_state=None,
     thread_id: str = "",
+    resume: Optional[dict] = None,
 ) -> AsyncGenerator[str, None]:
     """LangGraph Agent 执行 → SSE 事件流。
 
@@ -45,10 +49,12 @@ async def langgraph_sse_v2(
 
     Args:
         agent: LangGraph compiled graph
-        messages: 消息列表
+        messages: 消息列表（resume 模式下忽略）
         config: LangGraph config（含 thread_id）
-        guard_state: GuardState 实例
+        guard_state: GuardState 实例（首轮执行注入图状态）
         thread_id: 对话线程 ID
+        resume: 审批恢复决策（如 {"approved": True}）；非 None 时走
+            `Command(resume=...)` 恢复被 interrupt 暂停的图
 
     Yields:
         SSE 格式的事件字符串（"event: <type>\ndata: <json>\n\n"）
@@ -69,8 +75,18 @@ async def langgraph_sse_v2(
         nonlocal current_phase, llm_text_buffer, dedup_decided, last_tool_output
 
         try:
+            # guard_state 注入图状态（D2：拦截器从 state["guard_state"] 读取）
+            if resume is not None:
+                # 审批恢复：Command(resume=...) 恢复被 interrupt 暂停的图
+                stream_input = Command(resume=resume)
+            else:
+                input_state = {"messages": messages}
+                if guard_state is not None:
+                    input_state["guard_state"] = guard_state
+                stream_input = input_state
+
             async for event in agent.astream_events(
-                {"messages": messages}, config, version="v2"
+                stream_input, config, version="v2"
             ):
                 kind = event.get("event", "")
                 data = event.get("data", {})
@@ -126,11 +142,20 @@ async def langgraph_sse_v2(
                     current_phase = "observing"
                     output = data.get("output", {})
 
-                    # 剥离 _component/_route
-                    if guard_state and isinstance(output, dict):
-                        clean_output = guard_state.strip_special_fields(output)
+                    # 防御性提取真实工具结果：wrapper 正常/批准路径返回
+                    # Command(update={"messages":[...], "guard_state":...})，
+                    # 此时 output 是 {messages, guard_state} 而非 ToolMessage。
+                    raw_result = _extract_tool_result(output)
+
+                    # 展示层剥离：wrapper 已将 _component/_route 收集进 guard_state，
+                    # 此处仅移除展示层特殊字段（不重复收集，避免 component 事件重复发射）
+                    if isinstance(raw_result, dict):
+                        clean_output = {
+                            k: v for k, v in raw_result.items()
+                            if k not in ("_component", "_route")
+                        }
                     else:
-                        clean_output = output
+                        clean_output = raw_result
 
                     last_tool_output = json.dumps(clean_output, ensure_ascii=False, default=str)
 
@@ -154,16 +179,34 @@ async def langgraph_sse_v2(
                         "timestamp": time.time(),
                     })
 
-            # ── 发射剥离的特殊字段 ──
-            if guard_state:
-                for comp in guard_state.stripped_components:
+                elif kind == "on_chain_stream":
+                    # interrupt 暂停信号（D3）：L4 审批门控触发时发射 awaiting_approval
+                    chunk = data.get("chunk", {})
+                    if isinstance(chunk, dict) and "__interrupt__" in chunk:
+                        for inter in chunk["__interrupt__"]:
+                            payload = getattr(inter, "value", None)
+                            if not isinstance(payload, dict):
+                                payload = {"approval_id": "", "tool_name": "", "args": {}}
+                            await _safe_put(queue, {
+                                "type": "phase",
+                                "phase": "awaiting_approval",
+                                "approval_id": payload.get("approval_id", ""),
+                                "tool_name": payload.get("tool_name", ""),
+                                "args": payload.get("args", {}),
+                                "timestamp": time.time(),
+                            })
+
+            # ── 发射剥离的特殊字段（从最终图状态读取，见 D5） ──
+            final_gs = await _read_final_guard_state(agent, config)
+            if final_gs is not None:
+                for comp in final_gs.stripped_components:
                     await _safe_put(queue, {
                         "type": "component",
                         "component": comp,
                         "timestamp": time.time(),
                     })
 
-                for route in guard_state.stripped_routes:
+                for route in final_gs.stripped_routes:
                     page, params = _flatten_route(route)
                     await _safe_put(queue, {
                         "type": "navigate",
@@ -171,6 +214,11 @@ async def langgraph_sse_v2(
                         "params": params,
                         "timestamp": time.time(),
                     })
+
+                # 发射后清空：stripped_components/routes 是累计字段，不清空会导致
+                # resume 流重读完整列表、重复发射已发过的 component/navigate（D5）
+                if final_gs.stripped_components or final_gs.stripped_routes:
+                    await _clear_stripped_fields(agent, config)
 
             # ── 完成事件 ──
             await _safe_put(queue, {
@@ -211,6 +259,87 @@ async def langgraph_sse_v2(
             yield _format_sse(event_data)
         except asyncio.TimeoutError:
             continue
+
+
+def _extract_tool_result(output: Any) -> Any:
+    """从 on_tool_end 的 output 提取真实工具结果 content。
+
+    Guard wrapper 正常/批准路径返回 `Command(update={"messages": [...], "guard_state": ...})`，
+    此时 on_tool_end 的 output 是 `{messages, guard_state}` 结构而非 ToolMessage；
+    拒绝/放行路径则可能直接是 ToolMessage。防御性兼容三种形态。
+
+    Args:
+        output: on_tool_end 事件的 data.output
+
+    Returns:
+        工具结果的 content（dict / str / 其他）
+    """
+    # Command 结构：{"messages": [...], "guard_state": ...}
+    if isinstance(output, dict) and "messages" in output:
+        msgs = output.get("messages") or []
+        for msg in reversed(msgs):
+            content = getattr(msg, "content", None)
+            if content is not None:
+                return content
+        return output
+    # ToolMessage / 有 content 属性的对象
+    if hasattr(output, "content"):
+        return output.content
+    return output
+
+
+async def _read_final_guard_state(agent, config: dict):
+    """读取最终图状态的 GuardState（D5：剥离字段从图状态而非闭包读取）。
+
+    首轮执行传入的 `guard_state` 与图状态是同一对象，但 `/chat/resume` 恢复时
+    无 `guard_state` 入参，剥离字段只存在于 checkpoint 的最终状态中，故统一从
+    `agent.aget_state(config)` 读取。
+
+    Returns:
+        GuardState 或含 stripped_components/stripped_routes 的轻量对象；失败返回 None
+    """
+    try:
+        snapshot = await agent.aget_state(config)
+    except Exception:
+        logger.exception("读取最终图状态失败")
+        return None
+    if snapshot is None or not snapshot.values:
+        return None
+    gs = snapshot.values.get("guard_state")
+    if gs is None:
+        return None
+    if isinstance(gs, dict):
+        # msgpack 严格模式可能把 GuardState 反序列化为 dict
+        return SimpleNamespace(
+            stripped_components=gs.get("stripped_components", []),
+            stripped_routes=gs.get("stripped_routes", []),
+        )
+    return gs
+
+
+async def _clear_stripped_fields(agent, config: dict) -> None:
+    """清空 guard_state 的 stripped_components/stripped_routes（发射后调用）。
+
+    stripped 字段是累计列表，跨 resume 流会重复发射已发过的 component/navigate；
+    发射完成后清空并 aupdate_state 写回 checkpoint，使下一次流只读到新增项。
+    其余 guard_state 字段（persona/user_id/计数/去重/审批队列）保持不变。
+    """
+    try:
+        snapshot = await agent.aget_state(config)
+        if snapshot is None or not snapshot.values:
+            return
+        gs = snapshot.values.get("guard_state")
+        if gs is None:
+            return
+        if isinstance(gs, dict):
+            gs["stripped_components"] = []
+            gs["stripped_routes"] = []
+        else:
+            gs.stripped_components.clear()
+            gs.stripped_routes.clear()
+        await agent.aupdate_state(config, {"guard_state": gs})
+    except Exception:
+        logger.exception("清空 stripped 字段失败（不影响流输出，下次流可能重复发射）")
 
 
 def _flatten_route(route: object) -> tuple[str, dict]:

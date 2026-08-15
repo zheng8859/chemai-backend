@@ -71,6 +71,19 @@ class TestAgentToolCompleteness:
         errors = validate_tool_integrity()
         assert errors == [], f"工具完整性验证失败: {errors}"
 
+    def test_new_prerequisite_metadata_fields(self):
+        """新增元数据 prerequisite_any_of / prerequisite_min_length 正确写入并校验。"""
+        from agent.tools.tool_meta import get_tool_meta, validate_tool_integrity
+
+        diag = get_tool_meta("diagnose_barrier")
+        assert diag["prerequisite_any_of"] == [["student_id", "class_id", "student_name"]]
+
+        search = get_tool_meta("search_exam_bank")
+        assert search["prerequisite_min_length"] == {"keyword": 3}
+
+        # 完整性验证（含新字段类型校验）通过
+        assert validate_tool_integrity() == []
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 16.2 — Persona 过滤
@@ -145,6 +158,19 @@ class TestGuardLayers:
         from app.agent.guard import GuardState
         return GuardState(persona="teacher")
 
+    def test_l0_persona_mismatch_rejected(self, guard):
+        """L0: 角色越权校验 —— teacher 调 student 专属工具 → 拒绝（跨角色泄漏防护）。"""
+        result = guard.check("equilibrium_tutor", {"user_input": "test"})
+        assert result.allowed is False
+        assert result.layer == "L0"
+
+    def test_unknown_tool_fail_closed(self, guard):
+        """L0: 未知工具（不在 TOOL_META）→ fail-closed 拒绝，不执行。"""
+        result = guard.check("nonexistent_tool_xyz", {})
+        assert result.allowed is False
+        assert result.layer == "L0"
+        assert "TOOL_META" in result.reason
+
     def test_l1_prerequisites_missing(self, guard):
         """L1: 缺少必填参数 → 拒绝。"""
         result = guard.check("delete_bank", {})
@@ -157,19 +183,41 @@ class TestGuardLayers:
         result = guard.check("search_exam_bank", {"keyword": "氧化还原"})
         assert result.allowed is True
 
+    def test_l1_any_of_rejection(self, guard):
+        """L1: diagnose_barrier 三者全空 → 拒绝。"""
+        result = guard.check("diagnose_barrier", {})
+        assert result.allowed is False
+        assert result.layer == "L1"
+
+    def test_l1_any_of_passes_with_name(self, guard):
+        """L1: diagnose_barrier 仅传姓名 → 放行（对齐设计 §3.3 名称解析）。"""
+        result = guard.check("diagnose_barrier", {"student_name": "张三"})
+        assert result.allowed is True
+
+    def test_l1_min_length_rejected(self, guard):
+        """L1: search_exam_bank keyword 长度 ≤2 → 拒绝。"""
+        result = guard.check("search_exam_bank", {"keyword": "氧"})
+        assert result.allowed is False
+        assert result.layer == "L1"
+
+    def test_l1_min_length_passes(self, guard):
+        """L1: search_exam_bank keyword 长度 ≥3 → 放行。"""
+        result = guard.check("search_exam_bank", {"keyword": "氧化还原"})
+        assert result.allowed is True
+
     def test_l2_call_limit_exceeded(self, guard):
         """L2: 超过 call_limit → 拒绝。"""
-        # equilibrium_tutor 有 call_limit=5
+        # simulate_experiment 有 call_limit=5 且 teacher 可用
         for _ in range(5):
-            guard.tool_call_counts["equilibrium_tutor"] = guard.tool_call_counts.get("equilibrium_tutor", 0) + 1
-        result = guard.check("equilibrium_tutor", {"user_input": "test"})
+            guard.tool_call_counts["simulate_experiment"] = guard.tool_call_counts.get("simulate_experiment", 0) + 1
+        result = guard.check("simulate_experiment", {"experiment_name": "test"})
         assert result.allowed is False
         assert result.layer == "L2"
         assert "上限" in result.reason
 
     def test_l2_within_limit(self, guard):
         """L2: 未超限 → 放行。"""
-        result = guard.check("equilibrium_tutor", {"user_input": "test"})
+        result = guard.check("simulate_experiment", {"experiment_name": "test"})
         assert result.allowed is True
 
     def test_l3_dedup_detection(self, guard):
@@ -227,6 +275,381 @@ class TestGuardLayers:
         guard.record_execution("show_students", {"class_id": 1})
         assert guard.tool_call_counts["show_students"] == 1
         assert len(guard.dedup_keys) == 1
+
+    def test_guard_state_serialization_roundtrip(self, guard):
+        """GuardState 经 LangGraph 序列化器往返后 set/dict 字段不丢失。"""
+        from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+        guard.record_execution("search_exam_bank", {"keyword": "氧化还原"})
+        guard.check("delete_bank", {"bank_id": "b9"})  # 触发 L4 建审批队列
+        guard.strip_special_fields({"result": "ok", "_component": {"type": "exam"}})
+
+        serde = JsonPlusSerializer()
+        restored = serde.loads_typed(serde.dumps_typed(guard))
+
+        assert restored.tool_call_counts == guard.tool_call_counts
+        assert restored.dedup_keys == guard.dedup_keys
+        assert restored.approval_queue == guard.approval_queue
+        assert restored.stripped_components == guard.stripped_components
+        assert restored.stripped_routes == guard.stripped_routes
+
+
+class TestGuardHelpers:
+    """Guard 辅助函数契约测试（_is_present / _args_json）。"""
+
+    def test_is_present_semantics(self):
+        """_is_present：None/空串/0 → 未提供；非空 → 已提供（ID 哨兵契约）。"""
+        from app.agent.guard import _is_present
+
+        assert _is_present(None) is False
+        assert _is_present("") is False
+        assert _is_present(0) is False
+        assert _is_present(0.0) is False
+        assert _is_present("张三") is True
+        assert _is_present(1) is True
+        assert _is_present(-1) is True
+        assert _is_present(3.5) is True
+
+    def test_args_json_order_independent(self):
+        """_args_json 经 sort_keys 规范化，去重键/审批 ID 与参数顺序无关。"""
+        from app.agent.guard import _make_approval_id, _make_dedup_key
+
+        k1 = _make_dedup_key("search_exam_bank", {"keyword": "氧", "kp": "氧化还原"})
+        k2 = _make_dedup_key("search_exam_bank", {"kp": "氧化还原", "keyword": "氧"})
+        assert k1 == k2  # 参数顺序不影响去重键
+
+        aid = _make_approval_id("delete_bank", {"bank_id": "b1"})
+        assert aid.startswith("approval-delete_bank-")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 16.3b — Guard 拦截器（awrap_tool_call）
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestGuardWrapper:
+    """验证 guard_tool_call_wrapper 在工具执行前的拦截行为。"""
+
+    @pytest.fixture
+    def guard(self):
+        from app.agent.guard import GuardState
+        return GuardState(persona="teacher")
+
+    @staticmethod
+    def _request(tool_name: str, args: dict, guard) -> MagicMock:
+        return MagicMock(
+            tool_call={"name": tool_name, "args": args, "id": "call-1"},
+            state={"guard_state": guard},
+            runtime=None,
+        )
+
+    @pytest.mark.anyio
+    async def test_wrapper_fail_closed_when_guard_state_missing(self):
+        """state 缺 guard_state → fail-closed 拒绝，不调 execute。"""
+        from app.agent.guard import guard_tool_call_wrapper
+        from langchain_core.messages import ToolMessage
+
+        called = []
+        async def execute(req):
+            called.append(1)
+            return ToolMessage(content="{}", tool_call_id="call-1")
+
+        req = MagicMock(
+            tool_call={"name": "web_search", "args": {"query": "氧"}, "id": "call-1"},
+            state={},  # 缺 guard_state
+            runtime=None,
+        )
+        out = await guard_tool_call_wrapper(req, execute)
+
+        assert called == []  # execute 未被调用（fail-closed）
+        assert isinstance(out, ToolMessage)
+        assert "L0" in out.content
+
+    @pytest.mark.anyio
+    async def test_wrapper_l1_rejects_without_execute(self, guard):
+        """L1 拒绝 → 短路返回错误 ToolMessage，不调 execute。"""
+        from app.agent.guard import guard_tool_call_wrapper
+        from langchain_core.messages import ToolMessage
+
+        called = []
+        async def execute(req):
+            called.append(1)
+            return ToolMessage(content="{}", tool_call_id="call-1")
+
+        req = self._request("search_exam_bank", {"keyword": "氧"}, guard)
+        out = await guard_tool_call_wrapper(req, execute)
+
+        assert called == []  # execute 未被调用
+        assert isinstance(out, ToolMessage)
+        assert "L1" in out.content
+
+    @pytest.mark.anyio
+    async def test_wrapper_l2_rejects_at_limit(self, guard):
+        """L2 超限 → 短路拒绝，不调 execute。"""
+        from app.agent.guard import guard_tool_call_wrapper
+        from langchain_core.messages import ToolMessage
+
+        guard.tool_call_counts["web_search"] = 2  # call_limit=2 已满
+
+        called = []
+        async def execute(req):
+            called.append(1)
+            return ToolMessage(content="{}", tool_call_id="call-1")
+
+        req = self._request("web_search", {"query": "氧"}, guard)
+        out = await guard_tool_call_wrapper(req, execute)
+
+        assert called == []
+        assert isinstance(out, ToolMessage)
+        assert "L2" in out.content
+
+    @pytest.mark.anyio
+    async def test_wrapper_allows_executes_strips(self, guard):
+        """放行 → 执行 + 记录 + 剥离，返回 Command 回写 guard_state。"""
+        from app.agent.guard import guard_tool_call_wrapper
+        from langchain_core.messages import ToolMessage
+        from langgraph.types import Command
+
+        async def execute(req):
+            return ToolMessage(
+                content=json.dumps(
+                    {"_component": {"type": "exam-workbench"}, "result": "ok"},
+                    ensure_ascii=False,
+                ),
+                tool_call_id="call-1",
+            )
+
+        req = self._request("show_exam_workbench", {}, guard)
+        out = await guard_tool_call_wrapper(req, execute)
+
+        # 返回 Command（messages + guard_state 更新）
+        assert isinstance(out, Command)
+        msgs = out.update["messages"]
+        assert len(msgs) == 1
+        content = json.loads(msgs[0].content)
+        assert "_component" not in content
+        assert content["result"] == "ok"
+
+        # 收集进 guard_state
+        assert len(guard.stripped_components) == 1
+        assert guard.stripped_components[0]["type"] == "exam-workbench"
+        assert guard.tool_call_counts["show_exam_workbench"] == 1
+
+    @pytest.mark.anyio
+    async def test_wrapper_strips_dict_content(self, guard):
+        """dict 形态 content（防御性归一化）→ 剥离 _component 进 GuardState。"""
+        from app.agent.guard import guard_tool_call_wrapper
+        from langchain_core.messages import ToolMessage
+        from langgraph.types import Command
+
+        async def execute(req):
+            m = ToolMessage(content="{}", tool_call_id="call-1")
+            # 绕过 Pydantic 校验，模拟工具直返 dict 形态 content
+            object.__setattr__(
+                m, "content", {"_component": {"type": "exam-workbench"}, "result": "ok"}
+            )
+            return m
+
+        req = self._request("show_exam_workbench", {}, guard)
+        out = await guard_tool_call_wrapper(req, execute)
+
+        assert isinstance(out, Command)
+        msgs = out.update["messages"]
+        content = json.loads(msgs[0].content)
+        assert "_component" not in content
+        assert content["result"] == "ok"
+        assert len(guard.stripped_components) == 1
+        assert guard.stripped_components[0]["type"] == "exam-workbench"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 16.3c — Guard 在真实 ReAct 循环中生效
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class _ScriptedChatModel:
+    """按脚本返回 AIMessage 的最小假模型（同步 _generate，ainvoke 走线程）。"""
+
+    def __init__(self, script: list):
+        from langchain_core.language_models.chat_models import BaseChatModel
+        from langchain_core.outputs import ChatGeneration, ChatResult
+
+        class _Model(BaseChatModel):
+            @property
+            def _llm_type(self) -> str:
+                return "scripted-chat-model"
+
+            def bind_tools(self, tools, **kwargs):
+                """脚本模型不真正绑定工具——返回自身即可，工具调用由脚本 AIMessage 提供。"""
+                return self
+
+            def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+                msg = script[min(self._i, len(script) - 1)]
+                self._i += 1
+                return ChatResult(generations=[ChatGeneration(message=msg)])
+
+        self.model = _Model()
+        self.model._i = 0
+
+
+class TestGuardReActLoop:
+    """用 mock LLM 跑完整 ReAct 循环，验证 Guard 在工具执行前真实生效。"""
+
+    @pytest.mark.anyio
+    async def test_l2_call_limit_enforced_in_react_loop(self):
+        """同一工具超 call_limit 后，第二次调用被 L2 拒绝、不执行工具函数。"""
+        from langchain_core.messages import AIMessage, HumanMessage
+        from langchain_core.tools import tool as tool_decorator
+        from langgraph.graph import MessagesState
+        from langgraph.managed import RemainingSteps
+        from langgraph.prebuilt import ToolNode, create_react_agent
+        from typing_extensions import NotRequired
+
+        from app.agent.guard import GuardState, guard_tool_call_wrapper
+
+        # 用计数 fake 命名为 "web_search"（call_limit=2），验证只执行 2 次
+        calls = []
+        @tool_decorator("web_search")
+        async def fake_web_search(query: str) -> dict:
+            """假联网搜索：记录调用次数，不触网。"""
+            calls.append(query)
+            return {"query": query, "results": []}
+
+        script = [
+            AIMessage(content="", tool_calls=[{"name": "web_search", "args": {"query": "q1"}, "id": "c1"}]),
+            AIMessage(content="", tool_calls=[{"name": "web_search", "args": {"query": "q2"}, "id": "c2"}]),
+            AIMessage(content="", tool_calls=[{"name": "web_search", "args": {"query": "q3"}, "id": "c3"}]),
+            AIMessage(content="done"),
+        ]
+
+        class State(MessagesState):
+            guard_state: GuardState
+            remaining_steps: NotRequired[RemainingSteps]
+
+        tool_node = ToolNode([fake_web_search], awrap_tool_call=guard_tool_call_wrapper)
+        agent = create_react_agent(model=_ScriptedChatModel(script).model, tools=tool_node, state_schema=State)
+
+        gs = GuardState(persona="teacher")
+        await agent.ainvoke(
+            {"messages": [HumanMessage(content="search")], "guard_state": gs},
+            {"configurable": {"thread_id": "t-l2-loop"}},
+        )
+
+        # web_search call_limit=2：前两次执行，第三次被 L2 拒绝
+        assert len(calls) == 2, f"web_search 应只执行 2 次，实际 {len(calls)}"
+        assert gs.tool_call_counts.get("web_search") == 2
+
+    @pytest.mark.anyio
+    async def test_approval_interrupt_then_resume_via_sse(self):
+        """审批门控（D3）：interrupt 触发 awaiting_approval → resume 后执行；拒绝不执行。"""
+        from langchain_core.messages import AIMessage, HumanMessage
+        from langchain_core.tools import tool as tool_decorator
+        from langgraph.checkpoint.memory import InMemorySaver
+        from langgraph.graph import MessagesState
+        from langgraph.managed import RemainingSteps
+        from langgraph.prebuilt import ToolNode, create_react_agent
+        from typing_extensions import NotRequired
+
+        from app.agent.guard import GuardState, guard_tool_call_wrapper
+        from app.agent.sse.adapter_v2 import langgraph_sse_v2
+
+        script = [
+            AIMessage(content="", tool_calls=[{"name": "delete_bank", "args": {"bank_id": 7}, "id": "c1"}]),
+            AIMessage(content="已删除题库"),
+        ]
+
+        class State(MessagesState):
+            guard_state: GuardState
+            remaining_steps: NotRequired[RemainingSteps]
+
+        # ── 批准路径 ──
+        executed = []
+        @tool_decorator("delete_bank")
+        async def fake_delete_bank(bank_id: int) -> dict:
+            """删除题库（需审批）。"""
+            executed.append(bank_id)
+            return {"deleted": bank_id}
+
+        tool_node = ToolNode([fake_delete_bank], awrap_tool_call=guard_tool_call_wrapper)
+        agent = create_react_agent(
+            model=_ScriptedChatModel(script).model,
+            tools=tool_node,
+            state_schema=State,
+            checkpointer=InMemorySaver(),
+        )
+        config = {"configurable": {"thread_id": "t-approve"}}
+
+        # 第一次运行：interrupt → awaiting_approval，工具不执行
+        first_events = []
+        async for sse in langgraph_sse_v2(
+            agent=agent,
+            messages=[HumanMessage(content="删除题库7")],
+            config=config,
+            guard_state=GuardState(persona="teacher"),
+            thread_id="t-approve",
+        ):
+            first_events.append(sse)
+
+        assert any("awaiting_approval" in e for e in first_events), "应发射 awaiting_approval phase 事件"
+        assert executed == [], "审批通过前工具不得执行"
+
+        # 批准恢复：工具执行
+        second_events = []
+        async for sse in langgraph_sse_v2(
+            agent=agent,
+            messages=[],
+            config=config,
+            guard_state=None,
+            thread_id="t-approve",
+            resume={"approved": True},
+        ):
+            second_events.append(sse)
+        assert executed == [7], "批准后工具应执行"
+
+        # ── 拒绝路径（独立线程 + 独立计数）──
+        rejected = []
+        @tool_decorator("delete_bank")
+        async def fake_delete_bank_reject(bank_id: int) -> dict:
+            """删除题库（需审批）。"""
+            rejected.append(bank_id)
+            return {"deleted": bank_id}
+
+        tool_node2 = ToolNode([fake_delete_bank_reject], awrap_tool_call=guard_tool_call_wrapper)
+        agent2 = create_react_agent(
+            model=_ScriptedChatModel(script).model,
+            tools=tool_node2,
+            state_schema=State,
+            checkpointer=InMemorySaver(),
+        )
+        config2 = {"configurable": {"thread_id": "t-reject"}}
+
+        async for sse in langgraph_sse_v2(
+            agent=agent2,
+            messages=[HumanMessage(content="删除题库7")],
+            config=config2,
+            guard_state=GuardState(persona="teacher"),
+            thread_id="t-reject",
+        ):
+            pass
+
+        async for sse in langgraph_sse_v2(
+            agent=agent2,
+            messages=[],
+            config=config2,
+            guard_state=None,
+            thread_id="t-reject",
+            resume={"approved": False},
+        ):
+            pass
+
+        assert rejected == [], "拒绝后工具不得执行"
+
+        # 拒绝消息写入图状态（ToolMessage 含 cancelled），供 LLM 向用户告知取消
+        snap = await agent2.aget_state(config2)
+        tool_contents = [
+            m.content for m in snap.values["messages"]
+            if type(m).__name__ == "ToolMessage"
+        ]
+        assert any("取消" in c or "cancelled" in c for c in tool_contents), \
+            "拒绝应写入取消消息到图状态"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -941,3 +1364,50 @@ class TestChatAPIEndpoints:
             headers=teacher_headers,
         )
         assert response.status_code in (200, 404, 422, 500)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 16.4 — Persona 越权防护
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestPersonaResolution:
+    """验证 _resolve_persona 由认证身份决定 persona，防止越权伪装。"""
+
+    @staticmethod
+    def _user(role: str):
+        from app.api.deps import UserContext
+        return UserContext(user_id=1, role=role, sub_role=None, school_id=1, token_type="access")
+
+    def test_teacher_default(self):
+        from app.api.v1.chat import _resolve_persona
+        assert _resolve_persona(self._user("teacher"), None) == "teacher"
+
+    def test_teacher_can_choose_tutor(self):
+        from app.api.v1.chat import _resolve_persona
+        assert _resolve_persona(self._user("teacher"), "tutor") == "tutor"
+
+    def test_student_fixed(self):
+        from app.api.v1.chat import _resolve_persona
+        assert _resolve_persona(self._user("student"), None) == "student"
+        assert _resolve_persona(self._user("student"), "student") == "student"
+
+    def test_student_cannot_escalate_to_teacher(self):
+        from app.api.v1.chat import _resolve_persona
+        from fastapi import HTTPException
+        with pytest.raises(HTTPException) as exc:
+            _resolve_persona(self._user("student"), "teacher")
+        assert exc.value.status_code == 403
+
+    def test_parent_cannot_escalate(self):
+        from app.api.v1.chat import _resolve_persona
+        from fastapi import HTTPException
+        with pytest.raises(HTTPException) as exc:
+            _resolve_persona(self._user("parent"), "teacher")
+        assert exc.value.status_code == 403
+
+    def test_invalid_role_rejected(self):
+        from app.api.v1.chat import _resolve_persona
+        from fastapi import HTTPException
+        with pytest.raises(HTTPException) as exc:
+            _resolve_persona(self._user("admin"), None)
+        assert exc.value.status_code == 403

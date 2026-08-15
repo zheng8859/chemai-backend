@@ -6,6 +6,8 @@
 - call_limit: 每会话最大调用次数（0 = 无限制）
 - requires_approval: 是否需要教师审批后才能执行（默认 False）
 - prerequisites: 前置条件参数列表（Guard L1 检查）
+- prerequisite_any_of: OR 条件组列表，每组内至少一个参数非空
+- prerequisite_min_length: 参数最小长度映射，如 {"keyword": 3}
 - description: 工具功能描述（供 Agent 使用）
 """
 
@@ -25,6 +27,8 @@ def register_tool(
     call_limit: int = 0,
     requires_approval: bool = False,
     prerequisites: Optional[list[str]] = None,
+    prerequisite_any_of: Optional[list[list[str]]] = None,
+    prerequisite_min_length: Optional[dict[str, int]] = None,
     description: str = "",
 ):
     """装饰器：注册 Agent 工具元数据。
@@ -67,6 +71,8 @@ def register_tool(
             "call_limit": call_limit,
             "requires_approval": requires_approval,
             "prerequisites": prerequisites or [],
+            "prerequisite_any_of": prerequisite_any_of or [],
+            "prerequisite_min_length": prerequisite_min_length or {},
             "description": description,
             "func": func,
         }
@@ -139,5 +145,23 @@ def validate_tool_integrity() -> list[str]:
         # 校验 persona 非空
         if not meta.get("persona"):
             errors.append(f"工具 '{name}' 的 persona 列表为空")
+
+        # 校验 prerequisite_any_of 为 list[list[str]]
+        any_of = meta.get("prerequisite_any_of", [])
+        if not isinstance(any_of, list) or not all(
+            isinstance(group, list) and all(isinstance(p, str) for p in group)
+            for group in any_of
+        ):
+            errors.append(f"工具 '{name}' 的 prerequisite_any_of 应为 list[list[str]]")
+
+        # 校验 prerequisite_min_length 为 dict[str, int] 且值 > 0
+        min_length = meta.get("prerequisite_min_length", {})
+        if not isinstance(min_length, dict) or not all(
+            isinstance(k, str) and isinstance(v, int) and v > 0
+            for k, v in min_length.items()
+        ):
+            errors.append(
+                f"工具 '{name}' 的 prerequisite_min_length 应为 dict[str, int]（值 > 0）"
+            )
 
     return errors

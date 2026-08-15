@@ -14,13 +14,16 @@ from pathlib import Path
 from typing import Any, Optional
 
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-from langgraph.prebuilt import create_react_agent
+from langgraph.graph import MessagesState
+from langgraph.managed import RemainingSteps
+from langgraph.prebuilt import ToolNode, create_react_agent
+from typing_extensions import NotRequired
 
 # 触发 agent.tools.__init__ → 所有 @register_tool 装饰器执行
 import agent.tools  # noqa: F401
 
 from app.agent.persona.loader import PersonaConfig, load_persona
-from app.agent.guard import GuardState, wrap_tool_node
+from app.agent.guard import GuardState, guard_tool_call_wrapper
 from app.llm.model_factory import get_agent_model
 
 logger = logging.getLogger(__name__)
@@ -30,6 +33,21 @@ _CHECKPOINT_DB = Path(__file__).resolve().parent.parent.parent.parent / "data" /
 
 # ── 浏览器工具名称（从 agent/tools/browser_tools 注册） ──
 _BROWSER_TOOLS = {"browse_navigate", "browse_read", "browse_click", "browse_input", "browse_screenshot"}
+
+
+class AgentState(MessagesState):
+    """图状态：扩展 MessagesState 增加 guard_state 字段（D2）。
+
+    guard_state 放进图状态而非闭包捕获，使 L2 计数 / L3 去重键 / L4 审批队列
+    能跨 interrupt/resume checkpoint 持久。
+
+    remaining_steps 是 langgraph 1.x `create_react_agent` 强制要求的托管通道
+    （递归限制计数），自定义 state_schema 必须声明，否则抛
+    `Missing required key(s) {'remaining_steps'}`。
+    """
+
+    guard_state: GuardState
+    remaining_steps: NotRequired[RemainingSteps]
 
 # ── 全局单例 + 锁 ──
 _checkpointer: Optional[AsyncSqliteSaver] = None
@@ -57,6 +75,51 @@ async def _get_checkpointer() -> AsyncSqliteSaver:
             await _checkpointer.setup()
             logger.info("Checkpointer 已初始化: %s", _CHECKPOINT_DB)
     return _checkpointer
+
+
+async def get_thread_guard_state(thread_id: str) -> GuardState | dict | None:
+    """从 checkpoint 读取线程的 guard_state（含 persona / user_id）。
+
+    供 `/chat/resume` 重建 Agent 并做归属校验。guard_state 可能被 msgpack
+    反序列化为 dict（严格模式），调用方需兼容两种形态。
+
+    Args:
+        thread_id: 对话线程 ID
+
+    Returns:
+        GuardState 或 dict，未找到时返回 None
+    """
+    cp = await _get_checkpointer()
+    config = {"configurable": {"thread_id": thread_id}}
+    try:
+        tup = await cp.aget_tuple(config)
+    except Exception:
+        logger.exception("读取 checkpoint 失败: %s", thread_id)
+        return None
+    if tup is None:
+        return None
+    channel_values = tup.checkpoint.get("channel_values", {}) or {}
+    return channel_values.get("guard_state")
+
+
+async def get_thread_persona(thread_id: str) -> str:
+    """从 checkpoint 读取线程的 persona，用于 `/chat/resume` 重建 Agent。
+
+    `/chat/resume` 是独立请求，需重建与原始执行相同的图；persona 决定工具集
+    与系统提示词，故从 checkpoint 的 `guard_state.persona`（D2 已入图状态）恢复。
+
+    Args:
+        thread_id: 对话线程 ID
+
+    Returns:
+        persona 名（teacher/student/tutor/parent），未找到时回退 teacher
+    """
+    guard_state = await get_thread_guard_state(thread_id)
+    if isinstance(guard_state, GuardState):
+        return guard_state.persona
+    if isinstance(guard_state, dict):
+        return guard_state.get("persona", "teacher")
+    return "teacher"
 
 
 def _build_system_prompt(config: PersonaConfig, student_context: str = "") -> str:
@@ -121,6 +184,7 @@ async def create_agent_with_checkpointer(
     provider: str = "qwen",
     student_context: str = "",
     use_checkpointer: bool = True,
+    user_id: Optional[int] = None,
 ):
     """创建带 Checkpoint 持久化的 ReAct Agent。
 
@@ -129,6 +193,7 @@ async def create_agent_with_checkpointer(
         provider: LLM Provider
         student_context: 学生上下文
         use_checkpointer: 是否启用 checkpoint 持久化
+        user_id: 线程归属用户 ID（写入 guard_state，供 /chat/resume 越权校验）
 
     Returns:
         {
@@ -164,28 +229,22 @@ async def create_agent_with_checkpointer(
     # 4. 创建 LLM 模型（工具绑定由 create_react_agent 管理，不在模型层预绑定）
     model = get_agent_model(provider)
 
-    # 5. 创建 Guard 状态
-    guard_state = GuardState(persona=persona)
+    # 5. 创建 Guard 状态（请求级，注入图状态）
+    guard_state = GuardState(persona=persona, user_id=user_id)
 
-    # 6. 使用 Guard 包装 tool_node
-    # 获取完整的工具元数据（domain + browser）
-    all_meta = get_all_tools()
-    tool_meta_map = {name: meta for name, meta in all_meta.items()}
+    # 6. 构造 Guard 拦截的 ToolNode（awrap_tool_call 挂载点，D1）
+    tool_node = ToolNode(tools, awrap_tool_call=guard_tool_call_wrapper)
 
-    # 7. 构建 Guard-wrapped 的工具节点
-    # LangGraph create_react_agent 会自动管理 tool_node，
-    # Guard 需要在工具执行前后插入：需要自定义 pre_model_hook
-    # 简化方案：在 Agent 配置中传入 state_modifier
-
-    # 8. 创建 checkpointer
+    # 7. 创建 checkpointer
     checkpointer = await _get_checkpointer() if use_checkpointer else None
 
-    # 9. 创建 Agent（注意：create_react_agent 的参数名是 'prompt'，不是 'system_prompt'）
+    # 8. 创建 Agent（state_schema 注入 guard_state 字段，D2）
     agent = create_react_agent(
         model=model,
-        tools=tools,
+        tools=tool_node,
         prompt=system_prompt,
         checkpointer=checkpointer,
+        state_schema=AgentState,
     )
 
     return {
@@ -194,6 +253,5 @@ async def create_agent_with_checkpointer(
         "config": persona_config,
         "guard_state": guard_state,
         "checkpointer": checkpointer,
-        "tool_meta_map": tool_meta_map,
         "model": model,
     }

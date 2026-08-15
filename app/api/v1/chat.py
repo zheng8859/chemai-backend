@@ -16,7 +16,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Optional
+from typing import Any, AsyncGenerator, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import get_current_user, UserContext
 from app.agent.gateway import classify_provider
 from app.agent.planner import generate as planner_generate, single_step_fallback, Plan, validate
-from app.agent.engine.factory import create_agent_with_checkpointer
+from app.agent.engine.factory import create_agent_with_checkpointer, get_thread_guard_state
 from app.agent.context import build_student_context, inject_student_context, should_inject_context
 from app.agent.context_trimmer import trim as trim_context, should_trim
 from app.agent.sse.adapter_v2 import langgraph_sse_v2
@@ -33,6 +33,7 @@ from app.agent.guard import GuardState
 from app.agent.audit import AuditLogger
 from app.agent.dependency import AgentContext, set_current_context, clear_current_context
 from app.infrastructure.database import get_db
+from app import config
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,87 @@ def _plan_to_instruction(plan: Plan) -> str:
     return "\n".join(lines)
 
 
+# 认证角色 → 允许的 persona 集合（防止越权伪装）
+_PERSONA_BY_ROLE: dict[str, tuple[str, ...]] = {
+    "teacher": ("teacher", "tutor"),
+    "student": ("student",),
+    "parent": ("parent",),
+}
+
+
+def _resolve_persona(user: UserContext, requested_role: Optional[str]) -> str:
+    """由认证身份决定 persona，防止越权伪装（跨角色工具泄漏修复）。
+
+    `context.role` 来自请求体，不可信；必须与 JWT 认证角色一致。
+    teacher 可在 teacher/tutor 之间选择，student/parent 固定映射。
+    越权（如学生请求 teacher）直接 403。
+
+    Args:
+        user: JWT 认证用户上下文
+        requested_role: 请求体 context.role（可能为 None）
+
+    Returns:
+        合法 persona 名
+
+    Raises:
+        HTTPException: 认证角色无效或请求越权时 403
+    """
+    allowed = _PERSONA_BY_ROLE.get(user.role)
+    if allowed is None:
+        raise HTTPException(status_code=403, detail="无效的用户角色")
+    if requested_role is None:
+        return allowed[0]
+    if requested_role in allowed:
+        return requested_role
+    logger.warning("[chat] 越权角色请求被拒绝: auth=%s requested=%s", user.role, requested_role)
+    raise HTTPException(status_code=403, detail="无权使用该角色")
+
+
+def _resume_provider() -> str:
+    """resume 使用的 LLM provider（从配置读取，不硬编码）。
+
+    resume 无新消息，无法走 Gateway classify；读取 config.LLM_PROVIDER，
+    "auto" 或未知值回退到主力 provider "qwen"。
+    """
+    provider = config.LLM_PROVIDER
+    if provider in ("mimo", "qwen", "deepseek"):
+        return provider
+    return "qwen"
+
+
+def _extract_guard_identity(guard_state: GuardState | dict) -> tuple[str, Optional[int]]:
+    """从 guard_state（GuardState 或 msgpack 反序列化的 dict）提取 (persona, user_id)。"""
+    if isinstance(guard_state, GuardState):
+        return guard_state.persona, guard_state.user_id
+    if isinstance(guard_state, dict):
+        return guard_state.get("persona", "teacher"), guard_state.get("user_id")
+    return "teacher", None
+
+
+async def _read_pending_approval_id(agent: Any, config: dict) -> Optional[str]:
+    """读取 checkpoint 中 pending interrupt 的 approval_id。
+
+    L4 审批门控触发时，guard wrapper 调 `interrupt(approval_payload)` 暂停图，
+    approval_payload 含 approval_id；恢复前从 StateSnapshot.interrupts 读取并比对，
+    防止盲批准 / 错配审批。
+
+    Returns:
+        pending 审批 ID；无 pending interrupt 时返回 None
+    """
+    try:
+        snapshot = await agent.aget_state(config)
+    except Exception:
+        logger.exception("[chat] 读取 pending interrupt 失败")
+        return None
+    if snapshot is None:
+        return None
+    for inter in getattr(snapshot, "interrupts", None) or []:
+        value = getattr(inter, "value", None)
+        if isinstance(value, dict) and value.get("approval_id"):
+            return value["approval_id"]
+    return None
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SSE 对话流
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -112,7 +194,7 @@ async def chat_stream(
     5. SSE 事件流输出
     """
     context = req.context or {}
-    persona = context.get("role", "teacher")
+    persona = _resolve_persona(user, context.get("role"))
     student_id = context.get("student_id")
     teacher_id = user.user_id
 
@@ -149,6 +231,7 @@ async def chat_stream(
                 provider=provider,
                 student_context=student_context_str,
                 use_checkpointer=True,
+                user_id=user.user_id,
             )
 
             # ── Step 3: Planner ──
@@ -290,29 +373,71 @@ async def resume_conversation(
 ):
     """审批恢复。
 
-    注入审批结果 → Agent 恢复执行 → 继续 SSE stream。
+    校验线程归属 + 审批 ID → 重建 Agent → `Command(resume=...)` 恢复执行 → SSE 流。
     """
-    # 实际实现需要：
-    # 1. 从 checkpoint 恢复 Agent 状态
-    # 2. 调用 guard_state.approve() 或 guard_state.reject()
-    # 3. 重新 invoke Agent
+    # ── 1. 线程归属校验（越权防护）：从 checkpoint 读 guard_state.user_id ──
+    guard_state = await get_thread_guard_state(req.thread_id)
+    if guard_state is None:
+        raise HTTPException(status_code=404, detail="对话不存在或未初始化")
+
+    persona, owner_id = _extract_guard_identity(guard_state)
+    if owner_id is not None and owner_id != user.user_id:
+        logger.warning("[chat] resume 越权被拒: thread=%s owner=%s user=%s",
+                       req.thread_id, owner_id, user.user_id)
+        raise HTTPException(status_code=403, detail="无权访问该对话")
+
+    # ── 2. 重建 Agent（复用进程级 checkpointer 单例，与原始线程共享 checkpoint）──
+    agent_bundle = await create_agent_with_checkpointer(
+        persona=persona,
+        provider=_resume_provider(),
+        use_checkpointer=True,
+    )
+    config = {"configurable": {"thread_id": req.thread_id}}
+
+    # ── 3. 审批 ID 绑定校验：比对 checkpoint 中 pending interrupt 的 approval_id ──
+    pending_id = await _read_pending_approval_id(agent_bundle["agent"], config)
+    if pending_id is None:
+        raise HTTPException(status_code=409, detail="没有待审批的操作")
+    if pending_id != req.approval_id:
+        logger.warning("[chat] resume 审批 ID 不匹配: pending=%s got=%s",
+                       pending_id, req.approval_id)
+        raise HTTPException(status_code=409, detail="审批 ID 不匹配")
 
     return StreamingResponse(
-        _resume_stream(req.thread_id, req.approval_id, req.approved),
+        _resume_stream(req.thread_id, req.approval_id, req.approved, agent_bundle, config),
         media_type="text/event-stream",
     )
 
 
-async def _resume_stream(thread_id: str, approval_id: str, approved: bool):
-    """审批恢复 → SSE 流。"""
-    yield f"event: phase\ndata: {{\"phase\": \"resume\", \"thread_id\": \"{thread_id}\"}}\n\n"
+async def _resume_stream(
+    thread_id: str,
+    approval_id: str,
+    approved: bool,
+    agent_bundle: dict,
+    config: dict,
+) -> AsyncGenerator[str, None]:
+    """审批恢复 → SSE 流（D3：真实恢复被 interrupt 暂停的图）。"""
+    try:
+        logger.info("[chat] resume: thread_id=%s approval_id=%s approved=%s",
+                    thread_id, approval_id, approved)
 
-    if approved:
-        yield f"event: text\ndata: {{\"content\": \"审批已通过，继续执行...\"}}\n\n"
-    else:
-        yield f"event: text\ndata: {{\"content\": \"审批已拒绝，操作取消。\"}}\n\n"
+        # 恢复执行并继续 SSE 流（approved 决策经 Command(resume=...) 返回给拦截器）
+        async for sse_event in langgraph_sse_v2(
+            agent=agent_bundle["agent"],
+            messages=[],  # resume 模式忽略 messages
+            config=config,
+            guard_state=None,
+            thread_id=thread_id,
+            resume={"approved": approved},
+        ):
+            yield sse_event
 
-    yield f"event: done\ndata: {{\"thread_id\": \"{thread_id}\"}}\n\n"
+    except Exception as e:
+        logger.exception("[chat] 审批恢复异常")
+        error_data = json.dumps({"message": str(e)}, ensure_ascii=False)
+        yield f"event: error\ndata: {error_data}\n\n"
+        done_data = json.dumps({"thread_id": thread_id, "error": str(e)}, ensure_ascii=False)
+        yield f"event: done\ndata: {done_data}\n\n"
 
 
 @router.post("/reset")

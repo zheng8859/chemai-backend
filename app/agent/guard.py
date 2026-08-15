@@ -14,9 +14,14 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
+from collections.abc import Awaitable, Callable
 from typing import Any, Optional
 
-from agent.tools.tool_meta import get_tool_meta, get_all_tools
+from langchain_core.messages import ToolMessage
+from langgraph.prebuilt.tool_node import ToolCallRequest
+from langgraph.types import Command, interrupt
+
+from agent.tools.tool_meta import get_tool_meta
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +45,7 @@ class GuardState:
     """
 
     persona: str
+    user_id: Optional[int] = None  # 线程归属用户（用于 /chat/resume 越权校验）
     tool_call_counts: dict[str, int] = field(default_factory=dict)  # {tool_name: count}
     dedup_keys: set[str] = field(default_factory=set)
     approval_queue: dict[str, dict] = field(default_factory=dict)  # {approval_id: {tool_name, args}}
@@ -58,20 +64,55 @@ class GuardState:
         """
         meta = get_tool_meta(tool_name)
         if meta is None:
-            logger.warning("Guard: 工具 '%s' 不在 TOOL_META 中，放行", tool_name)
-            return GuardResult(allowed=True)
+            logger.error("Guard: 工具 '%s' 未在 TOOL_META 注册，拒绝执行（fail-closed）", tool_name)
+            return GuardResult(
+                allowed=False,
+                reason=f"工具 '{tool_name}' 未在 TOOL_META 注册，已拒绝执行",
+                layer="L0",
+            )
+
+        # ── L0: 角色越权校验（纵深防御，防止跨角色工具泄漏）──
+        # 正常路径工具集已被 get_tools_for_persona 过滤，此处兜底拦截任何
+        # 绕过过滤直接触达 wrapper 的越权调用（如非模型路径 invoke）。
+        persona_allow = meta.get("persona", [])
+        if persona_allow and self.persona not in persona_allow:
+            return GuardResult(
+                allowed=False,
+                reason=f"工具 '{tool_name}' 不允许角色 '{self.persona}' 使用",
+                layer="L0",
+            )
 
         # ── L1: 前置条件检查 ──
+        # 1a. 必填参数（每个都非空）
         prerequisites = meta.get("prerequisites", [])
-        if prerequisites:
-            for param in prerequisites:
-                value = args.get(param)
-                if value is None or (isinstance(value, str) and value == ""):
-                    return GuardResult(
-                        allowed=False,
-                        reason=f"缺少必填参数: {param}",
-                        layer="L1",
-                    )
+        for param in prerequisites:
+            if not _is_present(args.get(param)):
+                return GuardResult(
+                    allowed=False,
+                    reason=f"缺少必填参数: {param}",
+                    layer="L1",
+                )
+
+        # 1b. OR 条件组（每组至少一个非空）
+        any_of = meta.get("prerequisite_any_of", [])
+        for group in any_of:
+            if not any(_is_present(args.get(p)) for p in group):
+                return GuardResult(
+                    allowed=False,
+                    reason=f"缺少必填参数（至少一个）: {' 或 '.join(group)}",
+                    layer="L1",
+                )
+
+        # 1c. 参数最小长度
+        min_length = meta.get("prerequisite_min_length", {})
+        for param, min_len in min_length.items():
+            value = args.get(param)
+            if value is None or not isinstance(value, str) or len(value) < min_len:
+                return GuardResult(
+                    allowed=False,
+                    reason=f"参数 '{param}' 长度不足（至少 {min_len} 字符）",
+                    layer="L1",
+                )
 
         # ── L2: 调用次数限制 ──
         call_limit = meta.get("call_limit", 0)
@@ -162,129 +203,153 @@ class GuardState:
         return clean
 
 
-def wrap_tool_node(tool_node_func, guard_state: GuardState, tool_meta_map: dict[str, dict]):
-    """用 Guard 包装 tool_node。
+async def guard_tool_call_wrapper(
+    request: ToolCallRequest,
+    execute: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
+) -> ToolMessage | Command:
+    """Guard 拦截器（`awrap_tool_call`）：每次工具执行前跑四层护栏。
 
-    包装逻辑：
-    1. 检查工具调用是否通过 Guard
-    2. 执行工具
-    3. 剥离特殊字段
-    4. 记录执行
+    挂载点：`ToolNode(tools, awrap_tool_call=guard_tool_call_wrapper)`。
+    拦截器从 `request.state["guard_state"]` 读取 GuardState（D2：放进图状态，
+    跨 interrupt/resume 持久），按 L1→L4 依次检查：
+    - L1/L2/L3 拒绝 → 短路返回带 `{error, layer}` 的 ToolMessage，不调 `execute`
+    - L4 未审批 → `interrupt(approval_payload)` 暂停图，等待 /chat/resume 恢复
+    - 放行/审批通过 → `execute` 执行，`record_execution`，剥离 `_component`/`_route`
 
     Args:
-        tool_node_func: 原始 tool_node 函数
-        guard_state: Guard 状态
-        tool_meta_map: {func_name: meta_dict}
+        request: ToolCallRequest（含 tool_call / tool / state / runtime）
+        execute: 异步执行回调 `(request) -> ToolMessage | Command`
 
     Returns:
-        包装后的 tool_node 函数（用于 LangGraph StateGraph）
+        ToolMessage | Command
     """
-    async def guarded_tool_node(state: dict) -> dict:
-        """Guard 包装的 tool_node。"""
-        messages = state.get("messages", [])
-        if not messages:
-            return state
+    tool_call = request.tool_call
+    tool_name = tool_call["name"]
+    tool_args = tool_call["args"]
+    tool_call_id = tool_call["id"]
 
-        last_message = messages[-1]
-        tool_calls = getattr(last_message, "tool_calls", [])
+    guard_state = request.state.get("guard_state") if isinstance(request.state, dict) else None
+    if guard_state is None:
+        # fail-closed：护栏状态缺失时拒绝执行，而非跳过护栏直接放行。
+        # 任何反序列化抖动都不应静默关闭四层防护与字段剥离。
+        logger.error("Guard: state 中缺少 guard_state，拒绝执行 %s（fail-closed）", tool_name)
+        return ToolMessage(
+            content=json.dumps(
+                {"error": "护栏状态不可用，已拒绝执行该工具", "layer": "L0"},
+                ensure_ascii=False,
+            ),
+            tool_call_id=tool_call_id,
+        )
 
-        if not tool_calls:
-            return state
+    result = guard_state.check(tool_name, tool_args)
 
-        results = []
-        for tc in tool_calls:
-            tool_name = tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", "")
-            tool_args = tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {})
-
-            # Guard 检查
-            guard_result = guard_state.check(tool_name, tool_args)
-
-            if not guard_result.allowed:
-                if guard_result.needs_approval:
-                    # 审批事件：返回审批请求
-                    results.append({
-                        "role": "tool",
-                        "tool_call_id": tc.get("id", ""),
-                        "content": json.dumps({
-                            "needs_approval": True,
-                            "approval_id": guard_result.approval_id,
-                            "tool_name": tool_name,
-                            "message": guard_result.reason,
-                        }),
-                    })
-                else:
-                    # 拒绝：返回错误
-                    results.append({
-                        "role": "tool",
-                        "tool_call_id": tc.get("id", ""),
-                        "content": json.dumps({"error": guard_result.reason, "layer": guard_result.layer}),
-                    })
-                continue
-
-            # 执行工具
-            try:
-                # 查找工具函数（优先使用传入的 tool_meta_map，O(1) vs O(n)）
-                tool_func = None
-                tool_entry = tool_meta_map.get(tool_name)
-                if tool_entry:
-                    tool_func = tool_entry.get("func")
-
-                if tool_func is None:
-                    results.append({
-                        "role": "tool",
-                        "tool_call_id": tc.get("id", ""),
-                        "content": json.dumps({"error": f"工具 {tool_name} 未注册"}),
-                    })
-                    continue
-
-                # 调用工具（支持同步/异步函数）
-                import inspect
-                raw_result = (
-                    await tool_func(**tool_args)
-                    if inspect.iscoroutinefunction(tool_func)
-                    else tool_func(**tool_args)
+    if not result.allowed:
+        if result.needs_approval:
+            # L4: 审批门控 → interrupt 暂停
+            approval_payload = {
+                "approval_id": result.approval_id,
+                "tool_name": tool_name,
+                "args": tool_args,
+            }
+            decision = interrupt(approval_payload)
+            if not decision or not decision.get("approved"):
+                guard_state.reject(result.approval_id)
+                msg = ToolMessage(
+                    content=json.dumps(
+                        {"error": "审批被拒绝，操作已取消", "layer": "L4", "cancelled": True},
+                        ensure_ascii=False,
+                    ),
+                    tool_call_id=tool_call_id,
                 )
+                return _guard_update(guard_state, msg)
+            guard_state.approve(result.approval_id)
+            # 审批通过，落入下方执行
+        else:
+            # L1/L2/L3: 短路返回拒绝消息（无状态变更）
+            return ToolMessage(
+                content=json.dumps(
+                    {"error": result.reason, "layer": result.layer},
+                    ensure_ascii=False,
+                ),
+                tool_call_id=tool_call_id,
+            )
 
-                # 记录执行
-                guard_state.record_execution(tool_name, tool_args)
+    # 放行（或审批通过）：执行工具
+    tool_output = await execute(request)
 
-                # 剥离特殊字段
-                clean_result = guard_state.strip_special_fields(raw_result)
+    # 记录执行（L2 计数 + L3 去重键）
+    guard_state.record_execution(tool_name, tool_args)
 
-                results.append({
-                    "role": "tool",
-                    "tool_call_id": tc.get("id", ""),
-                    "content": json.dumps(clean_result, ensure_ascii=False, default=str),
-                })
+    # 剥离 _component/_route（纯净结果返回 LLM，特殊字段进 guard_state）
+    # 归一化工具结果：str 尝试 JSON 解析，dict 直接用，其余（list/多模态）跳过
+    content = tool_output.content
+    if isinstance(content, str):
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            data = None
+    elif isinstance(content, dict):
+        data = content
+    else:
+        data = None
 
-            except Exception as e:
-                logger.exception("工具 %s 执行失败", tool_name)
-                results.append({
-                    "role": "tool",
-                    "tool_call_id": tc.get("id", ""),
-                    "content": json.dumps({"error": str(e)}),
-                })
+    if isinstance(data, dict) and ("_component" in data or "_route" in data):
+        clean = guard_state.strip_special_fields(data)
+        tool_output = ToolMessage(
+            content=json.dumps(clean, ensure_ascii=False, default=str),
+            tool_call_id=tool_output.tool_call_id,
+        )
 
-        # 将结果写入 state
-        state["messages"] = messages + results
-        return state
+    # 回写 guard_state 到图状态（D2：in-place 变更不跨 checkpoint，必须显式更新）
+    return _guard_update(guard_state, tool_output)
 
-    return guarded_tool_node
+
+def _guard_update(guard_state: GuardState, tool_message: ToolMessage) -> Command:
+    """把 guard_state 连同工具消息一并写回图状态。
+
+    LangGraph 的 checkpoint 仅记录节点返回值（而非嵌套对象 in-place 变更），
+    因此 GuardState 的变更必须通过 Command.update 显式回写才能跨 interrupt/resume 持久。
+    """
+    return Command(update={"messages": [tool_message], "guard_state": guard_state})
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 辅助函数
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _is_present(value: Any) -> bool:
+    """判断参数值是否「非空」（L1 前置检查专用）。
+
+    契约：
+    - None、空字符串 → 「未提供」
+    - 数值 0 → 「未提供」（仅对 ID 哨兵参数成立：plan_id/bank_id/session_id/
+      student_id/class_id 等默认 0 表示未指定，0 作为 ID 无意义）
+    - 其余非空值 → 「已提供」
+
+    注意：此约定仅适用于 ID 哨兵参数。未来若出现「合法取值 0」的非 ID 数值
+    参数，不得复用本函数判空，须另行处理。
+    """
+    if value is None:
+        return False
+    if isinstance(value, str) and value == "":
+        return False
+    if isinstance(value, (int, float)) and value == 0:
+        return False
+    return True
+
+
+def _args_json(args: dict) -> str:
+    """参数规范化 JSON 序列化（去重键与审批 ID 共用，保证两者序列化一致）。"""
+    return json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
+
+
 def _make_dedup_key(tool_name: str, args: dict) -> str:
     """生成去重键（工具名 + 参数 JSON 的 SHA256 前 16 位）。"""
-    args_str = json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
-    digest = hashlib.sha256(f"{tool_name}:{args_str}".encode()).hexdigest()[:16]
+    digest = hashlib.sha256(f"{tool_name}:{_args_json(args)}".encode()).hexdigest()[:16]
     return f"{tool_name}:{digest}"
 
 
 def _make_approval_id(tool_name: str, args: dict) -> str:
     """生成审批 ID。"""
-    args_str = json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
-    digest = hashlib.sha256(f"{tool_name}:{args_str}".encode()).hexdigest()[:12]
+    digest = hashlib.sha256(f"{tool_name}:{_args_json(args)}".encode()).hexdigest()[:12]
     return f"approval-{tool_name}-{digest}"

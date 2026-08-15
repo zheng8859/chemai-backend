@@ -53,6 +53,7 @@ def _summarize_practice(student_id: int, practice: dict) -> dict:
     name="diagnose_barrier",
     persona=["teacher", "parent"],
     call_limit=2,
+    prerequisite_any_of=[["student_id", "class_id", "student_name"]],
     description="诊断指定学生的学习障碍类型（概念/审题/表述三维度），返回障碍画像。"
     "支持纯数字 ID、中文姓名（模糊匹配，多结果返回候选）或班级级统计。",
 )
