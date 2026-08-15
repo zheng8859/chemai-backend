@@ -349,6 +349,60 @@ async def resolve_student_id(db: AsyncSession, account_id: int) -> int | None:
     return student.id if student else None
 
 
+async def resolve_teacher_id(db: AsyncSession, account_id: int) -> int | None:
+    """由 Account.id 反查 Teacher.id（数据库主键，非 Account.id）。
+
+    Agent 工具（save_to_bank / memory_teacher_get / grading / ocr）期望的
+    teacher_id 是 Teacher.id，而非 JWT user_id（Account.id）。本函数完成映射。
+
+    Returns None 当 Account 未关联 Teacher（调用方自行决定处理方式）。
+    """
+    from ..models.user import Teacher
+    from sqlalchemy import select
+    result = await db.execute(
+        select(Teacher).where(Teacher.account_id == account_id)
+    )
+    teacher = result.scalar_one_or_none()
+    return teacher.id if teacher else None
+
+
+# ═══════════════════════════════════════════════════════════
+# Parent → 绑定子女集合（Agent 入口 IDOR 防护专用）
+# ═══════════════════════════════════════════════════════════
+
+async def resolve_parent_bound_student_ids(
+    db: AsyncSession,
+    account_id: int,
+) -> set[int]:
+    """由家长 Account.id 反查其所有 status=active 的绑定子女 Student.id 集合。
+
+    供 Agent 入口解析家长权威身份（IDOR 防护）：家长只能访问绑定子女。
+    逻辑与 require_parent_binding 一致，但返回完整集合而非单个绑定。
+
+    Returns:
+        绑定子女的 Student.id 集合；家长档案不存在或无绑定时为 empty set
+    """
+    from ..models.user import Parent
+    from ..models.homework import StudentParentBinding
+    from ..core.enums import BindingStatus
+    from sqlalchemy import select as sa_select
+
+    parent_result = await db.execute(
+        sa_select(Parent).where(Parent.account_id == account_id)
+    )
+    parent = parent_result.scalar_one_or_none()
+    if parent is None:
+        return set()
+
+    result = await db.execute(
+        sa_select(StudentParentBinding.student_id).where(
+            StudentParentBinding.parent_id == parent.id,
+            StudentParentBinding.status == BindingStatus.active,
+        )
+    )
+    return set(result.scalars().all())
+
+
 # ═══════════════════════════════════════════════════════════
 # Student self-data isolation (学生自我数据隔离)
 # ═══════════════════════════════════════════════════════════

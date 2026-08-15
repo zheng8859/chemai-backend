@@ -185,6 +185,9 @@ async def create_agent_with_checkpointer(
     student_context: str = "",
     use_checkpointer: bool = True,
     user_id: Optional[int] = None,
+    teacher_id: Optional[int] = None,
+    student_id: Optional[int] = None,
+    bound_student_ids: Optional[set[int]] = None,
 ):
     """创建带 Checkpoint 持久化的 ReAct Agent。
 
@@ -194,6 +197,9 @@ async def create_agent_with_checkpointer(
         student_context: 学生上下文
         use_checkpointer: 是否启用 checkpoint 持久化
         user_id: 线程归属用户 ID（写入 guard_state，供 /chat/resume 越权校验）
+        teacher_id: 认证教师 Teacher.id（写入 guard_state，供 Guard 身份绑定）
+        student_id: 认证学生 Student.id（写入 guard_state，供 Guard 身份绑定）
+        bound_student_ids: 家长绑定子女集合（写入 guard_state，供 Guard 身份绑定）
 
     Returns:
         {
@@ -230,7 +236,13 @@ async def create_agent_with_checkpointer(
     model = get_agent_model(provider)
 
     # 5. 创建 Guard 状态（请求级，注入图状态）
-    guard_state = GuardState(persona=persona, user_id=user_id)
+    guard_state = GuardState(
+        persona=persona,
+        user_id=user_id,
+        teacher_id=teacher_id,
+        student_id=student_id,
+        bound_student_ids=set(bound_student_ids) if bound_student_ids else set(),
+    )
 
     # 6. 构造 Guard 拦截的 ToolNode（awrap_tool_call 挂载点，D1）
     tool_node = ToolNode(tools, awrap_tool_call=guard_tool_call_wrapper)

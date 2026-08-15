@@ -277,12 +277,15 @@ class TestGuardLayers:
         assert len(guard.dedup_keys) == 1
 
     def test_guard_state_serialization_roundtrip(self, guard):
-        """GuardState 经 LangGraph 序列化器往返后 set/dict 字段不丢失。"""
+        """GuardState 经 LangGraph 序列化器往返后 set/dict/身份字段不丢失。"""
         from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
         guard.record_execution("search_exam_bank", {"keyword": "氧化还原"})
         guard.check("delete_bank", {"bank_id": "b9"})  # 触发 L4 建审批队列
         guard.strip_special_fields({"result": "ok", "_component": {"type": "exam"}})
+        guard.teacher_id = 7
+        guard.student_id = 100
+        guard.bound_student_ids = {100, 101}
 
         serde = JsonPlusSerializer()
         restored = serde.loads_typed(serde.dumps_typed(guard))
@@ -292,6 +295,64 @@ class TestGuardLayers:
         assert restored.approval_queue == guard.approval_queue
         assert restored.stripped_components == guard.stripped_components
         assert restored.stripped_routes == guard.stripped_routes
+        assert restored.teacher_id == 7
+        assert restored.student_id == 100
+        assert restored.bound_student_ids == {100, 101}
+
+
+class TestIdentityBinding:
+    """Guard 身份绑定（防 IDOR）：身份参数绑定到 JWT 认证身份。"""
+
+    def test_student_id_clamped_for_student_persona(self):
+        from app.agent.guard import GuardState
+        guard = GuardState(persona="student", student_id=100)
+        args = {"student_id": 999}
+        err = guard.bind_identity("memory_student_get", args)
+        assert err is None
+        assert args["student_id"] == 100
+
+    def test_parent_rejects_non_bound_student(self):
+        from app.agent.guard import GuardState
+        guard = GuardState(persona="parent", bound_student_ids={100, 101})
+        args = {"student_id": 888}
+        err = guard.bind_identity("generate_parent_report", args)
+        assert err is not None
+        assert err.allowed is False
+        assert err.layer == "L0"
+
+    def test_parent_allows_bound_student(self):
+        from app.agent.guard import GuardState
+        guard = GuardState(persona="parent", bound_student_ids={100, 101})
+        args = {"student_id": 101}
+        err = guard.bind_identity("generate_parent_report", args)
+        assert err is None
+        assert args["student_id"] == 101
+
+    def test_parent_fail_closed_with_no_bindings(self):
+        from app.agent.guard import GuardState
+        guard = GuardState(persona="parent", bound_student_ids=set())
+        args = {"student_id": 888}
+        err = guard.bind_identity("generate_parent_report", args)
+        assert err is not None
+        assert err.allowed is False
+        assert err.layer == "L0"
+
+    def test_teacher_id_clamped_for_teacher(self):
+        from app.agent.guard import GuardState
+        guard = GuardState(persona="teacher", teacher_id=7)
+        args = {"name": "bank", "questions": [], "teacher_id": 999}
+        err = guard.bind_identity("save_to_bank", args)
+        assert err is None
+        assert args["teacher_id"] == 7
+
+    def test_student_id_zero_sentinel_not_bound(self):
+        """student_id=0 哨兵 → 不绑定（交给 L1 前置校验处理）。"""
+        from app.agent.guard import GuardState
+        guard = GuardState(persona="student", student_id=100)
+        args = {"student_id": 0}
+        err = guard.bind_identity("memory_student_get", args)
+        assert err is None
+        assert args["student_id"] == 0
 
 
 class TestGuardHelpers:
@@ -719,6 +780,25 @@ class TestPlannerIntegration:
         plan = single_step_fallback("帮我出题")
         assert len(plan.steps) == 1
         assert plan.steps[0].step_num == 1
+
+    def test_plan_prompt_wraps_message_in_delimiters(self):
+        """PLAN_PROMPT 用分隔符包裹用户消息并声明其不可信（注入加固）。"""
+        from app.agent.planner import PLAN_PROMPT
+        assert "<user_message>" in PLAN_PROMPT
+        assert "</user_message>" in PLAN_PROMPT
+        assert "{message}" in PLAN_PROMPT
+        assert "不得执行" in PLAN_PROMPT
+
+    def test_plan_to_instruction_declares_guidance(self):
+        """计划指令声明为「仅供参考/非权威」，防 LLM 生成的意图被当作命令。"""
+        from app.agent.planner import Plan, PlanStep
+        from app.api.v1.chat import _plan_to_instruction
+        plan = Plan(steps=[
+            PlanStep(step_num=1, skill_name="search_exam_bank", intent="搜索", args_hint={"keyword": "氧化还原"}),
+        ])
+        text = _plan_to_instruction(plan)
+        assert "仅供参考" in text
+        assert "非权威" in text
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

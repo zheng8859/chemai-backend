@@ -5,7 +5,10 @@
 注册给所有 Persona（通用工具）。
 """
 
+import ipaddress
 import logging
+import socket
+from urllib.parse import urlparse
 
 from .tool_meta import register_tool
 
@@ -38,6 +41,53 @@ async def _get_browser():
     return _browser_instance
 
 
+# ── SSRF 防护：禁止访问的内网/保留地址块 ──
+
+_BLOCKED_NETWORKS = (
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("198.18.0.0/15"),
+    ipaddress.ip_network("224.0.0.0/4"),
+    ipaddress.ip_network("240.0.0.0/4"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+    ipaddress.ip_network("::/128"),
+)
+
+
+def _validate_url(url: str) -> str | None:
+    """校验 URL，返回错误信息（None = 通过）。防 SSRF。
+
+    仅放行 http/https；拒绝回环、链路本地（含云元数据 169.254.169.254）、
+    私网与保留地址。
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return "无法解析 URL"
+    if parsed.scheme not in ("http", "https"):
+        return f"仅支持 http/https 协议，收到: {parsed.scheme or '空'}"
+    host = parsed.hostname
+    if not host:
+        return "URL 缺少主机名"
+    try:
+        addrs = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except Exception:
+        return f"无法解析主机: {host}"
+    for addr in addrs:
+        ip = ipaddress.ip_address(addr[4][0])
+        for net in _BLOCKED_NETWORKS:
+            if ip in net:
+                return f"禁止访问内网地址: {host} ({ip})"
+    return None
+
+
 @register_tool(
     name="browse_navigate",
     persona=["teacher", "tutor", "student", "parent"],
@@ -53,6 +103,11 @@ async def browse_navigate(url: str) -> dict:
     Returns:
         {"url": str, "title": str, "status": int}
     """
+    err = _validate_url(url)
+    if err:
+        logger.warning("browse_navigate SSRF 拦截: %s", err)
+        return {"url": url, "error": err}
+
     try:
         browser = await _get_browser()
         page = await browser.new_page()

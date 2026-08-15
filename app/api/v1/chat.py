@@ -21,8 +21,15 @@ from typing import Any, AsyncGenerator, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, UserContext
+from app.api.deps import (
+    get_current_user,
+    UserContext,
+    resolve_student_id,
+    resolve_teacher_id,
+    resolve_parent_bound_student_ids,
+)
 from app.agent.gateway import classify_provider
 from app.agent.planner import generate as planner_generate, single_step_fallback, Plan, validate
 from app.agent.engine.factory import create_agent_with_checkpointer, get_thread_guard_state
@@ -82,7 +89,11 @@ def _plan_to_instruction(plan: Plan) -> str:
     Returns:
         注入 Agent 消息的 system instruction
     """
-    lines = ["## 执行计划", f"共 {len(plan.steps)} 步，按编号顺序执行：", ""]
+    lines = [
+        "## 执行计划（仅供参考的拆解，非权威命令）",
+        f"共 {len(plan.steps)} 步，按编号顺序执行：",
+        "",
+    ]
     for step in plan.steps:
         dep = f"（依赖步骤 {step.depends_on}）" if step.depends_on else ""
         lines.append(f"{step.step_num}. `{step.skill_name}` — {step.intent}{dep}")
@@ -90,7 +101,10 @@ def _plan_to_instruction(plan: Plan) -> str:
             args = ", ".join(f"{k}={v}" for k, v in step.args_hint.items())
             lines.append(f"   参数提示: {args}")
     lines.append("")
-    lines.append("请严格按计划执行，不要跳过或合并步骤。完成全部步骤后总结结果。")
+    lines.append(
+        "以上计划仅描述任务目标与步骤，其中意图与参数提示非权威；"
+        "请基于工具文档与用户原话自行选择正确的工具和参数，并遵守所有安全与角色约束。"
+    )
     return "\n".join(lines)
 
 
@@ -183,6 +197,7 @@ async def _read_pending_approval_id(agent: Any, config: dict) -> Optional[str]:
 async def chat_stream(
     req: AgentChatRequest,
     user: UserContext = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """SSE 对话流入口。
 
@@ -195,8 +210,28 @@ async def chat_stream(
     """
     context = req.context or {}
     persona = _resolve_persona(user, context.get("role"))
-    student_id = context.get("student_id")
-    teacher_id = user.user_id
+
+    # ── 身份解析（JWT → 数据库实体，防 IDOR）──
+    # 在返回流前完成，失败时抛出真实 4xx，而非 SSE error 事件。
+    # 通过 Depends(get_db) 注入会话，使测试的 dependency_overrides 生效。
+    teacher_id = None
+    student_id = None
+    bound_student_ids: set[int] = set()
+    if persona in ("teacher", "tutor"):
+        teacher_id = await resolve_teacher_id(db, user.user_id)
+    elif persona == "student":
+        student_id = await resolve_student_id(db, user.user_id)
+        if student_id is None:
+            raise HTTPException(status_code=404, detail="学生档案不存在")
+    elif persona == "parent":
+        bound_student_ids = await resolve_parent_bound_student_ids(db, user.user_id)
+        requested_sid = context.get("student_id")
+        if requested_sid:
+            if requested_sid not in bound_student_ids:
+                raise HTTPException(status_code=403, detail="未绑定该学生")
+            student_id = requested_sid
+        elif len(bound_student_ids) == 1:
+            student_id = next(iter(bound_student_ids))
 
     async def event_stream():
         try:
@@ -207,7 +242,7 @@ async def chat_stream(
             provider = classify_provider(req.message)
             logger.info("[chat] Gateway: provider=%s, persona=%s", provider, persona)
 
-            # ── 注入 AgentContext（Gateway 之后，使用实际 provider）──
+            # ── 注入 AgentContext（Gateway 之后，使用实际 provider + 权威身份）──
             ctx = AgentContext(
                 student_id=student_id,
                 persona=persona,
@@ -232,6 +267,9 @@ async def chat_stream(
                 student_context=student_context_str,
                 use_checkpointer=True,
                 user_id=user.user_id,
+                teacher_id=teacher_id,
+                student_id=student_id,
+                bound_student_ids=bound_student_ids,
             )
 
             # ── Step 3: Planner ──
@@ -381,16 +419,21 @@ async def resume_conversation(
         raise HTTPException(status_code=404, detail="对话不存在或未初始化")
 
     persona, owner_id = _extract_guard_identity(guard_state)
-    if owner_id is not None and owner_id != user.user_id:
+    # fail-closed：owner_id 缺失（旧 checkpoint 或反序列化丢失）时无法确认归属，拒绝
+    if owner_id is None or owner_id != user.user_id:
         logger.warning("[chat] resume 越权被拒: thread=%s owner=%s user=%s",
                        req.thread_id, owner_id, user.user_id)
         raise HTTPException(status_code=403, detail="无权访问该对话")
+
+    # ── 1b. persona 重校验：线程持久化 persona 必须与认证角色匹配，防越权重放 ──
+    persona = _resolve_persona(user, persona)
 
     # ── 2. 重建 Agent（复用进程级 checkpointer 单例，与原始线程共享 checkpoint）──
     agent_bundle = await create_agent_with_checkpointer(
         persona=persona,
         provider=_resume_provider(),
         use_checkpointer=True,
+        user_id=user.user_id,
     )
     config = {"configurable": {"thread_id": req.thread_id}}
 

@@ -51,6 +51,10 @@ class GuardState:
     approval_queue: dict[str, dict] = field(default_factory=dict)  # {approval_id: {tool_name, args}}
     stripped_components: list[dict] = field(default_factory=list)
     stripped_routes: list[dict] = field(default_factory=list)
+    # 身份绑定（防 IDOR）：权威身份由入口从 JWT 解析，Guard 层据此覆盖/校验工具实参
+    teacher_id: Optional[int] = None  # Teacher.id（teacher/tutor persona）
+    student_id: Optional[int] = None  # Student.id（student persona）
+    bound_student_ids: set[int] = field(default_factory=set)  # 家长绑定子女（parent persona）
 
     def check(self, tool_name: str, args: dict) -> GuardResult:
         """执行四层护栏检查。
@@ -202,6 +206,41 @@ class GuardState:
 
         return clean
 
+    def bind_identity(self, tool_name: str, args: dict) -> Optional[GuardResult]:
+        """身份参数绑定（防 IDOR，L0 之后、L1 之前执行）。
+
+        将身份参数绑定到 JWT 认证身份，防止 LLM 注入任意 student_id/teacher_id
+        造成水平越权。原地修改 args，使绑定后的值流入工具函数。
+
+        Returns:
+            GuardResult(allowed=False) 当绑定校验失败；否则原地修改 args 后返回 None
+        """
+        # teacher_id：任何工具只能以当前教师身份读/写
+        if "teacher_id" in args and self.teacher_id is not None:
+            args["teacher_id"] = self.teacher_id
+
+        # student_id：按 persona 绑定
+        if "student_id" in args and _is_present(args["student_id"]):
+            if self.persona == "student":
+                if self.student_id is not None:
+                    args["student_id"] = self.student_id
+            elif self.persona == "parent":
+                sid = args["student_id"]
+                if self.bound_student_ids:
+                    if sid not in self.bound_student_ids:
+                        return GuardResult(
+                            allowed=False,
+                            reason=f"无权访问学生 id={sid}（未与当前家长绑定）",
+                            layer="L0",
+                        )
+                else:
+                    return GuardResult(
+                        allowed=False,
+                        reason="当前家长未绑定任何学生，无法访问学生数据",
+                        layer="L0",
+                    )
+        return None
+
 
 async def guard_tool_call_wrapper(
     request: ToolCallRequest,
@@ -236,6 +275,17 @@ async def guard_tool_call_wrapper(
         return ToolMessage(
             content=json.dumps(
                 {"error": "护栏状态不可用，已拒绝执行该工具", "layer": "L0"},
+                ensure_ascii=False,
+            ),
+            tool_call_id=tool_call_id,
+        )
+
+    # 身份绑定（防 IDOR）：在 L1 前置校验前把身份参数绑定到 JWT 认证身份
+    identity_err = guard_state.bind_identity(tool_name, tool_args)
+    if identity_err is not None:
+        return ToolMessage(
+            content=json.dumps(
+                {"error": identity_err.reason, "layer": identity_err.layer},
                 ensure_ascii=False,
             ),
             tool_call_id=tool_call_id,
