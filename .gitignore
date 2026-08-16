@@ -43,3 +43,11 @@ node_modules/
 .coverage
 coverage.xml
 .gstack/
+
+# SQLite shared-memory
+*.db-shm
+
+# Runtime data
+/data/audit/
+/data/evals/reports/
+/data/ocr_uploads/
