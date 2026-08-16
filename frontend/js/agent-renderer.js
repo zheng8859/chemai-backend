@@ -214,18 +214,20 @@ var ChemAgentRender = (function () {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  /** 保留 LaTeX 公式的转义：$...$ 和 $$...$$ 不转义 */
+  /** 保留 LaTeX 公式的转义：$...$ 和 $$...$$ 块内容同样做 HTML 转义，
+   *  仅保留 $ 定界符与反斜杠/花括号供 KaTeX 解析，防止 XSS（如
+   *  `$<img onerror=...>$` 注入）。 */
   function _escapeLatex(text) {
     if (!text) return '';
     var str = String(text);
-    // 先提取所有 LaTeX 块
+    // 先提取所有 LaTeX 块，块内容同步做 HTML 转义
     var latexBlocks = [];
     str = str.replace(/\$\$([^$]+)\$\$/g, function (_, formula) {
-      latexBlocks.push('$$' + formula + '$$');
+      latexBlocks.push('$$' + _esc(formula) + '$$');
       return '\x00LATEX\x00';
     });
     str = str.replace(/\$([^$]+)\$/g, function (_, formula) {
-      latexBlocks.push('$' + formula + '$');
+      latexBlocks.push('$' + _esc(formula) + '$');
       return '\x00LATEX\x00';
     });
     // 转义剩余 HTML

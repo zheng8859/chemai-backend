@@ -20,6 +20,20 @@ _TEST_MAIN = _TEST_ROOT / "test_chemai.db"
 # 初始设置为公共 test URL（session scope 终态会被 override）
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TEST_MAIN}"
 
+# 测试环境注入确定性密钥，避免回退到弱默认值（load_dotenv 默认不覆盖已有环境变量）
+os.environ.setdefault("JWT_SECRET", "test-secret-chemai-for-tests-only")
+
+# 隔离测试与开发 .env：清空第三方 Provider 密钥/URL，避免测试读取真实密钥
+# （load_dotenv 默认 override=False，不会覆盖已存在于 os.environ 的键）
+# base_url 一并置空，保证 test_llm_base_urls_default_empty 等「默认空」断言成立；
+# model_factory.PROVIDER_CONFIG 用 `or` 回退到自身默认 URL，不受影响。
+for _k in (
+    "MIMO_API_KEY", "MIMO_BASE_URL", "DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY",
+    "DEEPSEEK_BASE_URL", "ZHIPU_API_KEY", "ZHIPU_BASE_URL",
+    "BAIDU_OCR_API_KEY", "BAIDU_OCR_SECRET_KEY",
+):
+    os.environ.setdefault(_k, "")
+
 # ── 现在安全导入 app 模块 ──────────────────────────────────
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession

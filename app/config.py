@@ -3,9 +3,15 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # ── 项目根目录 ────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
+
+# 加载 .env（优先级：已存在的环境变量 > .env > 默认值）。
+# 此前 .env 从未被加载，导致 JWT_SECRET / LLM API Key 等配置全部失效。
+load_dotenv(PROJECT_ROOT / ".env")
 
 # ── 四维审核引擎数据目录 ──────────────────────────────────
 CHEMAI_DATA_DIR = os.getenv("CHEMAI_DATA_DIR", str(DATA_DIR))
@@ -65,9 +71,25 @@ KNOWLEDGE_GRAPH_PATH = os.getenv("KNOWLEDGE_GRAPH_PATH", str(DATA_DIR / "knowled
 EXAM_BANK_PATH = os.getenv("EXAM_BANK_PATH", str(DATA_DIR / "exam_bank"))
 
 # ── 安全 ───────────────────────────────────────────────────
-JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+# 生产环境必须通过 .env 显式设置强密钥；默认值仅供本地测试占位，
+# 应用启动时（main.lifespan）会拦截该弱默认值并拒绝启动。
+DEFAULT_JWT_SECRET = "change-me-in-production"
+JWT_SECRET = os.getenv("JWT_SECRET", DEFAULT_JWT_SECRET)
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "480"))
+
+# ── CORS ───────────────────────────────────────────────────
+# 允许的跨域源（逗号分隔）。桌面应用内嵌/开发场景默认放开本地开发源；
+# 生产通过 .env 显式设置白名单。禁止「通配符 + 凭证」并存。
+CORS_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000,"
+        "http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if o.strip()
+]
 
 # ── 调度 ───────────────────────────────────────────────────
 SCHEDULER_TIMEZONE = os.getenv("SCHEDULER_TIMEZONE", "Asia/Shanghai")

@@ -44,13 +44,13 @@ print("=" * 60)
 
 # ── 1. Login as teacher ──
 step(1, "教师登录")
-ok, data, err = api("POST", "/api/v1/auth/login", body={"phone": "13800000001", "password": "test123"})
+ok, data, err = api("POST", "/api/v1/auth/login", body={"phone": "13800000001", "password": "Demo@2026"})
 teacher_token = data.get("token") if ok else None
 result("教师登录", ok and teacher_token is not None, f"name={data.get('name', '?')}" if ok else err)
 
 # ── 2. Login as student ──
 step(2, "学生登录")
-ok, data, err = api("POST", "/api/v1/auth/login", body={"phone": "13800000002", "password": "test123"})
+ok, data, err = api("POST", "/api/v1/auth/login", body={"phone": "13800000002", "password": "Demo@2026"})
 student_token = data.get("token") if ok else None
 student_uid = data.get("user_id") if ok else None
 result("学生登录", ok, f"user_id={student_uid}")

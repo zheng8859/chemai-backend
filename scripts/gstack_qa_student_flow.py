@@ -112,7 +112,7 @@ def api(method, path, token=None, **kwargs):
 
 
 def login():
-    r = api("POST", "/auth/login", json={"phone": "13800000002", "password": "test123"})
+    r = api("POST", "/auth/login", json={"phone": "13800000002", "password": "Demo@2026"})
     if r.status_code == 200:
         return r.json().get("token") or r.json().get("access_token")
     return None

@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 PROVIDER_CONFIG = {
     "mimo": {
         "name": "MiMo-V2.5",
-        "base_url": os.getenv("MIMO_BASE_URL", "https://api.mimo.com/v1"),
+        "base_url": os.getenv("MIMO_BASE_URL") or "https://api.mimo.com/v1",
         "api_key": os.getenv("MIMO_API_KEY", ""),
         "model": os.getenv("MIMO_MODEL", "mimo-v2.5"),
         "priority": 1,
@@ -39,7 +39,7 @@ PROVIDER_CONFIG = {
     },
     "qwen": {
         "name": "通义千问 Turbo",
-        "base_url": os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+        "base_url": os.getenv("QWEN_BASE_URL") or "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "api_key": os.getenv("DASHSCOPE_API_KEY", ""),
         "model": os.getenv("QWEN_MODEL", "qwen-turbo"),
         "priority": 2,
@@ -47,7 +47,7 @@ PROVIDER_CONFIG = {
     },
     "deepseek": {
         "name": "DeepSeek-V4-Flash",
-        "base_url": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
+        "base_url": os.getenv("DEEPSEEK_BASE_URL") or "https://api.deepseek.com/v1",
         "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
         "model": os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
         "priority": 3,

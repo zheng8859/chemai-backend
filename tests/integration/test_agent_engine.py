@@ -1380,36 +1380,42 @@ class TestChatAPIEndpoints:
         assert len(ids) == 3
 
     async def test_chat_conversations_empty(self, async_client, teacher_headers):
-        """GET /chat/conversations 返回 501（未实现）。"""
+        """GET /chat/conversations 返回 200 与 conversations 列表（空态）。"""
         response = await async_client.get(
-            "/api/v1/chat/conversations",
+            "/api/v1/chat/conversations?prefix=zzz-nonexistent-",
             headers=teacher_headers,
         )
-        assert response.status_code == 501
+        assert response.status_code == 200
+        assert response.json() == {"conversations": []}
 
     async def test_chat_conversations_with_prefix(self, async_client, teacher_headers):
-        """prefix 参数过滤返回正确（501 未实现）。"""
+        """prefix 参数过滤返回 200 与 conversations 列表结构。"""
         response = await async_client.get(
             "/api/v1/chat/conversations?prefix=t-",
             headers=teacher_headers,
         )
-        assert response.status_code == 501
+        assert response.status_code == 200
+        data = response.json()
+        assert "conversations" in data
+        assert isinstance(data["conversations"], list)
 
     async def test_chat_history_nonexistent(self, async_client, teacher_headers):
-        """GET /chat/history/{thread_id} 返回 501（未实现）。"""
+        """GET /chat/history/{thread_id} 不存在 → 200 空历史。"""
         response = await async_client.get(
             "/api/v1/chat/history/fake-thread-id",
             headers=teacher_headers,
         )
-        assert response.status_code == 501
+        assert response.status_code == 200
+        assert response.json() == {"messages": []}
 
     async def test_chat_delete_nonexistent_safe(self, async_client, teacher_headers):
-        """DELETE /chat/conversations/{thread_id} 返回 501（未实现）。"""
+        """DELETE /chat/conversations/{thread_id} 不存在 → 200 幂等删除。"""
         response = await async_client.delete(
             "/api/v1/chat/conversations/fake-delete-id",
             headers=teacher_headers,
         )
-        assert response.status_code == 501
+        assert response.status_code == 200
+        assert response.json() == {"success": True, "thread_id": "fake-delete-id"}
 
     async def test_chat_reset_returns_ok(self, async_client, teacher_headers):
         """POST /chat/reset 返回成功（thread_id 为 query param）。"""

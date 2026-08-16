@@ -334,10 +334,12 @@ def run_l1(results: dict) -> None:
     results["l1_unit"] = unit
     _print_test_result(unit, "单元测试")
 
-    # 1b. 覆盖率
-    print("  计算覆盖率 (app + chem_skills)...")
+    # 1b. 覆盖率 — 仅测「纯函数/模型/工具函数」模块（对齐 CLAUDE.md L1 定义）
+    # 排除 app/api、app/services、app/agent、app/llm、app/infrastructure 等
+    # 由 L2 集成测试覆盖的层，避免度量范围与测试分层错配。
+    print("  计算覆盖率 (纯函数/模型/工具模块)...")
     cov = run_coverage(
-        sources=["app", "chem_skills"],
+        sources=["chem_skills", "app/core", "app/utils", "app/models", "app/schemas"],
         test_path="tests/unit",
         label="L1 覆盖率",
         timeout=300,

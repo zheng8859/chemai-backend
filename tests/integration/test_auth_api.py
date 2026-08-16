@@ -291,3 +291,43 @@ class TestAuthWhitelist:
             "school_id": school["id"],
         })
         assert resp.status_code in (201, 400)
+
+
+class TestAuthBypassRegression:
+    """安全审计修复回归 — 鉴权绕过端点必须有有效 token。
+
+    中间件（Layer 1）只检查 Bearer 头存在性，真正的校验在 Layer 2。
+    本组验证：携带垃圾 Bearer 头 → 必须 401（此前 /students/batch、
+    /audit/* 缺 Layer 2，垃圾 token 也能通过）。
+    """
+
+    @pytest.mark.anyio
+    async def test_students_batch_rejects_garbage_token(self, async_client):
+        resp = await async_client.post(
+            "/api/v1/students/batch",
+            json={
+                "students": [{"name": "测试", "student_id": "S999", "initial_password": "123456"}],
+                "class_id": 1,
+                "school_id": 1,
+            },
+            headers={"Authorization": "Bearer garbage-token"},
+        )
+        assert resp.status_code == 401
+
+    @pytest.mark.anyio
+    async def test_audit_equation_rejects_garbage_token(self, async_client):
+        resp = await async_client.post(
+            "/api/v1/audit/equation",
+            json={"equation": "Fe + O2 → Fe2O3"},
+            headers={"Authorization": "Bearer garbage-token"},
+        )
+        assert resp.status_code == 401
+
+    @pytest.mark.anyio
+    async def test_audit_extract_rejects_garbage_token(self, async_client):
+        resp = await async_client.post(
+            "/api/v1/audit/extract",
+            json={"text": "甲烷燃烧: CH4 + 2O2 → CO2 + 2H2O"},
+            headers={"Authorization": "Bearer garbage-token"},
+        )
+        assert resp.status_code == 401

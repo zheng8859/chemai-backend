@@ -12,7 +12,7 @@ langgraph-checkpoint-sqlite>=3.1,<4
 langchain>=0.3.0
 langchain-openai>=0.2.0
 
-chromadb>=0.4.22
+chromadb>=0.4.22,<1.0.0  # 上限锁 <1.0：PYSEC-2026-311（1.x 预认证代码注入，无修复版）
 
 rdkit>=2024.3.1
 

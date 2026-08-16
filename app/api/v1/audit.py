@@ -5,9 +5,10 @@
   POST /api/v1/audit/extract     — 从文本中提取并审核所有方程式
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from ...api.deps import get_current_user, UserContext
 from chem_skills.chemistry_parser.engine import (
     audit_equation,
     extract_equations,
@@ -51,7 +52,10 @@ class AuditExtractResponse(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────
 
 @router.post("/equation", response_model=AuditEquationResponse)
-async def audit_single_equation(request: AuditEquationRequest):
+async def audit_single_equation(
+    request: AuditEquationRequest,
+    user: UserContext = Depends(get_current_user),
+):
     """审核单个化学方程式。
 
     返回四维审核报告（配平/条件/产物/结构 + 综合判定）。
@@ -81,7 +85,10 @@ async def audit_single_equation(request: AuditEquationRequest):
 
 
 @router.post("/extract", response_model=AuditExtractResponse)
-async def audit_extract_equations(request: AuditExtractRequest):
+async def audit_extract_equations(
+    request: AuditExtractRequest,
+    user: UserContext = Depends(get_current_user),
+):
     """从文本中提取所有方程式并逐一审核。
 
     用于出题引擎在生成的题目内容中自动提取方程式并过审。

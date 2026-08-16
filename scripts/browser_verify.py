@@ -21,7 +21,7 @@ API_URL = "http://localhost:8000"
 
 # ── 学生登录凭据 ──
 STUDENT_PHONE = "13800000002"
-STUDENT_PASSWORD = "test123"
+STUDENT_PASSWORD = "Demo@2026"
 
 
 def log(msg):

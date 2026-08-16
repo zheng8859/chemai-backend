@@ -56,7 +56,7 @@ def main():
     print("\n-- Step 1: Login --")
     resp = requests.post(f"{BASE}/auth/login", json={
         "phone": "13800000002",
-        "password": "test123",
+        "password": "Demo@2026",
     })
     data = check("POST /auth/login", resp, 200)
     token = data.get("token") or data.get("access_token")

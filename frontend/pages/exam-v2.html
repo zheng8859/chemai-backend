@@ -1144,7 +1144,7 @@
             headers: { 'Content-Type': 'application/json' },
           };
           // Auth token
-          const token = localStorage.getItem('access_token');
+          const token = localStorage.getItem('chemai_token');
           if (token) opts.headers['Authorization'] = `Bearer ${token}`;
 
           if (body && method !== 'GET') {
@@ -2161,7 +2161,7 @@
         async function exportExam(exam) {
           try {
             const url = `${API_BASE}/exams/${exam.id}/export?format=docx&with_answers=false`;
-            const token = localStorage.getItem('access_token');
+            const token = localStorage.getItem('chemai_token');
             const res = await fetch(url, {
               headers: { Authorization: `Bearer ${token}` },
             });

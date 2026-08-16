@@ -151,127 +151,82 @@ class TestQuestionGenerationAPI:
 @pytest.mark.l2
 @pytest.mark.skipif(not API_AVAILABLE, reason="API 服务不可达")
 class TestDiagnosisAPI:
-    """诊断 API — 8 道"""
+    """诊断 API — 8 道（对齐 Phase 6 重构后的路由）"""
 
-    def test_diagnose_endpoint_exists(self):
-        """诊断端点可达"""
-        r = requests.post(
-            f"{API_V1}/diagnosis/single",
-            json={
-                "question": "56g Fe的物质的量是多少？",
-                "student_answer": "56mol",
-                "correct_answer": "1mol",
-            },
-            headers=_get_auth_headers(),
-            timeout=10,
-        )
-        assert r.status_code in (200, 401, 422, 404)
-
-    def test_batch_diagnosis_endpoint(self):
-        """批量诊断端点"""
-        r = requests.post(
-            f"{API_V1}/diagnosis/batch",
-            json={
-                "items": [
-                    {"question": "Q1", "student_answer": "A1", "correct_answer": "C1"},
-                    {"question": "Q2", "student_answer": "A2", "correct_answer": "C2"},
-                ]
-            },
-            headers=_get_auth_headers(),
-            timeout=30,
-        )
-        assert r.status_code in (200, 401, 422, 404)
-
-    def test_diagnosis_with_misconception_category(self):
-        """诊断包含迷思概念分类"""
-        r = requests.post(
-            f"{API_V1}/diagnosis/single",
-            json={
-                "question": "加成反应和取代反应的区别是什么？",
-                "student_answer": "它们是一样的",
-                "correct_answer": "加成是不饱和键断裂加原子，取代是原子被替换",
-            },
-            headers=_get_auth_headers(),
-            timeout=30,
-        )
-        assert r.status_code in (200, 401, 422, 404)
-
-    def test_diagnosis_confidence_interval(self):
-        """诊断置信度在合理范围"""
-        r = requests.post(
-            f"{API_V1}/diagnosis/single",
-            json={
-                "question": "什么是勒夏特列原理？",
-                "student_answer": "平衡会向减弱改变的方向移动",
-                "correct_answer": "改变条件时平衡向减弱这种改变的方向移动",
-            },
-            headers=_get_auth_headers(),
-            timeout=30,
-        )
-        if r.status_code == 200:
-            data = r.json()
-            if "confidence" in data:
-                assert 0.0 <= data["confidence"] <= 1.0
-        else:
-            assert r.status_code in (401, 422, 404)
-
-    def test_diagnosis_error_type_included(self):
-        """诊断包含错误类型"""
-        r = requests.post(
-            f"{API_V1}/diagnosis/single",
-            json={
-                "question": "pH=3和pH=5的盐酸等体积混合后pH是多少？",
-                "student_answer": "pH=4",
-                "correct_answer": "pH≈3.3（需考虑H⁺浓度而非pH直接平均）",
-            },
-            headers=_get_auth_headers(),
-            timeout=30,
-        )
-        if r.status_code == 200:
-            data = r.json()
-            if "error_type" in data:
-                assert data["error_type"] in (
-                    "概念错误", "计算错误", "知识空白", "审题错误", "表述问题",
-                )
-        else:
-            assert r.status_code in (401, 422, 404)
-
-    def test_diagnosis_empty_answer_handled(self):
-        """空答案诊断不崩溃"""
-        r = requests.post(
-            f"{API_V1}/diagnosis/single",
-            json={
-                "question": "测试题目",
-                "student_answer": "",
-                "correct_answer": "正确答案",
-            },
-            headers=_get_auth_headers(),
-            timeout=10,
-        )
-        assert r.status_code in (200, 401, 422, 404)
-
-    def test_diagnosis_config_includes_misconception_types(self):
-        """障碍配置包含迷思概念类型"""
+    def test_barrier_config_endpoint(self):
+        """障碍配置端点可达"""
         r = requests.get(
-            f"{API_V1}/diagnosis/config",
+            f"{API_V1}/diagnosis/barrier-config",
             headers=_get_auth_headers(),
             timeout=10,
         )
         assert r.status_code in (200, 401, 404)
 
-    def test_diagnosis_llm_trigger(self):
-        """LLM 诊断触发条件（置信度 < 阈值时启用 LLM）"""
+    def test_run_llm_diagnosis_endpoint(self):
+        """LLM 批量诊断端点（单次 ≤10 条）"""
         r = requests.post(
-            f"{API_V1}/diagnosis/single",
-            json={
-                "question": "陌生领域的复杂问题",
-                "student_answer": "奇怪的答案",
-                "correct_answer": "标准答案",
-            },
+            f"{API_V1}/diagnosis/run-llm/1",
             headers=_get_auth_headers(),
             timeout=30,
         )
-        assert r.status_code in (200, 401, 422, 404)
+        # 接受 200(成功) / 401(未认证) / 404(无数据) / 422 / 503(LLM 不可用)
+        assert r.status_code in (200, 401, 404, 422, 503)
+
+    def test_class_diagnosis_endpoint(self):
+        """班级诊断端点"""
+        r = requests.get(
+            f"{API_V1}/diagnosis/class/1/exam/1",
+            headers=_get_auth_headers(),
+            timeout=10,
+        )
+        assert r.status_code in (200, 401, 404)
+
+    def test_student_diagnosis_endpoint(self):
+        """学生自查看诊断端点"""
+        r = requests.get(
+            f"{API_V1}/diagnosis/student/1",
+            headers=_get_auth_headers(),
+            timeout=10,
+        )
+        assert r.status_code in (200, 401, 403, 404)
+
+    def test_override_diagnosis_endpoint(self):
+        """教师覆盖诊断端点"""
+        r = requests.put(
+            f"{API_V1}/diagnosis/override/1",
+            json={"barrier_type": "concept", "misconception_category": None},
+            headers=_get_auth_headers(),
+            timeout=10,
+        )
+        assert r.status_code in (200, 401, 404, 422)
+
+    def test_warnings_list_endpoint(self):
+        """预警列表端点"""
+        r = requests.get(
+            f"{API_V1}/warnings",
+            headers=_get_auth_headers(),
+            timeout=10,
+        )
+        assert r.status_code in (200, 401, 404)
+
+    def test_knowledge_points_search(self):
+        """知识点模糊搜索"""
+        r = requests.get(
+            f"{API_V1}/knowledge-points/search",
+            params={"keyword": "氧化"},
+            headers=_get_auth_headers(),
+            timeout=10,
+        )
+        assert r.status_code in (200, 401, 422)
+
+    def test_knowledge_points_list(self):
+        """知识点列表"""
+        r = requests.get(
+            f"{API_V1}/knowledge-points",
+            headers=_get_auth_headers(),
+            timeout=10,
+        )
+        assert r.status_code in (200, 401)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -281,42 +236,51 @@ class TestDiagnosisAPI:
 @pytest.mark.l2
 @pytest.mark.skipif(not API_AVAILABLE, reason="API 服务不可达")
 class TestConversationAPI:
-    """对话 API — 6 道"""
+    """对话 API — 6 道（对齐 /chat 前缀路由）"""
 
-    def test_agent_chat_endpoint_exists(self):
-        """Agent 对话端点可达"""
+    def test_chat_stream_endpoint_exists(self):
+        """Agent 对话流端点可达"""
         r = requests.post(
-            f"{API_V1}/agent/chat",
-            json={"message": "化学平衡是什么？", "persona": "student"},
+            f"{API_V1}/chat/stream",
+            json={
+                "message": "化学平衡是什么？",
+                "thread_id": "t-test-001",
+                "context": {"role": "student"},
+            },
             headers=_get_auth_headers(),
             timeout=10,
         )
-        assert r.status_code in (200, 401, 422, 404)
+        assert r.status_code in (200, 401, 403, 422)
 
-    def test_session_create_endpoint(self):
-        """会话创建"""
+    def test_new_conversation_endpoint(self):
+        """新建对话"""
         r = requests.post(
-            f"{API_V1}/sessions",
-            json={"persona": "teacher"},
+            f"{API_V1}/chat/new",
+            json={"prefix": "t"},
             headers=_get_auth_headers(),
             timeout=10,
         )
         assert r.status_code in (200, 201, 401, 404)
 
-    def test_session_history_query(self):
+    def test_conversation_history_query(self):
         """会话历史查询"""
         r = requests.get(
-            f"{API_V1}/sessions",
+            f"{API_V1}/chat/history/t-test-001",
             headers=_get_auth_headers(),
             timeout=10,
         )
-        assert r.status_code in (200, 401, 404)
+        # 501 = 未实现（路由保留）；200/401 亦可
+        assert r.status_code in (200, 401, 404, 501)
 
     def test_stream_event_format(self):
         """流式事件格式验证"""
         r = requests.post(
-            f"{API_V1}/agent/chat/stream",
-            json={"message": "解释摩尔概念", "persona": "student"},
+            f"{API_V1}/chat/stream",
+            json={
+                "message": "解释摩尔概念",
+                "thread_id": "t-test-stream",
+                "context": {"role": "student"},
+            },
             headers=_get_auth_headers(),
             timeout=30,
             stream=True,
@@ -326,21 +290,17 @@ class TestConversationAPI:
             content_type = r.headers.get("content-type", "")
             assert "text/event-stream" in content_type or "text/plain" in content_type
         else:
-            assert r.status_code in (401, 404)
+            assert r.status_code in (401, 403, 422)
 
-    def test_multi_turn_context_maintained(self):
-        """多轮对话上下文保持"""
+    def test_reset_conversation_endpoint(self):
+        """重置对话上下文"""
         r = requests.post(
-            f"{API_V1}/agent/chat",
-            json={
-                "message": "我上一题做错了，能再讲解一下吗？",
-                "persona": "student",
-                "session_id": "test-session-multi-turn",
-            },
+            f"{API_V1}/chat/reset",
+            params={"thread_id": "t-test-001"},
             headers=_get_auth_headers(),
-            timeout=30,
+            timeout=10,
         )
-        assert r.status_code in (200, 401, 422, 404)
+        assert r.status_code in (200, 401, 404)
 
     def test_concurrent_requests(self):
         """并发请求不阻塞（快速验证）"""
@@ -349,8 +309,12 @@ class TestConversationAPI:
         def make_request():
             try:
                 return requests.post(
-                    f"{API_V1}/agent/chat",
-                    json={"message": "测试并发", "persona": "student"},
+                    f"{API_V1}/chat/stream",
+                    json={
+                        "message": "测试并发",
+                        "thread_id": "t-test-concurrent",
+                        "context": {"role": "student"},
+                    },
                     headers=_get_auth_headers(),
                     timeout=15,
                 ).status_code
@@ -363,7 +327,7 @@ class TestConversationAPI:
 
         # 所有请求应正常响应（不阻塞）
         for code in results:
-            assert code in (200, 401, 422, 404, 503)
+            assert code in (200, 401, 403, 422, 404, 503)
 
 
 # ═══════════════════════════════════════════════════════════

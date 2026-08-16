@@ -56,24 +56,38 @@ _checkpointer_cm: Optional[Any] = None  # 保存 context manager 引用，防止
 
 
 async def _get_checkpointer() -> AsyncSqliteSaver:
-    """获取进程级 Checkpointer 单例（线程安全）。
+    """获取进程级 Checkpointer 单例（线程安全 + 事件循环感知）。
 
     LangGraph >= 0.2 中 from_conn_string() 返回 async context manager，
     需手动 __aenter__ 获取实例。context manager 引用保存在全局变量中，
     避免被 GC 提前触发 __aexit__ 关闭数据库连接。
+
+    aiosqlite 连接绑定创建时的事件循环；pytest function-scoped loop 下旧循环
+    关闭后连接失效（"no active connection"），故检测 loop 变化时重建单例。
     """
     global _checkpointer, _checkpointer_cm
-    if _checkpointer is not None:
+    loop = asyncio.get_running_loop()
+    if _checkpointer is not None and _checkpointer.loop is loop:
         return _checkpointer
     async with _checkpointer_lock:
-        if _checkpointer is None:
-            _CHECKPOINT_DB.parent.mkdir(parents=True, exist_ok=True)
-            _checkpointer_cm = AsyncSqliteSaver.from_conn_string(
-                str(_CHECKPOINT_DB)
-            )
-            _checkpointer = await _checkpointer_cm.__aenter__()
-            await _checkpointer.setup()
-            logger.info("Checkpointer 已初始化: %s", _CHECKPOINT_DB)
+        loop = asyncio.get_running_loop()
+        if _checkpointer is not None and _checkpointer.loop is loop:
+            return _checkpointer
+        # 旧实例绑定已关闭的循环 → 关闭并重建（旧循环已死，关闭可能抛异常，忽略）
+        if _checkpointer_cm is not None:
+            try:
+                await _checkpointer_cm.__aexit__(None, None, None)
+            except Exception:
+                logger.exception("关闭旧 Checkpointer 失败（旧循环已关闭，忽略）")
+        _checkpointer = None
+        _checkpointer_cm = None
+        _CHECKPOINT_DB.parent.mkdir(parents=True, exist_ok=True)
+        _checkpointer_cm = AsyncSqliteSaver.from_conn_string(
+            str(_CHECKPOINT_DB)
+        )
+        _checkpointer = await _checkpointer_cm.__aenter__()
+        await _checkpointer.setup()
+        logger.info("Checkpointer 已初始化: %s", _CHECKPOINT_DB)
     return _checkpointer
 
 

@@ -9,14 +9,14 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 BASE = "http://localhost:8000"
 
 # Get valid token
-data = json.dumps({"phone": "13800000002", "password": "test123"}).encode()
+data = json.dumps({"phone": "13800000002", "password": "Demo@2026"}).encode()
 req = urllib.request.Request(f"{BASE}/api/v1/auth/login", data=data,
                               headers={"Content-Type": "application/json"})
 with urllib.request.urlopen(req) as resp:
     student_token = json.loads(resp.read())["token"]
 
 # Teacher token
-data = json.dumps({"phone": "13800000001", "password": "test123"}).encode()
+data = json.dumps({"phone": "13800000001", "password": "Demo@2026"}).encode()
 req = urllib.request.Request(f"{BASE}/api/v1/auth/login", data=data,
                               headers={"Content-Type": "application/json"})
 with urllib.request.urlopen(req) as resp:

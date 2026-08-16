@@ -14,7 +14,7 @@ TOKEN = None  # Will be obtained via login
 
 def get_token():
     """Login as student and get JWT token."""
-    data = json.dumps({"phone": "13800000002", "password": "test123"}).encode()
+    data = json.dumps({"phone": "13800000002", "password": "Demo@2026"}).encode()
     req = urllib.request.Request(
         f"{BASE}/api/v1/auth/login",
         data=data,

@@ -113,9 +113,10 @@ class TestConfigDefaults:
         from app.config import EXAM_BANK_PATH
         assert "exam_bank" in EXAM_BANK_PATH
 
-    def test_jwt_secret_default(self):
-        from app.config import JWT_SECRET
-        assert JWT_SECRET == "change-me-in-production"
+    def test_jwt_secret_not_weak_default(self):
+        from app.config import JWT_SECRET, DEFAULT_JWT_SECRET
+        # 安全要求：不得回退到弱默认值（测试环境由 conftest 注入测试密钥）
+        assert JWT_SECRET not in ("", DEFAULT_JWT_SECRET)
 
     def test_jwt_algorithm(self):
         from app.config import JWT_ALGORITHM

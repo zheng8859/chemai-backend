@@ -32,7 +32,11 @@ from app.api.deps import (
 )
 from app.agent.gateway import classify_provider
 from app.agent.planner import generate as planner_generate, single_step_fallback, Plan, validate
-from app.agent.engine.factory import create_agent_with_checkpointer, get_thread_guard_state
+from app.agent.engine.factory import (
+    create_agent_with_checkpointer,
+    get_thread_guard_state,
+    _get_checkpointer,
+)
 from app.agent.context import build_student_context, inject_student_context, should_inject_context
 from app.agent.context_trimmer import trim as trim_context, should_trim
 from app.agent.sse.adapter_v2 import langgraph_sse_v2
@@ -349,6 +353,26 @@ async def chat_stream(
     )
 
 
+def _content_to_text(content: Any) -> str:
+    """将 LangChain 消息 content（str 或 list 块）归一化为纯文本。"""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                if block.get("type") == "text":
+                    parts.append(block.get("text", ""))
+                else:
+                    parts.append(str(block))
+            else:
+                parts.append(str(block))
+        return "".join(parts)
+    return str(content)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 对话 CRUD
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -361,9 +385,41 @@ async def list_conversations(
     """列出对话列表。
 
     从 checkpoint.db 查询所有匹配 prefix 的 thread_id，
-    返回最近更新时间。
+    返回 {thread_id, title, last_active}（按最近活跃倒序）。
     """
-    raise HTTPException(status_code=501, detail="Conversation listing not yet implemented")
+    cp = await _get_checkpointer()
+    cursor = await cp.conn.execute(
+        "SELECT DISTINCT thread_id FROM checkpoints WHERE thread_id LIKE ?",
+        (f"{prefix}%",),
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+
+    conversations = []
+    for (thread_id,) in rows:
+        tup = await cp.aget_tuple({"configurable": {"thread_id": thread_id}})
+        if tup is None:
+            continue
+        channel_values = tup.checkpoint.get("channel_values", {}) or {}
+        messages = channel_values.get("messages", []) or []
+        title = ""
+        for m in messages:
+            if getattr(m, "type", None) == "human":
+                title = _content_to_text(getattr(m, "content", ""))
+                if title:
+                    break
+        conversations.append({
+            "thread_id": thread_id,
+            "title": title.strip()[:50] if title else thread_id,
+            "last_active": tup.checkpoint.get("ts"),
+        })
+
+    # 按最近活跃时间倒序（无时间戳的排最后）
+    conversations.sort(
+        key=lambda c: c.get("last_active") or "",
+        reverse=True,
+    )
+    return {"conversations": conversations}
 
 
 @router.get("/history/{thread_id}")
@@ -373,9 +429,28 @@ async def get_history(
 ):
     """获取对话历史。
 
-    从 checkpoint 读取消息，按 role 分类返回。
+    从 checkpoint 读取消息，按 role 分类返回（human→user，ai→ai，忽略 system/tool）。
     """
-    raise HTTPException(status_code=501, detail="Conversation history not yet implemented")
+    cp = await _get_checkpointer()
+    tup = await cp.aget_tuple({"configurable": {"thread_id": thread_id}})
+    if tup is None:
+        return {"messages": []}
+    channel_values = tup.checkpoint.get("channel_values", {}) or {}
+    messages = channel_values.get("messages", []) or []
+
+    history = []
+    for m in messages:
+        mtype = getattr(m, "type", None)
+        if mtype == "human":
+            role = "user"
+        elif mtype == "ai":
+            role = "ai"
+        else:
+            continue
+        content = _content_to_text(getattr(m, "content", ""))
+        if content:
+            history.append({"role": role, "content": content})
+    return {"messages": history}
 
 
 @router.post("/new")
@@ -401,7 +476,9 @@ async def delete_conversation(
 
     删除 checkpoint.db 中该 thread_id 的所有 writes 和 checkpoints。
     """
-    raise HTTPException(status_code=501, detail="Conversation deletion not yet implemented")
+    cp = await _get_checkpointer()
+    await cp.adelete_thread(thread_id)
+    return {"success": True, "thread_id": thread_id}
 
 
 @router.post("/resume")

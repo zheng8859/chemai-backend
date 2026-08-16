@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.database import get_db
+from ...api.deps import require_permission, UserContext
 from ...services.auth_service import AuthService, AuthError
 from ...schemas.auth import (
     LoginRequest,
@@ -99,7 +100,11 @@ async def activate(request: StudentActivateRequest, db: AsyncSession = Depends(g
 
 
 @student_router.post("/batch")
-async def batch_create_students(request: StudentBatchCreateRequest, db: AsyncSession = Depends(get_db)):
+async def batch_create_students(
+    request: StudentBatchCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: UserContext = Depends(require_permission("student", "create")),
+):
     """Teacher batch-creates student accounts."""
     try:
         result = await AuthService.student_batch_create(

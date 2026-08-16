@@ -260,7 +260,7 @@ createApp({
   setup() {
     const BASE = '/api/v1';
     const TOKEN = () => {
-      try { return JSON.parse(localStorage.getItem('token')||'{}').access_token || ''; } catch { return ''; }
+      try { return localStorage.getItem('chemai_token') || ''; } catch { return ''; }
     };
     const headers = () => ({ 'Authorization': `Bearer ${TOKEN()}` });
 

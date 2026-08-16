@@ -173,7 +173,7 @@ def test_login(page):
     # 4. 正确登录 → 应跳转到 index.html
     if phone_input.count() > 0 and pwd_input.count() > 0 and btn.count() > 0:
         phone_input.fill("13800000002")
-        pwd_input.fill("test123")
+        pwd_input.fill("Demo@2026")
         btn.click()
         page.wait_for_timeout(3000)
 

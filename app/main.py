@@ -16,12 +16,20 @@ from starlette.responses import Response
 
 from .api.deps import AUTH_WHITELIST_PREFIXES
 from .api.v1 import v1_router
+from .config import CORS_ALLOWED_ORIGINS
 
 
 # ── Lifespan (startup / shutdown) ──────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: 启动调度器。Shutdown: 关闭调度器 + dispose engines。"""
+    """Startup: 安全守卫 + 启动调度器。Shutdown: 关闭调度器 + dispose engines。"""
+    from .config import JWT_SECRET, DEFAULT_JWT_SECRET
+    if not JWT_SECRET or JWT_SECRET == DEFAULT_JWT_SECRET:
+        raise RuntimeError(
+            "JWT_SECRET 未配置或仍为默认弱密钥，禁止启动。"
+            "请用 `openssl rand -hex 32` 生成强密钥写入 .env 的 JWT_SECRET。"
+        )
+
     from .infrastructure.scheduler import start_scheduler, shutdown_scheduler
     start_scheduler()
     yield
@@ -43,7 +51,7 @@ app = FastAPI(
 # ── CORS ───────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 桌面应用内嵌场景；生产应收紧
+    allow_origins=CORS_ALLOWED_ORIGINS,  # 白名单源（config.CORS_ALLOWED_ORIGINS），禁止通配符 + 凭证并存
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
