@@ -1,0 +1,33 @@
+# ── 版本控制 / 本地环境 ──
+.git
+.gitignore
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ── 运行时数据库（不进镜像，走 volume）──
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.db-journal
+data/test_*.db
+data/test_*.db-journal
+data/chroma_db/
+data/chromadb/
+data/ocr_uploads/
+data/audit/
+data/evals/
+
+# ── 测试 / 工具 / 文档（不随镜像）──
+tests/
+scripts/
+reports/
+docker/
+test_*.py
+*.md
+
+# ── 敏感信息（经 env_file 注入，不打进镜像）──
+.env
+.env.example

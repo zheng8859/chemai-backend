@@ -1,0 +1,22 @@
+# ChemAI 后端 — 单机部署编排
+# 启动：docker compose up -d    停止：docker compose down
+services:
+  chemai-backend:
+    build: .
+    container_name: chemai-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - chemai_data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  chemai_data:
