@@ -260,22 +260,33 @@ async def seed():
             ))
             await db.flush()
 
-        # ── 9. Parent Binding（仅当无绑定时创建）──
-        binding_count = (await db.execute(select(func.count(StudentParentBinding.id)))).scalar_one()
-        if binding_count == 0:
-            parent = (await db.execute(select(Parent).limit(1))).scalar_one_or_none()
-            if parent is None:
-                p_acc = Account(phone="13900000100", password_hash=hash_password(DEMO_PASSWORD), role=AccountRole.parent)
-                db.add(p_acc)
+        # ── 9. Parent Accounts + Profiles + Bindings（find-or-create，口令无条件轮换）──
+        # 修复 D-01：家长口令轮换需像教师/学生一样放在条件块之外，
+        # 否则绑定已存在时（如经 /auth/register/parent 注册过）口令不会轮换到 DEMO_PASSWORD。
+        # 文档（e2e-test-steps.md §0.3）演示 3 个家长账号，均绑定到该学生。
+        for parent_phone in ("13900000100", "13900000101", "13900000999"):
+            p_acc, _ = await _get_or_create(
+                db, Account, Account.phone == parent_phone,
+                lambda: Account(phone=parent_phone, password_hash=hash_password(DEMO_PASSWORD), role=AccountRole.parent),
+            )
+            p_acc.password_hash = hash_password(DEMO_PASSWORD)  # 轮换：使注册流旧口令作废
+            parent, _ = await _get_or_create(
+                db, Parent, Parent.account_id == p_acc.id,
+                lambda: Parent(account_id=p_acc.id, name="测试家长"),
+            )
+            # 幂等绑定：仅当该 (student, parent) 尚无绑定时创建
+            binding_exists = (await db.execute(
+                select(StudentParentBinding).where(
+                    StudentParentBinding.student_id == student_id,
+                    StudentParentBinding.parent_id == parent.id,
+                )
+            )).scalar_one_or_none()
+            if binding_exists is None:
+                db.add(StudentParentBinding(
+                    student_id=student_id, parent_id=parent.id,
+                    status=BindingStatus.active, relation=ParentRelation.father,
+                ))
                 await db.flush()
-                parent = Parent(account_id=p_acc.id, name="测试家长")
-                db.add(parent)
-                await db.flush()
-            db.add(StudentParentBinding(
-                student_id=student_id, parent_id=parent.id,
-                status=BindingStatus.active, relation=ParentRelation.father,
-            ))
-            await db.flush()
 
         await db.commit()
 
