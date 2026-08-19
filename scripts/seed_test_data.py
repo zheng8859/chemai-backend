@@ -20,7 +20,7 @@ from app.models.user import (
 )
 from app.models.org import School, Grade, Class as ClassModel
 from app.models.teaching import Question, PracticeSession, PracticeSessionQuestion, StudentAnswer, ExamRecord
-from app.models.diagnosis import ReviewTask, WarningLog
+from app.models.diagnosis import ReviewTask, WarningLog, KnowledgePoint
 from app.models.exam_paper import ExamPaper, ExamPaperQuestion
 from app.models.homework import StudentParentBinding
 from app.core.enums import (
@@ -31,6 +31,7 @@ from app.core.enums import (
     BindingStatus, ParentRelation, ExamType, ExamRecordStatus,
 )
 from app.core.security import create_access_token, hash_password
+from app.seed import CHEMISTRY_KNOWLEDGE_POINTS
 
 # 演示账号统一口令。旧弱口令 test123 的 bcrypt 哈希已随 data/chemai.db.bak 泄露进公开仓库，
 # 此处换强口令并在 seed 时轮换，使泄露哈希作废（幂等）。
@@ -66,6 +67,14 @@ async def seed():
             db, ClassModel, ClassModel.grade_id == grade.id,
             lambda: ClassModel(name="高一(1)班", grade_id=grade.id),
         )
+
+        # ── 1.5 Knowledge Points（出题工作台知识点选择器依赖此表，find-or-create）──
+        for kp in CHEMISTRY_KNOWLEDGE_POINTS:
+            exists = (await db.execute(
+                select(KnowledgePoint).where(KnowledgePoint.name == kp["name"])
+            )).scalar_one_or_none()
+            if exists is None:
+                db.add(KnowledgePoint(**kp))
 
         # ── 2. Teacher Account + Profile + 任课关系 ──
         t_acc, _ = await _get_or_create(

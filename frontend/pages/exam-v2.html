@@ -1126,7 +1126,7 @@
         // ═══════════════════════════════════════════════
         const API_BASE = 'http://127.0.0.1:8000/api/v1';
 
-        async function apiRequest(method, path, body = null, params = null) {
+        async function apiRequest(method, path, body = null, params = null, timeoutMs = 30000) {
           let url = `${API_BASE}${path}`;
           if (params) {
             const parts = [];
@@ -1153,7 +1153,7 @@
 
           const controller = new AbortController();
           opts.signal = controller.signal;
-          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
           try {
             const res = await fetch(url, opts);
@@ -1173,7 +1173,7 @@
 
         const api = {
           get: (path, params) => apiRequest('GET', path, null, params),
-          post: (path, body, params) => apiRequest('POST', path, body, params),
+          post: (path, body, params, timeoutMs) => apiRequest('POST', path, body, params, timeoutMs),
           patch: (path, body) => apiRequest('PATCH', path, body),
           del: (path) => apiRequest('DELETE', path),
         };
@@ -1449,6 +1449,10 @@
             const res = await api.get('/knowledge-points/search', { keyword, limit: 10 });
             console.log('searchKps response:', res);
             kpSuggestions.value = (Array.isArray(res) ? res : (res.data || res.items || [])).slice(0, 8);
+            if (!kpSuggestions.value.length) {
+              // 后端数据为空时回退到本地示例，保证出题工作台知识点选择仍有反馈
+              kpSuggestions.value = fallbackKps(keyword, 8);
+            }
             kpDropdownVisible.value = true;
             console.log('kpSuggestions:', kpSuggestions.value);
           } catch (e) {
@@ -1549,7 +1553,7 @@
               body.variant_source = 'historical';
             }
 
-            const res = await api.post('/questions/generate', body);
+            const res = await api.post('/questions/generate', body, null, 120000);
             const questions = res.questions || res.data?.questions || [];
             questions.forEach(q => { q._showHints = false; });
             genQuestions.push(...questions);
@@ -1649,6 +1653,9 @@
             try {
               const res = await api.get('/knowledge-points/search', { keyword: manualKpSearch.value, limit: 8 });
               manualKpSuggestions.value = (Array.isArray(res) ? res : (res.data || res.items || [])).slice(0, 8);
+              if (!manualKpSuggestions.value.length) {
+                manualKpSuggestions.value = fallbackKps(manualKpSearch.value, 8);
+              }
               manualKpDropdown.value = true;
             } catch (e) {
               console.error('onManualKpSearch error:', e);
