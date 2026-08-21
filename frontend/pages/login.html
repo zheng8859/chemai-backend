@@ -263,9 +263,9 @@
       localStorage.setItem('user_name', data.name || '教师');
       localStorage.setItem('user_role', data.role || 'teacher');
 
-      // Redirect to the referring page or default to exam workbench
+      // Redirect to the referring page or default to teacher home (index.html)
       const params = new URLSearchParams(window.location.search);
-      const redirect = params.get('redirect') || 'exam-v2.html';
+      const redirect = params.get('redirect') || 'index.html';
       window.location.href = redirect;
 
     } catch (err) {
