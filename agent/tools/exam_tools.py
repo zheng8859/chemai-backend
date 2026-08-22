@@ -302,7 +302,7 @@ async def save_to_bank(
             "bank_name": result["bank_name"],
             "saved_count": result["saved_count"],
             "question_ids": result["question_ids"],
-            "_route": {"page": "exam-v2", "params": {"bank_id": result["bank_id"]}},
+            "message": f"已保存 {result['saved_count']} 道题到题库「{result['bank_name']}」",
         }
 
 
@@ -336,7 +336,11 @@ async def generate_questions(
         questions = result.get("questions", [])
         audit = result.get("audit_summary", {})
         return {
-            "questions": [q.model_dump() for q in questions],
+            # model_dump(mode="json") 将枚举/日期序列化为字符串（"medium"/
+            # "ai_generated"/"2026-08-22T…"），否则 LangGraph 的 msg_content_output
+            # 因 datetime 无法 JSON 序列化而降级为 str(dict)，产生
+            # "<Difficulty.medium: 'medium'>" 等技术字段泄露到前端。
+            "questions": [q.model_dump(mode="json") for q in questions],
             "generated_count": result.get("generated_count", len(questions)),
             "audit_summary": {
                 "total": len(questions),

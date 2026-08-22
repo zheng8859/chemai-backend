@@ -238,6 +238,30 @@ class TestAssignAdaptivePractice:
         assert result["practices"][0]["practice_id"] == "PR-9"
 
     @pytest.mark.anyio
+    async def test_class_name_resolves_fullwidth_parens(self, fake_session, make_student, monkeypatch):
+        # 库中班级名为半角括号「高一(1)班」，用户输入全角「高一（1）班」应能命中
+        s = await make_student(name="甲", class_name="高一(1)班")
+        cid = s.class_id
+
+        calls = []
+        async def fake_create_practice(db, student_id, question_count=10, kp_override=None):
+            calls.append(student_id)
+            return self._practice_result(student_id, question_count)
+        monkeypatch.setattr(dt.AdaptivePracticeService, "create_practice", fake_create_practice)
+
+        result = await dt.assign_adaptive_practice(class_name="高一（1）班", count=3)
+        assert result["scope"] == "class"
+        assert result["class_id"] == cid
+        assert len(calls) == 1
+        assert calls[0] == s.id
+
+    @pytest.mark.anyio
+    async def test_class_name_not_found_returns_error(self, fake_session):
+        result = await dt.assign_adaptive_practice(class_name="高二（9）班")
+        assert result["scope"] == "error"
+        assert "未找到班级" in result["message"]
+
+    @pytest.mark.anyio
     async def test_no_identifier_returns_error(self, fake_session):
         result = await dt.assign_adaptive_practice()
         assert result["scope"] == "error"

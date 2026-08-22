@@ -112,6 +112,45 @@ def _plan_to_instruction(plan: Plan) -> str:
     return "\n".join(lines)
 
 
+async def _resolve_class_context(db, teacher_id: int, class_id: int) -> str:
+    """解析并校验教师选中的班级，生成注入 Agent 的班级上下文（防越权）。
+
+    仅当教师与该班级存在任课关系（TeacherClassSubject）时返回上下文；
+    否则返回空串（不注入，自由文本场景仍由 assign_adaptive_practice 的
+    class_name 参数兜底）。
+
+    Args:
+        db: AsyncSession
+        teacher_id: Teacher.id（数据库主键）
+        class_id: 前端 context 传入的 Class.id
+
+    Returns:
+        班级上下文 System Message 文本，或空串（无权/不存在）
+    """
+    from sqlalchemy import select as sa_select
+    from app.models.org import Class
+    from app.models.user import TeacherClassSubject
+
+    tcs = await db.execute(
+        sa_select(TeacherClassSubject).where(
+            TeacherClassSubject.teacher_id == teacher_id,
+            TeacherClassSubject.class_id == class_id,
+        )
+    )
+    if tcs.scalar_one_or_none() is None:
+        return ""
+
+    cls = await db.execute(sa_select(Class).where(Class.id == class_id))
+    klass = cls.scalar_one_or_none()
+    if klass is None:
+        return ""
+
+    return (
+        f"当前选中的班级：{klass.name}（class_id={class_id}）。"
+        "在布置练习、诊断学情、生成周报等按班级操作时，请优先使用该 class_id。"
+    )
+
+
 # 认证角色 → 允许的 persona 集合（防止越权伪装）
 _PERSONA_BY_ROLE: dict[str, tuple[str, ...]] = {
     "teacher": ("teacher", "tutor"),
@@ -221,8 +260,17 @@ async def chat_stream(
     teacher_id = None
     student_id = None
     bound_student_ids: set[int] = set()
+    class_context_str = ""  # 教师选中班级的注入上下文（防越权校验）
     if persona in ("teacher", "tutor"):
         teacher_id = await resolve_teacher_id(db, user.user_id)
+        requested_class_id = context.get("class_id")
+        if requested_class_id and teacher_id is not None:
+            try:
+                class_context_str = await _resolve_class_context(
+                    db, teacher_id, int(requested_class_id)
+                )
+            except (TypeError, ValueError):
+                class_context_str = ""
     elif persona == "student":
         student_id = await resolve_student_id(db, user.user_id)
         if student_id is None:
@@ -301,10 +349,11 @@ async def chat_stream(
 
             # ── Step 4: 注入计划到消息（prepend plan instruction）──
             plan_instruction = _plan_to_instruction(plan)
-            messages = [
-                {"role": "system", "content": plan_instruction},
-                {"role": "user", "content": req.message},
-            ]
+            messages = []
+            if class_context_str:
+                messages.append({"role": "system", "content": class_context_str})
+            messages.append({"role": "system", "content": plan_instruction})
+            messages.append({"role": "user", "content": req.message})
 
             # ── Step 5: ReAct + Guard + SSE ──
             config = {"configurable": {"thread_id": req.thread_id}}

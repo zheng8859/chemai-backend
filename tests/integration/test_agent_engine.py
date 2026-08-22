@@ -833,6 +833,34 @@ class TestSSEEventSequence:
         parsed = json.loads(result)
         assert parsed["key"] == "value"
 
+    def test_try_loads_json_unwraps_msg_content(self):
+        """_try_loads_json 把 msg_content_output 的 JSON 字符串还原为对象。
+
+        修复二次编码：msg.content 已是 JSON 字符串，若再 json.dumps 则前端
+        JSON.parse 一次后仍是字符串（而非对象），题目卡片退化为空卡。
+        """
+        from app.agent.sse.adapter_v2 import _try_loads_json
+        # JSON 字符串 → 对象（前端 JSON.parse 一次即得对象）
+        parsed = _try_loads_json('{"questions": [{"difficulty": "medium"}]}')
+        assert parsed == {"questions": [{"difficulty": "medium"}]}
+        # 纯文本非 JSON → 原样返回
+        assert _try_loads_json("这是纯文本回复") == "这是纯文本回复"
+        # 非字符串 → 原样返回
+        already_dict = {"status": "saved"}
+        assert _try_loads_json(already_dict) is already_dict
+
+    def test_tool_result_no_double_encode(self):
+        """tool_result 的 result 字段应为单层 JSON 字符串（前端解析一次得对象）。"""
+        from app.agent.sse.adapter_v2 import _try_loads_json, _safe_serialize
+        # 模拟 on_tool_end：msg.content 为 JSON 字符串，先还原再序列化
+        msg_content = '{"questions": [{"difficulty": "medium", "audit_status": "passed"}]}'
+        clean_output = _try_loads_json(msg_content)
+        serialized = _safe_serialize(clean_output)
+        # 前端 JSON.parse(serialized) 一次应直接得到对象
+        assert json.loads(serialized)["questions"][0]["difficulty"] == "medium"
+        # 不得出现二次编码（首字符为引号意味着字符串被再次包裹）
+        assert not serialized.startswith('"')
+
     @pytest.mark.anyio
     async def test_queue_full_drops_text(self):
         """背压保护：队列满时丢弃 text 中间帧。"""

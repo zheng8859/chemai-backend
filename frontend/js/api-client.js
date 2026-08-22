@@ -110,6 +110,17 @@ var ChemAPI = (function () {
    *
    * @param {HTMLElement} containerEl — 要渲染的 DOM 容器
    */
+  function decodeHtmlEntities(s) {
+    // escapeHtml 会把 > < & " ' 转义为实体，KaTeX 无法解析 &gt; 等（& 会被当作对齐符），
+    // 导致氧化性顺序比较式（如 $Br_2 > Fe^{3+} > I_2$）以非标准格式展示。渲染前还原。
+    return String(s)
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
+  }
+
   function renderLatex(containerEl) {
     if (!containerEl) return;
     if (typeof katex === 'undefined') return; // 降级: 保留原始文本
@@ -119,7 +130,7 @@ var ChemAPI = (function () {
     // 1) 行内公式 $...$ (不匹配 $$)
     html = html.replace(/(?<!\$)\$(?!\$)([^$]+?)\$(?!\$)/g, function (match, formula) {
       try {
-        return katex.renderToString(formula.trim(), {
+        return katex.renderToString(decodeHtmlEntities(formula.trim()), {
           throwOnError: false,
           strict: false,
         });
@@ -131,7 +142,7 @@ var ChemAPI = (function () {
     // 2) 块级公式 $$...$$
     html = html.replace(/\$\$([^$]+?)\$\$/g, function (match, formula) {
       try {
-        return katex.renderToString(formula.trim(), {
+        return katex.renderToString(decodeHtmlEntities(formula.trim()), {
           throwOnError: false,
           strict: false,
           displayMode: true,
@@ -180,6 +191,11 @@ var ChemAPI = (function () {
     return div.innerHTML;
   }
 
+  /** 去除选项文本自带的前缀（如 "A. 蔗糖" → "蔗糖"），避免与前端字母徽标重复。 */
+  function stripOptionPrefix(text) {
+    return String(text).replace(/^[A-Fa-f]\s*[.、:：）)]\s*/, '');
+  }
+
   /** 渲染选择题选项 HTML（供页面拼接用）
    * @param {Array|Object} options — 选项列表或 {A:..., B:...} 映射
    * @param {number} questionId — 题目 ID
@@ -197,7 +213,7 @@ var ChemAPI = (function () {
         var isSelected = selectedAnswer === letter;
         html += '<button class="option-btn' + (isSelected ? ' selected' : '') + '" onclick="' + selectFnName + '(' + questionId + ', \'' + letter + '\')">'
           + '<span class="opt-letter">' + letter + '</span>'
-          + '<span>' + (typeof opt === 'string' ? opt : (opt.label || opt.text || '')) + '</span>'
+          + '<span>' + stripOptionPrefix(typeof opt === 'string' ? opt : (opt.label || opt.text || '')) + '</span>'
           + '</button>';
       });
     } else if (typeof options === 'object') {
@@ -205,7 +221,7 @@ var ChemAPI = (function () {
         var isSelected = selectedAnswer === letter;
         html += '<button class="option-btn' + (isSelected ? ' selected' : '') + '" onclick="' + selectFnName + '(' + questionId + ', \'' + letter + '\')">'
           + '<span class="opt-letter">' + letter + '</span>'
-          + '<span>' + options[letter] + '</span>'
+          + '<span>' + stripOptionPrefix(options[letter]) + '</span>'
           + '</button>';
       });
     }
@@ -318,6 +334,7 @@ var ChemAPI = (function () {
     renderLatex: renderLatex,
     showToast: showToast,
     escapeHtml: escapeHtml,
+    stripOptionPrefix: stripOptionPrefix,
     renderOptionsHtml: renderOptionsHtml,
     createQuizNavigator: createQuizNavigator,
     updateQuizNav: updateQuizNav,

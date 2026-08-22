@@ -1126,7 +1126,7 @@
         // ═══════════════════════════════════════════════
         const API_BASE = 'http://127.0.0.1:8000/api/v1';
 
-        async function apiRequest(method, path, body = null, params = null) {
+        async function apiRequest(method, path, body = null, params = null, timeoutMs = 30000) {
           let url = `${API_BASE}${path}`;
           if (params) {
             const parts = [];
@@ -1153,7 +1153,7 @@
 
           const controller = new AbortController();
           opts.signal = controller.signal;
-          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
           try {
             const res = await fetch(url, opts);
@@ -1173,7 +1173,7 @@
 
         const api = {
           get: (path, params) => apiRequest('GET', path, null, params),
-          post: (path, body, params) => apiRequest('POST', path, body, params),
+          post: (path, body, params, timeoutMs) => apiRequest('POST', path, body, params, timeoutMs),
           patch: (path, body) => apiRequest('PATCH', path, body),
           del: (path) => apiRequest('DELETE', path),
         };
@@ -1449,6 +1449,10 @@
             const res = await api.get('/knowledge-points/search', { keyword, limit: 10 });
             console.log('searchKps response:', res);
             kpSuggestions.value = (Array.isArray(res) ? res : (res.data || res.items || [])).slice(0, 8);
+            if (!kpSuggestions.value.length) {
+              // 后端数据为空时回退到本地示例，保证出题工作台知识点选择仍有反馈
+              kpSuggestions.value = fallbackKps(keyword, 8);
+            }
             kpDropdownVisible.value = true;
             console.log('kpSuggestions:', kpSuggestions.value);
           } catch (e) {
@@ -1549,7 +1553,7 @@
               body.variant_source = 'historical';
             }
 
-            const res = await api.post('/questions/generate', body);
+            const res = await api.post('/questions/generate', body, null, 120000);
             const questions = res.questions || res.data?.questions || [];
             questions.forEach(q => { q._showHints = false; });
             genQuestions.push(...questions);
@@ -1649,6 +1653,9 @@
             try {
               const res = await api.get('/knowledge-points/search', { keyword: manualKpSearch.value, limit: 8 });
               manualKpSuggestions.value = (Array.isArray(res) ? res : (res.data || res.items || [])).slice(0, 8);
+              if (!manualKpSuggestions.value.length) {
+                manualKpSuggestions.value = fallbackKps(manualKpSearch.value, 8);
+              }
               manualKpDropdown.value = true;
             } catch (e) {
               console.error('onManualKpSearch error:', e);
@@ -2098,6 +2105,7 @@
             const bankQs = Array.isArray(qRes) ? qRes : (qRes.data || qRes.items || []);
             const histQs = Array.isArray(hRes) ? hRes : (hRes.data || hRes.items || []);
 
+            const seenContents = new Set();
             const allOpts = [
               ...bankQs.map(q => ({
                 id: q.id, source: 'bank',
@@ -2121,7 +2129,15 @@
                 _sourceName: `${h.source || ''} ${h.year || ''}`.trim(),
                 _expanded: false,
               })),
-            ];
+            ].filter(o => {
+              // 去重：同一题干（content）只显示一次，避免 AI 生成的重复题刷屏。
+              // 归一化空白（含全角空格　、半角空格、换行）后再比较，避免「（　　）」与「（ ）」
+              // 这类仅空白宽度不同的重复题仍被并列显示。
+              const key = (o.content || '').replace(/\s+/g, ' ').trim();
+              if (seenContents.has(key)) return false;
+              seenContents.add(key);
+              return true;
+            });
 
             if (!allOpts.length) {
               toast('暂无可用题目，请先在出题工作台生成或导入题目', 'warning');
@@ -2356,6 +2372,18 @@
       }
     });
 
+    function decodeHtmlEntities(s) {
+      // Vue 文本插值后，浏览器把 textContent 序列化为 innerHTML 时会将 > < & " ' 转义为实体；
+      // KaTeX 无法解析 &gt; 等实体（& 会被当作对齐符），导致氧化性顺序比较式（如 $Br_2 > Fe^{3+} > I_2$）
+      // 以非标准格式展示。渲染前还原这些实体，恢复原始 LaTeX。
+      return String(s)
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&');
+    }
+
     function renderKatex(el) {
       if (!window.katex) return;
       // Only process if not already rendered (check for existing katex spans)
@@ -2370,7 +2398,7 @@
       // Match $...$ (non-greedy, not $$)
       html = html.replace(/\$([^$]+?)\$/g, (match, formula) => {
         try {
-          return katex.renderToString(formula, { throwOnError: false, trust: true });
+          return katex.renderToString(decodeHtmlEntities(formula), { throwOnError: false, trust: true });
         } catch (e) {
           return match;
         }
@@ -2378,7 +2406,7 @@
       // Match \ce{...}
       html = html.replace(/\\ce\{([^}]+?)\}/g, (match, formula) => {
         try {
-          return katex.renderToString('\\ce{' + formula + '}', { throwOnError: false, trust: true });
+          return katex.renderToString('\\ce{' + decodeHtmlEntities(formula) + '}', { throwOnError: false, trust: true });
         } catch (e) {
           return match;
         }

@@ -367,8 +367,7 @@
       </header>
       <div class="quiz-content" id="quizContent"></div>
       <div class="quiz-actions" id="quizActions">
-        <button class="btn-quiz btn-correct" id="btnCorrect" onclick="submitAnswer(true)">✓ 答对了</button>
-        <button class="btn-quiz btn-wrong"  id="btnWrong"  onclick="submitAnswer(false)">✗ 答错了</button>
+        <button class="btn-quiz btn-correct" id="btnSubmit" onclick="submitReview()">提交答案</button>
       </div>
       <button class="btn-back-list" id="btnBackToList" onclick="backToList()" style="display:none">返回列表</button>
     </div>
@@ -386,6 +385,7 @@
       todaysReviewed: [],     // Tasks reviewed in this session
       masteredCount: 0,       // Tasks that reached level 5 this session
       activeTask: null,       // Current review task being answered
+      selectedAnswer: null,   // 当前选择题已选答案字母
       isSubmitting: false,
     };
 
@@ -502,12 +502,37 @@
     }
 
     // ══════════════════════════════════════════════════════════
+    // 答案格式化（修复：选项 ABCD 重复）
+    // ══════════════════════════════════════════════════════════
+    // 把答案格式化为可读完整选项（"C" → "C. 熔融NaOH"）。
+    // 选项前缀去重复用 ChemAPI.stripOptionPrefix。
+    function formatAnswer(q) {
+      if (!q || !q.answer) return '';
+      var answer = q.answer;
+      var options = q.options;
+      if (options) {
+        var idx = ['A', 'B', 'C', 'D', 'E', 'F'].indexOf(answer);
+        var text = null;
+        if (Array.isArray(options) && idx >= 0) {
+          text = options[idx];
+        } else if (typeof options === 'object' && !Array.isArray(options) && options[answer] != null) {
+          text = options[answer];
+        }
+        if (text != null) {
+          return answer + '. ' + ChemAPI.stripOptionPrefix(typeof text === 'string' ? text : (text.label || text.text || ''));
+        }
+      }
+      return answer;
+    }
+
+    // ══════════════════════════════════════════════════════════
     // Start review quiz (5.4)
     // ══════════════════════════════════════════════════════════
     function startReview(taskId) {
       var task = state.tasks.find(function(t) { return t.id === taskId; });
       if (!task) return;
       state.activeTask = task;
+      state.selectedAnswer = null;
 
       $('quizLevelBadge').textContent = 'Lv.' + (task.level || 0);
       $('quizLevelBadge').className = 'review-badge ' + LEVEL_CLASSES[Math.min(task.level || 0, 5)];
@@ -524,24 +549,10 @@
       }
 
       if (hasOptions) {
-        if (Array.isArray(options)) {
-          var letters = ['A', 'B', 'C', 'D', 'E', 'F'];
-          html += '<div style="display:flex;flex-direction:column;gap:8px">';
-          options.forEach(function(opt, idx) {
-            html += '<div style="padding:12px 16px;background:var(--white);border:1px solid #ddd;border-radius:8px;font-size:14px">'
-              + '<b>' + letters[idx] + '.</b> ' + (typeof opt === 'string' ? opt : (opt.label || opt.text || ''))
-              + '</div>';
-          });
-          html += '</div>';
-        } else {
-          html += '<div style="display:flex;flex-direction:column;gap:8px">';
-          Object.keys(options).forEach(function(letter) {
-            html += '<div style="padding:12px 16px;background:var(--white);border:1px solid #ddd;border-radius:8px;font-size:14px">'
-              + '<b>' + letter + '.</b> ' + options[letter]
-              + '</div>';
-          });
-          html += '</div>';
-        }
+        html += '<div id="reviewOptions"></div>';
+      } else {
+        // 填空/简答：文本框作答
+        html += '<textarea id="reviewFillInput" placeholder="请输入你的答案..." style="width:100%;min-height:80px;border:1px solid #ddd;border-radius:8px;padding:12px 16px;font-family:inherit;font-size:15px;color:var(--text-primary);resize:vertical;box-sizing:border-box"></textarea>';
       }
 
       // Answer reveal area (hidden initially)
@@ -550,12 +561,69 @@
       $('quizContent').innerHTML = html;
       $('quizActions').style.display = 'flex';
       $('btnBackToList').style.display = 'none';
-      $('btnCorrect').disabled = false;
-      $('btnWrong').disabled = false;
+      // 选择题需先选答案；填空/简答直接可提交
+      $('btnSubmit').disabled = hasOptions;
+
+      if (hasOptions) {
+        renderReviewOptions();
+      }
+
       ChemAPI.renderLatex($('quizContent'));
       $('quizContent').scrollTop = 0;
 
       switchView('quiz');
+    }
+
+    // 渲染可点选的选项（去除前缀，选中态高亮）
+    function renderReviewOptions() {
+      var q = state.activeTask.question || {};
+      var options = q.options;
+      if (!options) return;
+      var letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+      var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+      function renderOne(letter, opt) {
+        var text = ChemAPI.stripOptionPrefix(typeof opt === 'string' ? opt : (opt.label || opt.text || ''));
+        var selected = state.selectedAnswer === letter;
+        html += '<button type="button" onclick="selectReviewOption(\'' + letter + '\')"'
+          + ' style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:12px 16px;background:var(--white);border:1px solid '
+          + (selected ? 'var(--oxford-blue)' : '#ddd')
+          + ';border-radius:8px;font-size:14px;font-family:inherit;color:var(--text-primary);cursor:pointer">'
+          + '<b>' + letter + '.</b> <span style="flex:1">' + ChemAPI.escapeHtml(text) + '</span>'
+          + '</button>';
+      }
+      if (Array.isArray(options)) {
+        options.forEach(function(opt, idx) { renderOne(letters[idx] || '', opt); });
+      } else {
+        Object.keys(options).forEach(function(letter) { renderOne(letter, options[letter]); });
+      }
+      html += '</div>';
+      $('reviewOptions').innerHTML = html;
+      ChemAPI.renderLatex($('reviewOptions'));
+    }
+
+    function selectReviewOption(letter) {
+      state.selectedAnswer = letter;
+      renderReviewOptions();
+      $('btnSubmit').disabled = false;
+    }
+
+    function submitReview() {
+      if (state.isSubmitting || !state.activeTask) return;
+      var q = state.activeTask.question || {};
+      var options = q.options;
+      var hasOptions = options && (Array.isArray(options) ? options.length > 0 : (typeof options === 'object' && Object.keys(options).length > 0));
+      var isCorrect;
+
+      if (hasOptions) {
+        if (!state.selectedAnswer) { ChemAPI.showToast('请先选择答案'); return; }
+        isCorrect = state.selectedAnswer === (q.answer || '');
+      } else {
+        var input = $('reviewFillInput');
+        var val = input ? input.value.trim() : '';
+        isCorrect = val !== '' && val === String(q.answer || '').trim();
+      }
+
+      submitAnswer(isCorrect);
     }
 
     // ══════════════════════════════════════════════════════════
@@ -564,8 +632,7 @@
     function submitAnswer(isCorrect) {
       if (state.isSubmitting || !state.activeTask) return;
       state.isSubmitting = true;
-      $('btnCorrect').disabled = true;
-      $('btnWrong').disabled = true;
+      $('btnSubmit').disabled = true;
 
       ChemAPI.apiPost('/review/submit', {
         review_task_id: state.activeTask.id,
@@ -580,8 +647,8 @@
           var reveal = $('answerReveal');
           reveal.className = 'quiz-answer-reveal show ' + (isCorrect ? 'correct' : 'wrong');
           var revealHtml = '<b>' + (isCorrect ? '✓ 回答正确！' : '✗ 回答错误') + '</b>';
-          if (q.answer) revealHtml += '<div style="margin-top:4px">正确答案: ' + q.answer + '</div>';
-          if (q.analysis) revealHtml += '<div style="margin-top:6px;font-size:13px;opacity:0.85">' + q.analysis + '</div>';
+          if (q.answer) revealHtml += '<div style="margin-top:4px">正确答案: ' + ChemAPI.escapeHtml(formatAnswer(q)) + '</div>';
+          if (q.analysis) revealHtml += '<div style="margin-top:6px;font-size:13px;opacity:0.85">' + ChemAPI.escapeHtml(q.analysis) + '</div>';
 
           // Show next_review_date
           var nextReviewDate = result.next_review_date;
@@ -622,8 +689,7 @@
         })
         .catch(function(err) {
           state.isSubmitting = false;
-          $('btnCorrect').disabled = false;
-          $('btnWrong').disabled = false;
+          $('btnSubmit').disabled = false;
           ChemAPI.showToast('提交失败: ' + err.message);
         });
     }

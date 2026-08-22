@@ -3,13 +3,14 @@
 设计文档 28 号 + tasks.md §3.1-3.5。
 """
 
+import json
 import logging
 import time
 import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 
 from ..models.teaching import (
@@ -37,6 +38,17 @@ class AdaptivePracticeError(Exception):
         self.detail = detail
         self.error_code = error_code
         super().__init__(detail)
+
+
+def _kp_like(json_column, kp: str):
+    """JSON 数组列的子串匹配 — 兼容 SQLite 的 ensure_ascii 转义存储。
+
+    SQLAlchemy 的 JSON 列在 SQLite 下以 ``json.dumps(ensure_ascii=True)`` 转义存储
+    （中文 → ``\\uXXXX``），因此 ``.contains()`` 生成的 ``LIKE '%中文%'`` 无法命中转义后的
+    文本。这里将查询词同样转义后再 LIKE，等价于 ``json_each`` 解码后做子串匹配。
+    """
+    escaped = json.dumps(kp, ensure_ascii=True)[1:-1]
+    return json_column.like(f"%{escaped}%")
 
 
 class AdaptivePracticeService:
@@ -105,11 +117,12 @@ class AdaptivePracticeService:
         if not weak_kps:
             weak_kps = await AdaptivePracticeService._derive_weak_kps(db, student_id)
 
-        # Step 4: 确定目标知识点
+        # Step 4: 确定目标知识点（薄弱知识点优先，教师指定知识点补足，见 28 号 §4 Step 2）
+        target_kps = list(weak_kps[:3])  # Top 3 薄弱点优先
         if kp_override:
-            target_kps = kp_override
-        else:
-            target_kps = weak_kps[:3]  # Top 3 薄弱点
+            for kp in kp_override:
+                if kp not in target_kps and len(target_kps) < 3:
+                    target_kps.append(kp)
 
         # Step 5: 主导障碍 + 策略
         dominant_barrier = identify_dominant_barrier(barrier_profile)
@@ -485,7 +498,7 @@ class AdaptivePracticeService:
         """从错题记录中推导薄弱知识点。"""
         result = await db.execute(
             select(StudentAnswer)
-            .join(Question, Question.id == StudentAnswer.question_id)
+            .options(selectinload(StudentAnswer.question))
             .where(
                 StudentAnswer.student_id == student_id,
                 StudentAnswer.is_correct == False,
@@ -525,23 +538,29 @@ class AdaptivePracticeService:
                 .order_by(func.random())
                 .limit(count)
             )
+            bank_questions = list(result.scalars().all())
         else:
-            conditions = [Question.difficulty == difficulty]
-            kp_conditions = []
-            for kp in kps:
-                kp_conditions.append(Question.knowledge_point_tags.contains(kp))
-            if kp_conditions:
-                from sqlalchemy import or_
-                conditions.append(or_(*kp_conditions))
+            kp_conditions = [_kp_like(Question.knowledge_point_tags, kp) for kp in kps]
 
+            # 第一层：知识点 + 难度精确匹配（ZPD 优先）
             result = await db.execute(
                 select(Question)
-                .where(*conditions)
+                .where(Question.difficulty == difficulty, or_(*kp_conditions))
                 .order_by(func.random())
                 .limit(count)
             )
+            bank_questions = list(result.scalars().all())
 
-        bank_questions = result.scalars().all()
+            # 第二层：难度不匹配时按「同知识点」放宽兜底（28 号 §错误处理）
+            if len(bank_questions) < count:
+                exclude_ids = [q.id for q in bank_questions]
+                stmt = select(Question).where(or_(*kp_conditions))
+                if exclude_ids:
+                    stmt = stmt.where(Question.id.notin_(exclude_ids))
+                result2 = await db.execute(
+                    stmt.order_by(func.random()).limit(count - len(bank_questions))
+                )
+                bank_questions.extend(result2.scalars().all())
         bank_dicts = [
             {
                 "id": q.id,
@@ -593,7 +612,6 @@ class AdaptivePracticeService:
         Returns:
             生成的题目 dict 列表（已持久化，含 id）
         """
-        import json
         from ..llm.router import llm_chat
 
         kp_str = "、".join(kps) if kps else "中学化学"
@@ -652,7 +670,9 @@ class AdaptivePracticeService:
             parsed = [parsed]
 
         # 四维审核引擎校验（科学性 / 方程式配平 / 物质稳定性 / 反应条件）
-        from chem_skills.chemistry_parser.engine import audit_equation, extract_equations
+        from chem_skills.chemistry_parser.engine import (
+            audit_equation, extract_equations, OVERALL_BLOCKED,
+        )
 
         # 写入 Question 表（跳过审核不通过的题目）
         generated = []
@@ -665,10 +685,10 @@ class AdaptivePracticeService:
             audit_failed = False
             for eq in equations:
                 report = audit_equation(eq)
-                if report.has_errors:
+                if report.overall_status == OVERALL_BLOCKED:
                     logger.warning(
-                        "LLM 生成题目审核不通过，跳过: equation=%s, errors=%s",
-                        eq, [e.message for e in report.errors],
+                        "LLM 生成题目审核不通过，跳过: equation=%s, status=%s, message=%s",
+                        eq, report.overall_status, report.overall_message,
                     )
                     audit_failed = True
                     break
