@@ -66,7 +66,7 @@ class TestAdaptivePracticeCreate:
 
     @pytest.mark.anyio
     async def test_create_practice_with_kp_override(self, db_session, make_student, make_question):
-        """手动指定知识点覆盖。"""
+        """教师指定知识点补足：薄弱知识点优先，教师指定补足到 Top 3（28 号 §4 Step 2）。"""
         student = await make_student()
 
         result = await AdaptivePracticeService.create_practice(
@@ -74,7 +74,8 @@ class TestAdaptivePracticeCreate:
             kp_override=["物质的量", "化学平衡"],
         )
 
-        assert result["target_kps"] == ["物质的量", "化学平衡"]
+        # 薄弱知识点（氧化还原反应、离子反应）优先，教师指定「物质的量」补足到 3 个
+        assert result["target_kps"] == ["氧化还原反应", "离子反应", "物质的量"]
 
     @pytest.mark.anyio
     async def test_create_practice_nonexistent_student(self, db_session):
