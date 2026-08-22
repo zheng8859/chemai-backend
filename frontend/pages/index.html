@@ -236,6 +236,19 @@
     .context-actions {
       display: flex;
       gap: 8px;
+      align-items: center;
+    }
+
+    .class-select {
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary);
+      background: var(--white);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      cursor: pointer;
+      max-width: 160px;
     }
 
     .icon-btn {
@@ -801,6 +814,9 @@
           </svg>
         </div>
         <div class="context-actions">
+          <select id="classSelect" class="class-select" onchange="onClassSelect(this)">
+            <option value="">选择班级</option>
+          </select>
           <button class="icon-btn" title="清除上下文">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"></polyline>
@@ -936,6 +952,7 @@
       if (!ChemAuth.getToken()) { ChemAuth.redirectToLogin(); return; }
       setStatus('ready', '就绪');
       loadConversations();
+      loadClasses();
       bindEvents();
     }
 
@@ -983,6 +1000,22 @@
         renderConversations();
       }).catch(function () {
         el.historyList.innerHTML = '<div class="tab-placeholder">加载失败</div>';
+      });
+    }
+
+    function loadClasses() {
+      ChemAPI.apiGet('/panel/classes').then(function (res) {
+        var data = (res && res.data) || [];
+        var sel = document.getElementById('classSelect');
+        if (!sel) return;
+        data.forEach(function (c) {
+          var opt = document.createElement('option');
+          opt.value = c.class_id;
+          opt.textContent = c.class_name;
+          sel.appendChild(opt);
+        });
+      }).catch(function () {
+        // 无班级列表时保持默认「选择班级」，不影响对话
       });
     }
 
@@ -1107,16 +1140,40 @@
         context: { role: 'teacher', class_id: state.classId, student_id: state.studentId },
       };
 
+      startAgentStream('/api/v1/chat/stream', body);
+    }
+
+    function startAgentStream(url, body) {
       // Streaming state
       var streamingBubble = null;
       var streamingContent = '';
       var aiMessageDiv = null;
 
-      ChemSSE.connect('/api/v1/chat/stream', body, {
+      ChemSSE.connect(url, body, {
         phase: function (data) {
           if (data.phase === 'reasoning') setStatus('thinking', '分析中...');
           else if (data.phase === 'acting') setStatus('thinking', '执行工具...');
           else if (data.phase === 'observing') setStatus('thinking', '处理结果...');
+          else if (data.phase === 'awaiting_approval') {
+            setStatus('ready', '等待审批');
+            state.pendingApproval = {
+              approval_id: data.approval_id,
+              thread_id: state.threadId,
+              tool_name: data.tool_name || '',
+            };
+            var bannerHtml = renderAwaitingApprovalBanner(data.approval_id, data.tool_name);
+            if (streamingBubble) {
+              var bw = streamingBubble.querySelector('.bubble-wrapper');
+              if (bw) {
+                var bd = document.createElement('div');
+                bd.innerHTML = bannerHtml;
+                bw.appendChild(bd);
+              }
+            } else {
+              aiMessageDiv = appendMessage('ai', '', bannerHtml);
+            }
+            scrollToBottom();
+          }
         },
         text: function (data) {
           setStatus('thinking', '回复中...');
@@ -1243,20 +1300,26 @@
           html += '</div>';
         }
 
-        // Meta badges
+        // Meta badges（难度/知识点显示为中文，不暴露技术字段）
         html += '<div class="q-meta">';
-        if (q.difficulty) html += '<span class="q-badge info">' + ChemAPI.escapeHtml(q.difficulty) + '</span>';
-        if (q.knowledge_points) {
-          var kps = Array.isArray(q.knowledge_points) ? q.knowledge_points : [q.knowledge_points];
+        var diffLabel = { easy: '简单', medium: '中等', hard: '困难' }[q.difficulty] || q.difficulty;
+        if (q.difficulty) html += '<span class="q-badge info">' + ChemAPI.escapeHtml(diffLabel) + '</span>';
+        var kps = q.knowledge_point_tags || q.knowledge_points;
+        if (kps) {
+          kps = Array.isArray(kps) ? kps : [kps];
           kps.forEach(function (kp) { html += '<span class="q-badge info">' + ChemAPI.escapeHtml(kp) + '</span>'; });
         }
-        // Audit badges
+        // Audit badges（审核状态中文化）
         if (q.audit_result) {
           var ar = q.audit_result;
           if (ar.science_score >= 4) html += '<span class="q-badge pass">科学性 ✓</span>';
           else if (ar.science_score) html += '<span class="q-badge fail">科学性 ✗</span>';
           if (ar.difficulty_match >= 4) html += '<span class="q-badge pass">难度匹配 ✓</span>';
           if (ar.coverage_score >= 4) html += '<span class="q-badge pass">知识点覆盖 ✓</span>';
+        }
+        if (q.audit_status) {
+          if (String(q.audit_status) === 'passed') html += '<span class="q-badge pass">审核通过</span>';
+          else if (String(q.audit_status) === 'blocked') html += '<span class="q-badge fail">审核未通过</span>';
         }
         // RAG source
         if (q.rag_source) html += '<span class="q-badge warn">来源:' + ChemAPI.escapeHtml(q.rag_source) + '</span>';
@@ -1445,6 +1508,15 @@
       return renderSimpleResult(toolName, result, true);
     }
 
+    function renderAwaitingApprovalBanner(approvalId, toolName) {
+      return '<div class="approval-banner">'
+        + '<span>⚠️ 工具 <strong>' + ChemAgentRender.toolLabel(toolName) + '</strong> 需要您的审批确认</span>'
+        + '<div>'
+        + '<button class="approve-btn" onclick="approveAction(\'' + approvalId + '\')">批准</button>'
+        + '<button class="reject-btn" onclick="rejectAction(\'' + approvalId + '\')">拒绝</button>'
+        + '</div></div>';
+    }
+
     // ══════════════════════════════════════════════════════════════
     // Inline Panel
     // ══════════════════════════════════════════════════════════════
@@ -1559,31 +1631,38 @@
     // ══════════════════════════════════════════════════════════════
     window.approveAction = function (approvalId) {
       if (!state.pendingApproval || !state.threadId) return;
-      ChemAPI.apiPost('/chat/resume', {
-        thread_id: state.threadId,
+      var tid = state.threadId;
+      state.pendingApproval = null;
+      // 审批通过后走 /chat/resume 的 SSE 流，消费恢复执行后的工具结果
+      startAgentStream('/api/v1/chat/resume', {
+        thread_id: tid,
         approval_id: approvalId,
         approved: true,
-      }).then(function () {
-        ChemAPI.showToast('已批准，继续执行');
-        state.pendingApproval = null;
       });
     };
 
     window.rejectAction = function (approvalId) {
       if (!state.pendingApproval || !state.threadId) return;
-      ChemAPI.apiPost('/chat/resume', {
-        thread_id: state.threadId,
+      var tid = state.threadId;
+      state.pendingApproval = null;
+      startAgentStream('/api/v1/chat/resume', {
+        thread_id: tid,
         approval_id: approvalId,
         approved: false,
-      }).then(function () {
-        ChemAPI.showToast('已拒绝');
-        state.pendingApproval = null;
       });
     };
 
     window.selectStudent = function (studentId, studentName) {
       setContext(null, null, studentId, studentName);
       ChemAPI.showToast('已选择学生: ' + studentName);
+    };
+
+    window.onClassSelect = function (sel) {
+      var v = sel.value;
+      if (!v) { clearContext(); return; }
+      var name = sel.options[sel.selectedIndex].textContent;
+      setContext(parseInt(v, 10), name, null, null);
+      ChemAPI.showToast('已选择班级: ' + name);
     };
 
     window.openInlinePanel = openInlinePanel;

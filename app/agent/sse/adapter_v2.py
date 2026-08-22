@@ -145,7 +145,7 @@ async def langgraph_sse_v2(
                     # 防御性提取真实工具结果：wrapper 正常/批准路径返回
                     # Command(update={"messages":[...], "guard_state":...})，
                     # 此时 output 是 {messages, guard_state} 而非 ToolMessage。
-                    raw_result = _extract_tool_result(output)
+                    raw_result = _try_loads_json(_extract_tool_result(output))
 
                     # 展示层剥离：wrapper 已将 _component/_route 收集进 guard_state，
                     # 此处仅移除展示层特殊字段（不重复收集，避免 component 事件重复发射）
@@ -286,6 +286,23 @@ def _extract_tool_result(output: Any) -> Any:
     if hasattr(output, "content"):
         return output.content
     return output
+
+
+def _try_loads_json(value: Any) -> Any:
+    """把 msg.content 的 JSON 字符串还原为对象，避免二次编码。
+
+    LangGraph 的 msg_content_output 已把工具返回的 dict/对象序列化为 JSON
+    字符串，`_safe_serialize` 若再对其 json.dumps 会产生二次编码：前端
+    JSON.parse 一次后得到的仍是字符串而非对象，导致题目卡片等结构化结果
+    退化为单张空卡（difficulty/audit_status 等字段丢失）。此处仅还原 JSON
+    字符串；纯文本/非 JSON 字符串原样返回。
+    """
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return value
 
 
 async def _read_final_guard_state(agent, config: dict):

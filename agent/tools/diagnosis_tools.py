@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app.infrastructure.database import MainSession
 from app.llm.router import llm_chat
 from app.models.user import Student
+from app.models.org import Class
 from app.services.diagnosis_service import DiagnosisService, DiagnosisError
 from app.services.panel_service import PanelService
 from app.services.adaptive_practice_service import (
@@ -194,22 +195,70 @@ async def weekly_report(student_id: int = 0, class_id: int = 0) -> dict:
         return result
 
 
+def _normalize_class_name(name: str) -> str:
+    """归一化班级名：全角括号→半角、去首尾空白，用于跨格式匹配。"""
+    return name.strip().replace("（", "(").replace("）", ")")
+
+
+async def _resolve_class_id(db, class_name: str) -> int | None:
+    """按班级名解析 class_id（精确→子串，归一化括号后匹配）。
+
+    Args:
+        db: AsyncSession
+        class_name: 班级名称（如「高一（1）班」，支持全角/半角括号）
+
+    Returns:
+        唯一命中的 Class.id；多候选或无命中返回 None（不猜测）。
+    """
+    name = _normalize_class_name(class_name)
+    if not name:
+        return None
+
+    result = await db.execute(select(Class).where(Class.name == name))
+    exact = result.scalars().all()
+    if len(exact) == 1:
+        return exact[0].id
+    if len(exact) > 1:
+        return None  # 重名班级，不猜测
+
+    result = await db.execute(select(Class).where(Class.name.contains(name)))
+    sub = result.scalars().all()
+    if len(sub) == 1:
+        return sub[0].id
+    return None
+
+
 @register_tool(
     name="assign_adaptive_practice",
     persona=["teacher"],
     call_limit=1,
     requires_approval=True,
-    description="为班级学生批量分配自适应练习题（需教师确认）。基于 ZPD 和间隔复习算法选题，内部每批 5 人。",
+    description="为班级学生批量分配自适应练习题（需教师确认）。基于 ZPD 和间隔复习算法选题，内部每批 5 人。"
+    "支持按班级名（class_name，如「高一（1）班」，全角/半角括号均可）或班级 ID 指定班级。",
 )
 async def assign_adaptive_practice(
     class_id: int = 0,
     student_id: int = 0,
     knowledge_point: str = "",
     count: int = 5,
+    class_name: str = "",
 ) -> dict:
-    """分配自适应练习（班级级为主，单生兜底）。"""
+    """分配自适应练习（班级级为主，单生兜底；支持班级名解析）。
+
+    class_name 用于把班级名（如「高一（1）班」，全角/半角括号均可）解析为 class_id；
+    与 class_id 同时提供时优先 class_id。
+    """
     async with MainSession() as db:
         kp_override = [knowledge_point] if knowledge_point else None
+
+        # 班级名解析（"高一（1）班" → class_id），class_id 已提供时跳过
+        if not class_id and class_name.strip():
+            class_id = await _resolve_class_id(db, class_name)
+            if class_id is None:
+                return {
+                    "scope": "error",
+                    "message": f"未找到班级「{class_name}」，请确认班级名称（如「高一(1)班」）或改用班级 ID",
+                }
 
         # 单生快捷路径
         if student_id:
@@ -223,7 +272,7 @@ async def assign_adaptive_practice(
             }
 
         if not class_id:
-            return {"scope": "error", "message": "请提供 student_id 或 class_id"}
+            return {"scope": "error", "message": "请提供 student_id、class_id 或 class_name"}
 
         # 班级级：查学生，每批 5 名顺序生成
         result = await db.execute(

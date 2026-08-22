@@ -23,6 +23,23 @@ var ChemAgentRender = (function () {
     organic_tutor: '有机推断辅导',
     simulate_experiment: '模拟实验',
     web_search: '联网搜索',
+    // 教师端工具
+    generate_questions: 'AI 出题',
+    search_exam_bank: '搜索题库',
+    save_to_bank: '保存到题库',
+    list_banks: '题库列表',
+    delete_bank: '删除题库',
+    show_exam_workbench: '出题工作台',
+    diagnose_barrier: '障碍诊断',
+    show_diagnosis: '诊断面板',
+    show_students: '学生列表',
+    weekly_report: '学情周报',
+    assign_adaptive_practice: '分配自适应练习',
+    generate_learning_plan: '生成学习计划',
+    send_learning_plan: '发送学习计划',
+    save_grading_results: '保存批改结果',
+    query_ocr_progress: 'OCR 进度',
+    grade_answer_sheets: '批改答题卡',
   };
 
   /** 获取工具中文名 */

@@ -5,7 +5,7 @@
 - search_exam_bank 三级搜索（关键词 → 向量补充 → 联网兜底）
 - web_search 降级与摘要截断
 - generate_questions 参数透传 + 审核统计
-- save_to_bank 三实体入库 + 自动命名 + _route 契约 + 事务回滚
+- save_to_bank 三实体入库 + 自动命名 + 无自动跳转 + 事务回滚
 - list_banks / delete_bank（系统预设拒绝 / 正常删除）
 - _component props 契约 + _flatten_route
 """
@@ -202,10 +202,13 @@ class TestGenerateQuestions:
     @pytest.mark.anyio
     async def test_passthrough_and_audit(self, fake_session, monkeypatch):
         captured = {}
-        q = SimpleNamespace(
-            id=1, content="题目1", audit_status="passed",
-            model_dump=lambda: {"id": 1, "content": "题目1", "audit_status": "passed"},
-        )
+        q = SimpleNamespace(id=1, content="题目1", audit_status="passed")
+
+        def _dump(mode="python"):
+            captured["dump_mode"] = mode
+            return {"id": 1, "content": "题目1", "audit_status": "passed"}
+
+        q.model_dump = _dump
 
         async def fake_gen(db, knowledge_points, difficulty="medium", quantity=3,
                            question_types=None, variant_qid="", **kwargs):
@@ -237,6 +240,8 @@ class TestGenerateQuestions:
         assert captured["variant_qid"] == "42"
 
         assert result["questions"] == [{"id": 1, "content": "题目1", "audit_status": "passed"}]
+        # 必须以 json 模式序列化：避免枚举/日期以 Python repr（技术字段）泄漏到前端
+        assert captured["dump_mode"] == "json"
         assert result["generated_count"] == 1
         assert result["audit_summary"] == {"total": 1, "passed": 1, "blocked": 0}
 
@@ -274,7 +279,7 @@ class TestSaveToBank:
         assert result["status"] == "skipped"
 
     @pytest.mark.anyio
-    async def test_save_three_entities_and_route(self, fake_session, monkeypatch):
+    async def test_save_three_entities_no_route(self, fake_session, monkeypatch):
         from app.models.question_bank import QuestionSet, QuestionSetItem
         from app.models.teaching import Question
 
@@ -292,7 +297,9 @@ class TestSaveToBank:
         assert result["status"] == "saved"
         assert result["saved_count"] == 2
         assert result["bank_name"] == "我的题库"
-        assert result["_route"] == {"page": "exam-v2", "params": {"bank_id": result["bank_id"]}}
+        # 不再自动跳转工作台（见 bug：保存后未确认即自动退出）
+        assert "_route" not in result
+        assert "已保存 2 道题" in result["message"]
 
         # 三实体落库：文件夹 + 题目 + 关联
         qs = (await fake_session.execute(
